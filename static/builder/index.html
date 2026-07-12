@@ -1,0 +1,325 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Genesis AI — Pipeline Builder</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:#141416;color:#EEEEF0;height:100vh;overflow:hidden}
+:root{--accent:#7C6DFA;--accent-dim:rgba(124,109,250,.15);--card:#1E1E22;--card2:#252528;--brd:rgba(255,255,255,.06);--txt:#EEEEF0;--txt2:#9C9CA0;--txt3:#56565C;--success:#00B87A;--danger:#E05252;--warn:#F5A623}
+
+/* TOPBAR */
+.topbar{height:48px;background:var(--card);border-bottom:1px solid var(--brd);display:flex;align-items:center;padding:0 16px;gap:12px}
+.topbar h1{font-size:14px;font-weight:600}
+.topbar-sub{font-size:12px;color:var(--txt3)}
+.topbar-spacer{flex:1}
+.btn{height:30px;padding:0 12px;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;border:none;display:flex;align-items:center;gap:5px;font-family:inherit;transition:.13s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{opacity:.9}
+.btn-ghost{background:var(--card2);color:var(--txt2);border:1px solid var(--brd)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+/* MAIN LAYOUT */
+.builder{display:flex;height:calc(100vh - 48px)}
+.sidebar{width:220px;background:var(--card);border-right:1px solid var(--brd);overflow-y:auto;padding:12px}
+.sidebar-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);margin:12px 0 6px}
+.block-item{padding:8px 10px;border-radius:8px;cursor:grab;display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:4px;border:1px solid transparent;transition:.1s;color:var(--txt2)}
+.block-item:hover{border-color:var(--accent);background:var(--accent-dim);color:var(--txt)}
+.block-item:active{cursor:grabbing}
+.block-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.bi-data{background:rgba(0,184,122,.15)}.bi-analysis{background:rgba(124,109,250,.15)}.bi-preprocess{background:rgba(245,166,35,.15)}.bi-model{background:rgba(224,82,82,.15)}.bi-eval{background:rgba(124,109,250,.15)}.bi-output{background:rgba(0,184,122,.15)}
+
+/* CANVAS */
+.canvas{flex:1;overflow-y:auto;padding:24px;position:relative}
+.pipeline{display:flex;align-items:flex-start;gap:0;min-height:300px;flex-wrap:wrap;padding:20px}
+.step{display:flex;align-items:center;gap:0}
+.block{width:140px;padding:14px 12px;border-radius:10px;border:2px dashed var(--brd);text-align:center;cursor:pointer;transition:.13s;position:relative;margin:4px}
+.block:hover{border-color:var(--accent)}
+.block.filled{border-style:solid;border-color:var(--accent);background:var(--accent-dim)}
+.block-icon-large{font-size:24px;margin-bottom:6px}
+.block-name{font-size:11px;font-weight:500;color:var(--txt)}
+.block-remove{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--card);border:1px solid var(--brd);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:10px;color:var(--danger)}
+.block.filled .block-remove{display:flex}
+.arrow{font-size:18px;color:var(--txt3);margin:0 2px;display:flex;align-items:center}
+.canvas-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;color:var(--txt3)}
+.canvas-empty i{font-size:40px;opacity:.3;margin-bottom:10px}
+.canvas-empty p{font-size:13px;color:var(--txt2);margin-bottom:4px}
+.canvas-empty span{font-size:12px}
+
+/* TEMPLATES */
+.templates{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.template-chip{padding:5px 10px;border-radius:20px;font-size:11px;border:1px solid var(--brd);cursor:pointer;background:var(--card2);color:var(--txt2);transition:.1s}
+.template-chip:hover{border-color:var(--accent);color:var(--accent)}
+
+/* PROMPT AREA */
+.prompt-area{display:flex;gap:8px;padding:12px 16px;background:var(--card);border-top:1px solid var(--brd)}
+.prompt-input{flex:1;height:34px;border:1px solid var(--brd);border-radius:8px;padding:0 12px;font-size:12px;background:var(--card2);color:var(--txt);outline:none;font-family:inherit}
+.prompt-input:focus{border-color:var(--accent)}
+
+/* CODE OUTPUT */
+.code-panel{width:400px;background:var(--card);border-left:1px solid var(--brd);display:flex;flex-direction:column}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--brd);font-size:12px;font-weight:600}
+.code-body{flex:1;overflow-y:auto;padding:14px;font-family:monospace;font-size:11px;line-height:1.6;color:var(--txt2);white-space:pre-wrap}
+.copy-btn{font-size:11px;color:var(--accent);cursor:pointer;background:none;border:none;font-family:inherit}
+.copy-btn:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🧬 Pipeline Builder</h1>
+  <span class="topbar-sub" id="block-count">0 blocks</span>
+  <div class="topbar-spacer"></div>
+  <button class="btn btn-ghost" onclick="clearCanvas()"><i class="ti ti-trash"></i> Clear</button>
+  <button class="btn btn-primary" onclick="generateCode()"><i class="ti ti-code"></i> Generate Code</button>
+  <button class="btn btn-ghost" onclick="window.location.href='/'"><i class="ti ti-arrow-left"></i> Back</button>
+</div>
+
+<div class="builder">
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="templates" style="padding-bottom:8px;border-bottom:1px solid var(--brd)">
+      <span style="font-size:10px;color:var(--txt3);margin-right:4px">Quick:</span>
+    </div>
+    <div class="sidebar-title">📊 Data</div>
+    <div class="block-item" draggable="true" data-block="load_data" ondragstart="dragStart(event)" id="blk-load_data">
+      <div class="block-icon bi-data">📊</div> Load CSV
+    </div>
+    <div class="block-item" draggable="true" data-block="load_text" ondragstart="dragStart(event)" id="blk-load_text">
+      <div class="block-icon bi-data">📝</div> Load Text
+    </div>
+
+    <div class="sidebar-title">🔍 Analysis</div>
+    <div class="block-item" draggable="true" data-block="profile" ondragstart="dragStart(event)" id="blk-profile">
+      <div class="block-icon bi-analysis">🔍</div> Profile Data
+    </div>
+
+    <div class="sidebar-title">🧹 Preprocessing</div>
+    <div class="block-item" draggable="true" data-block="clean" ondragstart="dragStart(event)" id="blk-clean">
+      <div class="block-icon bi-preprocess">🧹</div> Clean Data
+    </div>
+
+    <div class="sidebar-title">🤖 Models</div>
+    <div class="block-item" draggable="true" data-block="train_xgboost" ondragstart="dragStart(event)" id="blk-train_xgboost">
+      <div class="block-icon bi-model">🤖</div> XGBoost Classifier
+    </div>
+    <div class="block-item" draggable="true" data-block="train_random_forest" ondragstart="dragStart(event)" id="blk-train_random_forest">
+      <div class="block-icon bi-model">🌲</div> Random Forest
+    </div>
+    <div class="block-item" draggable="true" data-block="train_logistic" ondragstart="dragStart(event)" id="blk-train_logistic">
+      <div class="block-icon bi-model">📐</div> Logistic Regression
+    </div>
+
+    <div class="sidebar-title">📊 Evaluation</div>
+    <div class="block-item" draggable="true" data-block="evaluate" ondragstart="dragStart(event)" id="blk-evaluate">
+      <div class="block-icon bi-eval">📊</div> Evaluate
+    </div>
+
+    <div class="sidebar-title">💾 Output</div>
+    <div class="block-item" draggable="true" data-block="save" ondragstart="dragStart(event)" id="blk-save">
+      <div class="block-icon bi-output">💾</div> Save Model
+    </div>
+  </div>
+
+  <!-- CANVAS -->
+  <div class="canvas"
+       ondragover="dragOver(event)"
+       ondrop="dropBlock(event)"
+       id="canvas">
+    <div class="prompt-area" style="background:transparent;padding:8px 0">
+      <input class="prompt-input" id="prompt-in" placeholder="Describe your ML pipeline and I'll build it... (e.g. 'load churn.csv, train XGBoost, evaluate, save')" onkeydown="if(event.key==='Enter')buildFromPrompt()">
+      <button class="btn btn-primary" onclick="buildFromPrompt()"><i class="ti ti-sparkles"></i> Build</button>
+    </div>
+    <div class="templates" id="templates-bar" style="margin-bottom:16px"></div>
+    <div class="pipeline" id="pipeline">
+      <div class="canvas-empty">
+        <i class="ti ti-box-align-left"></i>
+        <p>Drag blocks here or describe your pipeline</p>
+        <span>Or pick a template above</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CODE OUTPUT -->
+  <div class="code-panel" id="code-panel" style="display:none">
+    <div class="code-header">
+      <span>Generated Code</span>
+      <button class="copy-btn" onclick="copyCode()">📋 Copy</button>
+    </div>
+    <div class="code-body" id="code-body"></div>
+  </div>
+</div>
+
+<script>
+const BLOCKS = {
+  load_data: {name:'Load CSV',icon:'📊',category:'data'},
+  load_text: {name:'Load Text',icon:'📝',category:'data'},
+  load_images: {name:'Load Images',icon:'🖼️',category:'data'},
+  profile: {name:'Profile',icon:'🔍',category:'analysis'},
+  clean: {name:'Clean',icon:'🧹',category:'preprocessing'},
+  tokenize: {name:'Tokenize',icon:'🔤',category:'preprocessing'},
+  augment: {name:'Augment',icon:'🔄',category:'preprocessing'},
+  train_xgboost: {name:'XGBoost',icon:'🤖',category:'model'},
+  train_xgboost_reg: {name:'XGBoost Reg',icon:'🤖',category:'model'},
+  train_random_forest: {name:'Random Forest',icon:'🌲',category:'model'},
+  train_logistic: {name:'Logistic Reg',icon:'📐',category:'model'},
+  train_cnn: {name:'CNN',icon:'🧠',category:'model'},
+  evaluate: {name:'Evaluate',icon:'📊',category:'evaluation'},
+  evaluate_reg: {name:'Evaluate Reg',icon:'📊',category:'evaluation'},
+  save: {name:'Save Model',icon:'💾',category:'output'},
+};
+
+let pipeline = [];
+
+const TEMPLATES = [
+  {name:'Churn Prediction', blocks:['load_data','profile','clean','train_xgboost','evaluate','save']},
+  {name:'Price Forecast', blocks:['load_data','profile','clean','train_xgboost_reg','evaluate_reg','save']},
+  {name:'Quick Classify', blocks:['load_data','train_xgboost','evaluate']},
+];
+
+// Init templates
+const tb = document.getElementById('templates-bar');
+TEMPLATES.forEach(t => {
+  const chip = document.createElement('span');
+  chip.className = 'template-chip';
+  chip.textContent = '⚡ ' + t.name;
+  chip.onclick = () => loadTemplate(t);
+  tb.appendChild(chip);
+});
+
+// Drag & Drop
+function dragStart(e) {
+  e.dataTransfer.setData('text/plain', e.target.dataset.block);
+}
+
+function dragOver(e) {
+  e.preventDefault();
+}
+
+function dropBlock(e) {
+  e.preventDefault();
+  const blockId = e.dataTransfer.getData('text/plain');
+  if (blockId && BLOCKS[blockId]) {
+    addBlock(blockId);
+  }
+}
+
+function addBlock(blockId, index = pipeline.length) {
+  pipeline.splice(index, 0, blockId);
+  renderPipeline();
+}
+
+function removeBlock(index) {
+  pipeline.splice(index, 1);
+  renderPipeline();
+}
+
+function clearCanvas() {
+  pipeline = [];
+  renderPipeline();
+}
+
+function loadTemplate(template) {
+  pipeline = [...template.blocks];
+  renderPipeline();
+}
+
+function renderPipeline() {
+  const el = document.getElementById('pipeline');
+  document.getElementById('block-count').textContent = pipeline.length + ' block' + (pipeline.length !== 1 ? 's' : '');
+  
+  if (!pipeline.length) {
+    el.innerHTML = `<div class="canvas-empty">
+      <i class="ti ti-box-align-left"></i>
+      <p>Drag blocks here or describe your pipeline</p>
+      <span>Or pick a template above</span>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = pipeline.map((bid, i) => {
+    const b = BLOCKS[bid] || {name:bid,icon:'❓'};
+    return `<div class="step">
+      ${i > 0 ? '<div class="arrow">→</div>' : ''}
+      <div class="block filled">
+        <div class="block-remove" onclick="removeBlock(${i})">✕</div>
+        <div class="block-icon-large">${b.icon}</div>
+        <div class="block-name">${b.name}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Hide code panel when modifying
+  document.getElementById('code-panel').style.display = 'none';
+}
+
+async function buildFromPrompt() {
+  const prompt = document.getElementById('prompt-in').value.trim();
+  if (!prompt) return;
+
+  // Simple keyword matching to build pipeline from description
+  const blocks = [];
+  const p = prompt.toLowerCase();
+  if (p.includes('csv') || p.includes('load') || p.includes('data') || p.includes('загрузи')) blocks.push('load_data');
+  if (p.includes('profil') || p.includes('анализ') || p.includes('посмотри')) blocks.push('profile');
+  if (p.includes('clean') || p.includes('очист') || p.includes('preprocess')) blocks.push('clean');
+  if (p.includes('xgboost') || p.includes('xgb')) blocks.push('train_xgboost');
+  if (p.includes('random forest') || p.includes('случайн')) blocks.push('train_random_forest');
+  if (p.includes('logistic') || p.includes('логист')) blocks.push('train_logistic');
+  if (p.includes('regression') || p.includes('регресс')) {
+    // Replace last model with regression variant
+    if (blocks.length && blocks[blocks.length-1].startsWith('train_')) {
+      blocks[blocks.length-1] = blocks[blocks.length-1] + '_reg';
+    }
+  }
+  if (p.includes('evaluat') || p.includes('оцен') || p.includes('метрик')) blocks.push('evaluate');
+  if (p.includes('save') || p.includes('сохран')) blocks.push('save');
+
+  if (blocks.length) {
+    pipeline = blocks;
+    renderPipeline();
+    document.getElementById('prompt-in').value = '';
+  } else {
+    alert('Could not understand pipeline. Try: "load data, train xgboost, evaluate, save"');
+  }
+}
+
+async function generateCode() {
+  if (!pipeline.length) {
+    alert('Add blocks to the pipeline first');
+    return;
+  }
+
+  try {
+    const resp = await fetch('/api/pipeline/build', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        description: 'Pipeline: ' + pipeline.map(b => BLOCKS[b]?.name || b).join(' → '),
+        blocks: pipeline
+      })
+    });
+    const data = await resp.json();
+    document.getElementById('code-body').textContent = data.code || '// Code generation...';
+    document.getElementById('code-panel').style.display = 'flex';
+  } catch (e) {
+    alert('Failed to generate code. Is the backend running?');
+  }
+}
+
+function copyCode() {
+  const code = document.getElementById('code-body').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => btn.textContent = '📋 Copy', 2000);
+  });
+}
+
+// Init with empty canvas
+renderPipeline();
+</script>
+</body>
+</html>

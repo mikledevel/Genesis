@@ -46,6 +46,30 @@
 
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--page);color:var(--txt);display:flex;height:100vh;overflow:hidden;font-size:13px}
 
+/* ── AUTH SCREEN ── */
+#auth-screen{position:fixed;inset:0;background:var(--page);display:flex;align-items:center;justify-content:center;z-index:1000}
+.auth-box{width:380px;background:var(--card);border:1px solid var(--brd);border-radius:16px;padding:36px 32px;box-shadow:var(--shadow-md)}
+.auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
+.auth-logo-icon{width:38px;height:38px;border-radius:11px;background:var(--accent);display:flex;align-items:center;justify-content:center}
+.auth-logo-icon svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.auth-logo-text{font-size:18px;font-weight:700;color:var(--txt)}
+.auth-logo-sub{font-size:11px;color:var(--txt3)}
+.auth-tabs{display:flex;gap:0;border-bottom:1px solid var(--brd);margin-bottom:22px}
+.auth-tab{flex:1;padding:8px 0;font-size:13px;font-weight:500;color:var(--txt3);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:.13s;font-family:inherit}
+.auth-tab.active{color:var(--accent);border-color:var(--accent)}
+.auth-field{margin-bottom:14px}
+.auth-label{font-size:11px;font-weight:600;color:var(--txt2);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:.03em}
+.auth-input{width:100%;height:36px;border:1px solid var(--brd2);border-radius:8px;padding:0 12px;font-size:13px;background:var(--card);color:var(--txt);outline:none;font-family:inherit;transition:.13s}
+.auth-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+.auth-btn{width:100%;height:38px;border-radius:9px;background:var(--accent);border:none;color:#fff;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px;font-family:inherit;transition:.13s;display:flex;align-items:center;justify-content:center;gap:7px}
+.auth-btn:hover{background:var(--accent-hover)}
+.auth-btn:disabled{opacity:.6;cursor:default}
+.auth-err{font-size:12px;color:var(--danger);margin-top:10px;text-align:center;min-height:16px}
+.auth-sep{text-align:center;font-size:11px;color:var(--txt3);margin:14px 0;position:relative}
+.auth-sep::before{content:'';position:absolute;left:0;top:50%;width:40%;height:1px;background:var(--brd)}
+.auth-sep::after{content:'';position:absolute;right:0;top:50%;width:40%;height:1px;background:var(--brd)}
+.auth-hint{font-size:11px;color:var(--txt3);text-align:center;margin-top:14px;line-height:1.5}
+
 /* ── NAV ── */
 nav{width:var(--nav-w);background:var(--card);border-right:1px solid var(--brd);display:flex;flex-direction:column;align-items:center;padding:10px 0 12px;gap:2px;flex-shrink:0;z-index:20}
 .nav-logo{width:34px;height:34px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:10px;flex-shrink:0}
@@ -58,6 +82,13 @@ nav{width:var(--nav-w);background:var(--card);border-right:1px solid var(--brd);
 .nav-spacer{flex:1}
 .nav-tooltip{position:absolute;left:calc(var(--nav-w) + 6px);top:50%;transform:translateY(-50%);background:var(--txt);color:var(--card);font-size:11px;font-weight:500;padding:4px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s;z-index:100}
 .nav-btn:hover .nav-tooltip{opacity:1}
+.nav-avatar{width:30px;height:30px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;cursor:pointer;position:relative}
+.nav-user-menu{position:absolute;left:calc(var(--nav-w) + 8px);bottom:8px;background:var(--card);border:1px solid var(--brd);border-radius:10px;box-shadow:var(--shadow-md);padding:6px;min-width:180px;display:none;z-index:200}
+.nav-user-menu.open{display:block}
+.num-item{padding:8px 10px;border-radius:7px;font-size:12px;cursor:pointer;color:var(--txt2);display:flex;align-items:center;gap:8px;transition:.1s}
+.num-item:hover{background:var(--card2)}
+.num-item.danger{color:var(--danger)}
+.num-name{font-weight:600;font-size:13px;color:var(--txt);padding:8px 10px;border-bottom:1px solid var(--brd);margin-bottom:4px}
 
 /* ── LAYOUT ── */
 main{flex:1;display:flex;overflow:hidden}
@@ -148,245 +179,357 @@ main{flex:1;display:flex;overflow:hidden}
 .chat-messages{flex:1;overflow-y:auto;padding:16px 20px}
 .chat-messages::-webkit-scrollbar{width:4px}
 .chat-messages::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:2px}
-.msg{display:flex;gap:9px;margin-bottom:14px;align-items:flex-start;animation:fadeUp .2s ease}
-@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.msg{display:flex;gap:10px;margin-bottom:14px;align-items:flex-start}
 .msg.user{flex-direction:row-reverse}
-.avatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.avatar{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
 .avatar-ai{background:var(--accent-dim);color:var(--accent)}
 .avatar-user{background:rgba(0,184,122,.15);color:var(--success)}
-.bubble{max-width:540px;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.6}
+.bubble{max-width:75%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
 .bubble-ai{background:var(--card);border:1px solid var(--brd);border-radius:12px 12px 12px 3px;color:var(--txt)}
 .bubble-user{background:var(--accent);color:#fff;border-radius:12px 12px 3px 12px}
-.data-card{background:var(--card2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;margin-top:8px;font-size:11px}
-.dc-title{font-size:11px;font-weight:600;color:var(--txt);margin-bottom:6px}
-.dc-row{display:flex;justify-content:space-between;padding:3px 0;color:var(--txt2);border-bottom:1px solid var(--brd)}
-.dc-row:last-child{border-bottom:none}
-.dc-val{font-weight:500;color:var(--txt)}
-.typing{display:flex;gap:3px;align-items:center;padding:4px 2px}
-.dot{width:5px;height:5px;border-radius:50%;background:var(--txt3);animation:blink 1.2s infinite}
-.dot:nth-child(2){animation-delay:.2s}
-.dot:nth-child(3){animation-delay:.4s}
-@keyframes blink{0%,100%{opacity:.3}50%{opacity:1}}
-
-/* ── CHAT INPUT ── */
-.chat-input-area{padding:12px 16px;border-top:1px solid var(--brd);background:var(--card)}
-.chips{display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap}
-.chip{padding:4px 10px;border-radius:20px;font-size:11px;background:var(--card2);border:1px solid var(--brd);cursor:pointer;color:var(--txt2);transition:.11s}
-.chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
-.input-row{display:flex;gap:7px;align-items:flex-end}
-.chat-input{flex:1;padding:9px 12px;border-radius:var(--r);border:1px solid var(--brd2);background:var(--card2);color:var(--txt);font-size:13px;outline:none;transition:.13s;font-family:inherit;resize:none;min-height:38px;max-height:100px;line-height:1.4}
-.chat-input:focus{border-color:var(--accent);background:var(--card)}
-.send-btn{width:36px;height:36px;border-radius:9px;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;transition:.12s;flex-shrink:0}
+.typing{display:flex;gap:4px;align-items:center;padding:2px 0}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--txt3);animation:bounce .9s infinite}
+.dot:nth-child(2){animation-delay:.15s}
+.dot:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+.chat-input-wrap{padding:12px 16px;background:var(--card);border-top:1px solid var(--brd);display:flex;gap:8px;align-items:flex-end}
+.chat-in{flex:1;border:1px solid var(--brd2);border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;background:var(--surface);color:var(--txt);outline:none;resize:none;max-height:100px;min-height:36px;line-height:1.5;transition:.13s}
+.chat-in:focus{border-color:var(--accent)}
+.send-btn{width:36px;height:36px;border-radius:9px;background:var(--accent);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.13s;flex-shrink:0}
 .send-btn:hover{background:var(--accent-hover)}
-.send-btn:disabled{opacity:.4;cursor:default}
-.send-btn i{font-size:15px}
+.send-btn:disabled{opacity:.5;cursor:default}
+.chat-chips{display:flex;gap:6px;padding:8px 16px 0;flex-wrap:wrap}
+.chip{padding:5px 10px;border-radius:20px;border:1px solid var(--brd2);background:var(--card);font-size:11px;color:var(--txt2);cursor:pointer;transition:.1s;font-family:inherit}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.data-card{margin-top:10px;padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--brd);font-size:11px}
+.dc-title{font-weight:600;color:var(--txt2);margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+.dc-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--brd)}
+.dc-row:last-child{border-bottom:none}
+.dc-val{font-weight:500;color:var(--accent);font-family:monospace}
+.chat-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:var(--txt3);gap:10px;padding-bottom:60px}
+.chat-empty i{font-size:36px;opacity:.3}
+.chat-empty-title{font-size:14px;font-weight:500;color:var(--txt2)}
+.chat-empty-sub{font-size:12px;text-align:center;max-width:300px;line-height:1.5}
 
 /* ── MARKETPLACE ── */
-.mkt-filters{display:flex;gap:7px;margin-bottom:14px;align-items:center;flex-wrap:wrap}
-.filter-btn{padding:5px 11px;border-radius:20px;font-size:11px;font-weight:500;border:1px solid var(--brd);background:var(--card2);color:var(--txt2);cursor:pointer;transition:.12s;font-family:inherit}
-.filter-btn.active,.filter-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
-.search-box{flex:1;max-width:260px;padding:6px 10px;border-radius:8px;border:1px solid var(--brd2);background:var(--card);color:var(--txt);font-size:12px;outline:none;font-family:inherit;transition:.12s}
-.search-box:focus{border-color:var(--accent)}
-.mkt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
-.mkt-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px;cursor:pointer;transition:.14s;position:relative}
-.mkt-card:hover{border-color:rgba(124,109,250,.4);box-shadow:var(--shadow-md);transform:translateY(-1px)}
-.mkt-card-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
-.mkt-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--card2);border:1px solid var(--brd)}
-.mkt-price{font-size:13px;font-weight:600;color:var(--accent)}
-.mkt-title{font-size:13px;font-weight:600;color:var(--txt);margin-bottom:4px}
-.mkt-desc{font-size:11px;color:var(--txt3);line-height:1.5;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.mkt-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.stars{color:#F5A623;font-size:11px;letter-spacing:1px}
-.mkt-footer{display:flex;gap:12px;font-size:11px;color:var(--txt3);margin-top:10px;padding-top:10px;border-top:1px solid var(--brd);justify-content:space-between}
+.mkt-toolbar{display:flex;gap:8px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--brd);background:var(--card);flex-shrink:0;flex-wrap:wrap}
+.mkt-filters{display:flex;gap:4px;flex-wrap:wrap}
+.filter-btn{padding:4px 10px;border-radius:20px;border:1px solid var(--brd2);background:none;font-size:11px;font-weight:500;color:var(--txt3);cursor:pointer;transition:.1s;font-family:inherit}
+.filter-btn:hover{border-color:var(--accent);color:var(--accent)}
+.filter-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.mkt-search{flex:1;min-width:140px;height:30px;border:1px solid var(--brd2);border-radius:8px;padding:0 10px;font-size:12px;background:var(--card2);color:var(--txt);outline:none;font-family:inherit}
+.mkt-search:focus{border-color:var(--accent)}
+.mkt-sort{height:30px;border:1px solid var(--brd2);border-radius:8px;padding:0 8px;font-size:12px;background:var(--card);color:var(--txt);outline:none;cursor:pointer;font-family:inherit}
+.mkt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;padding:16px 18px}
+.mkt-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:14px;cursor:pointer;transition:.13s;display:flex;flex-direction:column;gap:7px}
+.mkt-card:hover{border-color:var(--brd2);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.mkt-card-head{display:flex;align-items:center;justify-content:space-between}
+.mkt-icon{font-size:20px}
+.mkt-price{font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-dim);padding:2px 8px;border-radius:20px}
+.mkt-title{font-size:13px;font-weight:600;color:var(--txt);line-height:1.3}
+.mkt-desc{font-size:12px;color:var(--txt2);line-height:1.45;flex:1}
+.mkt-meta{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.stars{font-size:11px;color:var(--warn);letter-spacing:-.02em}
+.mkt-footer{display:flex;gap:8px;font-size:11px;color:var(--txt3);flex-wrap:wrap;padding-top:5px;border-top:1px solid var(--brd)}
 .mkt-empty{grid-column:1/-1;text-align:center;padding:48px 0;color:var(--txt3)}
-.mkt-empty i{font-size:40px;display:block;margin-bottom:8px;opacity:.3}
-
-/* ── REGISTRY TABLE ── */
-.table-wrap{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden}
-.tbl{width:100%;border-collapse:collapse;font-size:12px}
-.tbl th{padding:9px 14px;font-weight:600;color:var(--txt3);text-align:left;border-bottom:1px solid var(--brd);background:var(--card2);font-size:10px;text-transform:uppercase;letter-spacing:.04em}
-.tbl td{padding:10px 14px;border-bottom:1px solid var(--brd);color:var(--txt);vertical-align:middle}
-.tbl tr:last-child td{border-bottom:none}
-.tbl tr:hover td{background:var(--card2)}
-.tbl tr{cursor:pointer;transition:.1s}
-.task-badge{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600}
-.t-cls{background:var(--accent-dim);color:var(--accent)}
-.t-reg{background:rgba(0,184,122,.12);color:var(--success)}
-.t-mcls{background:rgba(245,166,35,.14);color:#c47d00}
-.metric-bar-wrap{display:flex;align-items:center;gap:7px}
-.metric-bar{height:4px;border-radius:2px;background:var(--card2);flex:1;overflow:hidden;min-width:50px}
-.metric-fill{height:100%;border-radius:2px;background:var(--accent)}
-.mono{font-family:ui-monospace,'SF Mono',monospace;font-size:10px}
-
-/* ── MEMORY ── */
-.memory-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
-.memory-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px}
-.memory-title{font-size:11px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px;display:flex;align-items:center;gap:6px}
-.fact-item{display:flex;align-items:baseline;gap:6px;padding:5px 0;border-bottom:1px solid var(--brd);font-size:11px}
-.fact-item:last-child{border-bottom:none}
-.fact-key{color:var(--txt3);min-width:80px;flex-shrink:0;font-weight:500}
-.fact-val{color:var(--txt);flex:1}
-.conf-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.graph-wrap{background:var(--card2);border-radius:8px;min-height:160px;position:relative;overflow:hidden}
-.node{position:absolute;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;cursor:pointer;transition:.18s;text-align:center;line-height:1.1}
-.node:hover{transform:scale(1.12)}
-.node-main{background:var(--accent);color:#fff}
-.node-fact{background:var(--accent-dim);color:var(--accent);border:1px solid rgba(124,109,250,.3)}
-.edge-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
-.persona-text{font-size:12px;color:var(--txt);line-height:1.7;background:var(--card2);border-radius:8px;padding:12px;font-family:ui-monospace,'SF Mono',monospace}
-
-/* ── PROJECTS ── */
-.projects-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.projects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
-.project-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px;cursor:pointer;transition:.14s;position:relative}
-.project-card:hover{border-color:rgba(124,109,250,.35);box-shadow:var(--shadow-md)}
-.project-card.active-project{border-color:var(--accent)}
-.project-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
-.project-avatar{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
-.project-menu{width:26px;height:26px;border-radius:6px;border:none;background:none;cursor:pointer;color:var(--txt3);display:flex;align-items:center;justify-content:center;transition:.12s}
-.project-menu:hover{background:var(--card2);color:var(--txt)}
-.project-name{font-size:13px;font-weight:600;color:var(--txt);margin-bottom:3px}
-.project-desc{font-size:11px;color:var(--txt3);line-height:1.4;margin-bottom:12px}
-.project-stats{display:flex;gap:12px;font-size:11px;color:var(--txt3);padding-top:10px;border-top:1px solid var(--brd)}
-.project-stat{display:flex;flex-direction:column;gap:2px}
-.project-stat-val{font-size:13px;font-weight:600;color:var(--txt)}
-
-/* ── MODAL ── */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px);animation:fadeIn .16s ease}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.modal{background:var(--card);border:1px solid var(--brd);border-radius:14px;width:440px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.2);animation:slideUp .18s ease}
-@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.modal-head{padding:18px 20px 14px;border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between}
-.modal-title{font-size:15px;font-weight:600;color:var(--txt)}
-.modal-close{width:28px;height:28px;border-radius:7px;border:none;background:var(--card2);cursor:pointer;color:var(--txt2);display:flex;align-items:center;justify-content:center;transition:.12s}
-.modal-close:hover{background:var(--brd2)}
-.modal-body{padding:18px 20px}
-.modal-footer{padding:14px 20px;border-top:1px solid var(--brd);display:flex;justify-content:flex-end;gap:8px}
-.form-field{margin-bottom:14px}
-.form-label{display:block;font-size:12px;font-weight:500;color:var(--txt2);margin-bottom:5px}
-.form-input{width:100%;padding:8px 11px;border-radius:8px;border:1px solid var(--brd2);background:var(--card2);color:var(--txt);font-size:13px;outline:none;transition:.13s;font-family:inherit}
-.form-input:focus{border-color:var(--accent);background:var(--card)}
-.form-select{width:100%;padding:8px 11px;border-radius:8px;border:1px solid var(--brd2);background:var(--card2);color:var(--txt);font-size:13px;outline:none;font-family:inherit;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%239C9CA0' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
-.form-select:focus{border-color:var(--accent)}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.form-hint{font-size:11px;color:var(--txt3);margin-top:4px}
-.btn{padding:8px 16px;border-radius:8px;border:none;font-size:13px;font-weight:500;cursor:pointer;transition:.13s;font-family:inherit;display:inline-flex;align-items:center;gap:5px}
-.btn-primary{background:var(--accent);color:#fff}
-.btn-primary:hover{background:var(--accent-hover)}
-.btn-ghost{background:var(--card2);color:var(--txt2);border:1px solid var(--brd)}
-.btn-ghost:hover{border-color:var(--brd2);color:var(--txt)}
-.btn-danger{background:rgba(224,82,82,.1);color:var(--danger);border:1px solid rgba(224,82,82,.2)}
-.btn-danger:hover{background:rgba(224,82,82,.18)}
-
-/* ── SETTINGS ── */
-.settings-layout{display:grid;grid-template-columns:200px 1fr;gap:0;height:100%}
-.settings-nav{border-right:1px solid var(--brd);padding:16px 0;background:var(--card)}
-.settings-nav-item{padding:8px 16px;font-size:13px;color:var(--txt2);cursor:pointer;transition:.12s;display:flex;align-items:center;gap:8px}
-.settings-nav-item:hover{background:var(--card2);color:var(--txt)}
-.settings-nav-item.active{background:var(--accent-dim);color:var(--accent)}
-.settings-nav-item i{font-size:16px}
-.settings-content{overflow-y:auto;padding:24px;flex:1}
-.settings-section{display:none;max-width:560px}
-.settings-section.active{display:block}
-.settings-title{font-size:16px;font-weight:600;color:var(--txt);margin-bottom:4px}
-.settings-desc{font-size:13px;color:var(--txt3);margin-bottom:20px}
-.settings-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:18px;margin-bottom:14px}
-.settings-card-title{font-size:12px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:14px}
-.setting-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)}
-.setting-row:last-child{border-bottom:none}
-.setting-label{font-size:13px;font-weight:500;color:var(--txt)}
-.setting-desc{font-size:11px;color:var(--txt3);margin-top:2px}
-.toggle{width:36px;height:20px;border-radius:10px;background:var(--brd2);border:none;cursor:pointer;position:relative;transition:.18s;flex-shrink:0}
-.toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.18s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.toggle.on{background:var(--accent)}
-.toggle.on::after{transform:translateX(16px)}
-.commission-display{font-size:28px;font-weight:700;color:var(--accent);margin:12px 0 4px}
-.commission-sub{font-size:12px;color:var(--txt3)}
-.slider-wrap{margin:12px 0}
-.range-input{width:100%;-webkit-appearance:none;height:4px;border-radius:2px;background:var(--card2);outline:none;cursor:pointer}
-.range-input::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 1px 4px rgba(124,109,250,.4)}
-.range-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--txt3);margin-top:4px}
-
-/* ── NOTIFICATIONS ── */
-.toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:9999}
-.toast{padding:10px 16px;border-radius:10px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow-md);animation:slideInRight .2s ease;border:1px solid var(--brd)}
-@keyframes slideInRight{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
-.toast-success{background:rgba(0,184,122,.1);color:#009960;border-color:rgba(0,184,122,.2)}
-.toast-error{background:rgba(224,82,82,.1);color:var(--danger);border-color:rgba(224,82,82,.2)}
-.toast-info{background:var(--accent-dim);color:var(--accent);border-color:rgba(124,109,250,.2)}
-
-/* ── EMPTY STATE ── */
-.empty{text-align:center;padding:48px 20px;color:var(--txt3)}
-.empty i{font-size:48px;display:block;margin:0 auto 12px;opacity:.2}
-.empty-title{font-size:14px;font-weight:500;color:var(--txt2);margin-bottom:6px}
+.mkt-empty i{font-size:36px;display:block;margin-bottom:8px;opacity:.3}
+.empty-title{font-size:14px;font-weight:500;color:var(--txt2);margin-bottom:4px}
 .empty-sub{font-size:12px}
 
-/* ── PUBLISH PANEL ── */
-.publish-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:18px;margin-bottom:14px}
+/* ── REGISTRY ── */
+.reg-table-wrap{overflow-x:auto;flex:1}
+.reg-table{width:100%;border-collapse:collapse;font-size:12px}
+.reg-table th{padding:9px 14px;font-size:10px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.04em;text-align:left;border-bottom:1px solid var(--brd);background:var(--card);white-space:nowrap}
+.reg-table td{padding:9px 14px;border-bottom:1px solid var(--brd);color:var(--txt2)}
+.reg-table tr:hover td{background:var(--card2);cursor:pointer}
+.mono{font-family:monospace;font-size:11px;color:var(--txt)}
+.task-badge{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600}
+.t-cls{background:rgba(124,109,250,.1);color:var(--accent)}
+.t-reg{background:rgba(0,184,122,.1);color:var(--success)}
+.t-mcls{background:rgba(245,166,35,.1);color:var(--warn)}
+.metric-bar-wrap{display:flex;flex-direction:column;gap:3px}
+.metric-bar{height:3px;background:var(--brd2);border-radius:2px;overflow:hidden;width:80px}
+.metric-fill{height:100%;background:var(--accent);border-radius:2px}
 
-/* ── DROPDOWN MENU ── */
-.dropdown{position:relative;display:inline-block}
-.dropdown-menu{position:absolute;top:calc(100% + 4px);right:0;background:var(--card);border:1px solid var(--brd);border-radius:10px;box-shadow:var(--shadow-md);min-width:140px;z-index:100;overflow:hidden;display:none}
-.dropdown-menu.open{display:block;animation:fadeIn .12s ease}
-.dropdown-item{padding:8px 14px;font-size:12px;color:var(--txt2);cursor:pointer;transition:.1s;display:flex;align-items:center;gap:7px}
-.dropdown-item:hover{background:var(--card2);color:var(--txt)}
+/* ── MEMORY ── */
+.memory-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.memory-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px}
+.memory-title{font-size:12px;font-weight:600;color:var(--txt);display:flex;align-items:center;gap:7px;margin-bottom:12px}
+.memory-title i{color:var(--accent)}
+.fact-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--brd);font-size:12px}
+.fact-row:last-child{border-bottom:none}
+.fact-pred{font-weight:500;color:var(--txt);flex:1}
+.fact-val{color:var(--txt2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fact-conf{font-size:10px;color:var(--txt3)}
+#kg-canvas{width:100%;height:200px;border-radius:8px;background:var(--card2)}
+
+/* ── PROJECTS ── */
+.projects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.project-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:14px 16px;transition:.13s;position:relative}
+.project-card:hover{border-color:var(--brd2);box-shadow:var(--shadow-md)}
+.project-icon{font-size:24px;margin-bottom:8px}
+.project-name{font-size:13px;font-weight:600;color:var(--txt);margin-bottom:3px}
+.project-desc{font-size:11px;color:var(--txt3);margin-bottom:8px;line-height:1.4}
+.project-tags{display:flex;gap:4px;flex-wrap:wrap}
+.project-menu{position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:6px;border:1px solid var(--brd);background:var(--card2);color:var(--txt3);cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:.1s}
+.project-card:hover .project-menu{opacity:1}
+
+/* ── DROPDOWN ── */
+.dropdown{position:relative}
+.dropdown-menu{position:absolute;right:0;top:calc(100% + 4px);background:var(--card);border:1px solid var(--brd);border-radius:9px;box-shadow:var(--shadow-md);padding:4px;min-width:140px;z-index:200;display:none}
+.dropdown-menu.open{display:block}
+.dropdown-item{padding:7px 10px;border-radius:6px;font-size:12px;color:var(--txt2);cursor:pointer;display:flex;align-items:center;gap:7px;transition:.1s}
+.dropdown-item:hover{background:var(--card2)}
 .dropdown-item.danger{color:var(--danger)}
-.dropdown-item.danger:hover{background:rgba(224,82,82,.08)}
+
+/* ── SETTINGS ── */
+.settings-wrap{display:flex;flex:1;overflow:hidden}
+.settings-nav{width:180px;border-right:1px solid var(--brd);background:var(--card);padding:12px 8px;flex-shrink:0}
+.settings-nav-item{padding:8px 12px;border-radius:8px;font-size:12px;font-weight:500;color:var(--txt3);cursor:pointer;display:flex;align-items:center;gap:8px;transition:.1s;border:none;background:none;width:100%;font-family:inherit;text-align:left}
+.settings-nav-item:hover{background:var(--card2);color:var(--txt)}
+.settings-nav-item.active{background:var(--accent-dim);color:var(--accent)}
+.settings-body{flex:1;overflow-y:auto;padding:20px 24px}
+.settings-section{display:none}
+.settings-section.active{display:block}
+.settings-title{font-size:16px;font-weight:600;color:var(--txt);margin-bottom:4px}
+.settings-desc{font-size:12px;color:var(--txt3);margin-bottom:18px}
+.settings-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.settings-card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--txt3);margin-bottom:14px}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd);gap:12px}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-size:13px;font-weight:500;color:var(--txt);margin-bottom:2px}
+.setting-desc{font-size:11px;color:var(--txt3)}
+.toggle{width:38px;height:20px;border-radius:10px;background:var(--brd2);border:none;cursor:pointer;position:relative;flex-shrink:0;transition:.2s}
+.toggle::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.2s}
+.toggle.on{background:var(--accent)}
+.toggle.on::after{left:20px}
+.range-wrap{display:flex;align-items:center;gap:8px}
+.range-val{font-size:12px;font-weight:600;color:var(--accent);min-width:30px}
+
+/* ── API KEYS PANEL ── */
+.apikey-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--brd);font-size:12px}
+.apikey-row:last-child{border-bottom:none}
+.apikey-str{font-family:monospace;font-size:11px;color:var(--txt2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.apikey-badge{padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600}
+
+/* ── FORMS ── */
+.form-field{margin-bottom:12px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-label{font-size:11px;font-weight:600;color:var(--txt2);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:.03em}
+.form-input{width:100%;height:34px;border:1px solid var(--brd2);border-radius:7px;padding:0 10px;font-size:13px;background:var(--card);color:var(--txt);outline:none;font-family:inherit;transition:.13s}
+.form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+.form-select{width:100%;height:34px;border:1px solid var(--brd2);border-radius:7px;padding:0 10px;font-size:13px;background:var(--card);color:var(--txt);outline:none;cursor:pointer;font-family:inherit}
+.form-hint{font-size:11px;color:var(--txt3);margin-top:4px}
+
+/* ── BTN ── */
+.btn{height:32px;padding:0 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.13s;font-family:inherit;border:none}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-ghost{background:var(--card2);color:var(--txt2);border:1px solid var(--brd2)}
+.btn-ghost:hover{border-color:var(--brd2);background:var(--card)}
+.btn-danger{background:rgba(224,82,82,.1);color:var(--danger);border:1px solid rgba(224,82,82,.2)}
+.btn-danger:hover{background:rgba(224,82,82,.2)}
+
+/* ── BUILDER ── */
+.pblock{padding:8px 10px;border-radius:8px;cursor:grab;display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:4px;border:1px solid transparent;transition:.1s;color:var(--txt2)}
+.pblock:hover{border-color:var(--accent);background:var(--accent-dim);color:var(--txt)}
+.pblock:active{cursor:grabbing}
+.pblock span{font-size:16px}
+.ptpl{padding:5px 10px;border-radius:20px;font-size:11px;border:1px solid var(--brd);cursor:pointer;background:var(--card2);color:var(--txt2);transition:.1s}
+.ptpl:hover{border-color:var(--accent);color:var(--accent)}
+.pstep{display:flex;align-items:center;gap:2px}
+.pblock-canvas{width:130px;padding:12px 10px;border-radius:10px;border:2px solid var(--accent);background:var(--accent-dim);text-align:center;position:relative}
+.pblock-canvas .picon{font-size:24px;display:block;margin-bottom:4px}
+.pblock-canvas .pname{font-size:11px;font-weight:500;color:var(--txt)}
+.pblock-canvas .premove{position:absolute;top:-8px;right:-8px;width:18px;height:18px;border-radius:50%;background:var(--card);border:1px solid var(--brd);cursor:pointer;font-size:10px;color:var(--danger);display:flex;align-items:center;justify-content:center}
+.parrow{font-size:16px;color:var(--txt3)}
+
+/* ── MODAL BUILDER ── */
+.modal-builder{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px)}
+.modal-builder .modal-content{background:var(--card);border:1px solid var(--brd);border-radius:14px;width:90vw;height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-builder .modal-header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--brd)}
+.modal-builder .modal-body{flex:1;display:flex;overflow:hidden}
+.modal-builder .modal-footer{padding:10px 18px;border-top:1px solid var(--brd);display:flex;gap:8px;justify-content:flex-end}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:500;backdrop-filter:blur(2px)}
+.modal{background:var(--card);border:1px solid var(--brd);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.2);width:460px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--brd)}
+.modal-title{font-size:14px;font-weight:600;color:var(--txt);display:flex;align-items:center;gap:8px}
+.modal-close{width:28px;height:28px;border-radius:7px;border:none;background:var(--card2);color:var(--txt3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.1s}
+.modal-close:hover{color:var(--txt)}
+.modal-body{padding:18px;overflow-y:auto;flex:1}
+.modal-footer{padding:14px 18px;border-top:1px solid var(--brd);display:flex;gap:8px;justify-content:flex-end}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--txt);color:var(--card);padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;transition:opacity .2s;z-index:1000;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+#toast.error{background:var(--danger)}
+#toast.success{background:var(--success)}
+
+/* ── STATUS DOT ── */
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;margin-right:4px;box-shadow:0 0 0 2px rgba(0,184,122,.2)}
+.status-dot.offline{background:var(--danger);box-shadow:0 0 0 2px rgba(224,82,82,.2)}
+
+/* ── PROFILE BANNER (settings) ── */
+.profile-banner{background:linear-gradient(135deg,var(--accent) 0%,#a78bfa 100%);border-radius:10px;padding:18px;color:#fff;margin-bottom:16px;display:flex;align-items:center;gap:14px}
+.profile-avatar{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0}
+.profile-info-name{font-size:16px;font-weight:700}
+.profile-info-email{font-size:12px;opacity:.8;margin-top:2px}
+.profile-info-badge{font-size:10px;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:20px;display:inline-block;margin-top:4px}
 </style>
 </head>
 <body>
 
+<!-- ── AUTH SCREEN ── -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <div>
+        <div class="auth-logo-text">Genesis AI</div>
+        <div class="auth-logo-sub">AutoML Platform</div>
+      </div>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Sign in</button>
+      <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Create account</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="form-login">
+      <div class="auth-field">
+        <label class="auth-label">Email</label>
+        <input class="auth-input" type="email" id="l-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">Password</label>
+        <input class="auth-input" type="password" id="l-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="auth-btn" onclick="doLogin()" id="login-btn">
+        <i class="ti ti-login"></i> Sign in
+      </button>
+      <div class="auth-err" id="login-err"></div>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="form-register" style="display:none">
+      <div class="auth-field">
+        <label class="auth-label">Name</label>
+        <input class="auth-input" type="text" id="r-name" placeholder="Your name">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">Email</label>
+        <input class="auth-input" type="email" id="r-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">Password</label>
+        <input class="auth-input" type="password" id="r-password" placeholder="At least 6 characters" autocomplete="new-password" onkeydown="if(event.key==='Enter')doRegister()">
+      </div>
+      <button class="auth-btn" onclick="doRegister()" id="register-btn">
+        <i class="ti ti-user-plus"></i> Create account
+      </button>
+      <div class="auth-err" id="register-err"></div>
+    </div>
+
+    <div class="auth-hint">
+      By continuing you agree to the <a href="#" style="color:var(--accent)">Terms of Service</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── APP (hidden until auth) ── -->
+<div id="app" style="display:none;flex:1;overflow:hidden">
+
 <!-- NAV -->
 <nav>
   <div class="nav-logo">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/></svg>
+    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
   </div>
-  <button class="nav-btn active" onclick="show('dashboard')" id="nb-dashboard"><i class="ti ti-layout-dashboard"></i><span class="nav-tooltip">Dashboard</span></button>
-  <button class="nav-btn" onclick="show('projects')" id="nb-projects"><i class="ti ti-folder"></i><span class="nav-tooltip">Projects</span></button>
-  <button class="nav-btn" onclick="show('agent')" id="nb-agent"><i class="ti ti-robot"></i><span class="nav-tooltip">Agent</span></button>
-  <button class="nav-btn" onclick="show('marketplace')" id="nb-marketplace"><i class="ti ti-building-store"></i><span class="nav-tooltip">Marketplace</span></button>
-  <button class="nav-btn" onclick="show('registry')" id="nb-registry"><i class="ti ti-database"></i><span class="nav-tooltip">Registry</span></button>
-  <button class="nav-btn" onclick="show('memory')" id="nb-memory"><i class="ti ti-brain"></i><span class="nav-tooltip">Memory</span></button>
+  <button class="nav-btn active" id="nb-dashboard" onclick="show('dashboard')" title="">
+    <i class="ti ti-layout-dashboard"></i>
+    <span class="nav-tooltip">Dashboard</span>
+  </button>
+  <button class="nav-btn" id="nb-agent" onclick="show('agent')" title="">
+    <i class="ti ti-message-chatbot"></i>
+    <span class="nav-tooltip">AI Agent</span>
+  </button>
   <div class="nav-divider"></div>
+  <button class="nav-btn" id="nb-projects" onclick="show('projects')" title="">
+    <i class="ti ti-folder"></i>
+    <span class="nav-tooltip">Projects</span>
+  </button>
+  <button class="nav-btn" id="nb-builder" onclick="show('builder')" title="">
+    <i class="ti ti-box-align-left"></i>
+    <span class="nav-tooltip">Pipeline Builder</span>
+  </button>
+  <button class="nav-btn" id="nb-registry" onclick="show('registry')" title="">
+    <i class="ti ti-database"></i>
+    <span class="nav-tooltip">Registry</span>
+  </button>
+  <button class="nav-btn" id="nb-store" onclick="show('store')" title=""><i class="ti ti-robot"></i><span class="nav-tooltip">Agent Store</span></button>
+  <button class="nav-btn" id="nb-marketplace" onclick="show('marketplace')" title="">
+    <i class="ti ti-building-store"></i>
+    <span class="nav-tooltip">Marketplace</span>
+  </button>
+  <button class="nav-btn" id="nb-memory" onclick="show('memory')" title="">
+    <i class="ti ti-brain"></i>
+    <span class="nav-tooltip">Memory</span>
+  </button>
   <div class="nav-spacer"></div>
-  <button class="nav-btn" onclick="show('settings')" id="nb-settings"><i class="ti ti-settings"></i><span class="nav-tooltip">Settings</span></button>
+  <button class="nav-btn" id="nb-settings" onclick="show('settings')" title="">
+    <i class="ti ti-settings"></i>
+    <span class="nav-tooltip">Settings</span>
+  </button>
+  <!-- User avatar -->
+  <div style="position:relative;margin-top:4px">
+    <div class="nav-avatar" id="nav-avatar" onclick="toggleUserMenu()">U</div>
+    <div class="nav-user-menu" id="user-menu">
+      <div class="num-name" id="um-name">User</div>
+      <div class="num-item" onclick="show('settings');closeUserMenu()"><i class="ti ti-settings"></i> Settings</div>
+      <div class="num-item" onclick="show('settings');showSettings('ss-api',null);closeUserMenu()"><i class="ti ti-key"></i> API Keys</div>
+      <div class="num-item danger" onclick="doLogout()"><i class="ti ti-logout"></i> Sign out</div>
+    </div>
+  </div>
 </nav>
 
 <main>
-
-<!-- DASHBOARD -->
-<div class="panel active" id="p-dashboard">
+<!-- ── DASHBOARD ── -->
+<div class="panel active" id="panel-dashboard">
   <div class="topbar">
-    <h1>Genesis AI</h1>
-    <span class="topbar-sub">AutoML Platform</span>
+    <h1>Dashboard</h1>
+    <span class="topbar-sub"><span class="status-dot" id="status-dot"></span><span id="status-txt">Connecting…</span></span>
     <div class="topbar-spacer"></div>
-    <span id="health-badge" class="badge badge-gray">Connecting…</span>
+    <button class="topbar-btn primary" onclick="show('agent')"><i class="ti ti-message-chatbot"></i> Open Agent</button>
   </div>
   <div class="panel-body">
     <div class="stats-grid">
       <div class="stat-card" onclick="show('registry')">
         <div class="stat-icon ic-purple"><i class="ti ti-brain"></i></div>
-        <div class="stat-label">Models trained</div>
+        <div class="stat-label">Trained models</div>
         <div class="stat-val" id="d-models">—</div>
-        <div class="stat-sub" id="d-models-sub">from registry</div>
+        <div class="stat-sub">in registry</div>
       </div>
       <div class="stat-card" onclick="show('marketplace')">
         <div class="stat-icon ic-green"><i class="ti ti-building-store"></i></div>
         <div class="stat-label">Marketplace listings</div>
         <div class="stat-val" id="d-listings">—</div>
-        <div class="stat-sub" id="d-calls-sub">total calls</div>
-      </div>
-      <div class="stat-card" onclick="show('marketplace')">
-        <div class="stat-icon ic-amber"><i class="ti ti-coin"></i></div>
-        <div class="stat-label">Platform revenue</div>
-        <div class="stat-val" id="d-revenue">—</div>
-        <div class="stat-sub" id="d-commission-sub">commission</div>
-      </div>
-      <div class="stat-card" onclick="show('projects')">
-        <div class="stat-icon ic-red"><i class="ti ti-folder-filled"></i></div>
-        <div class="stat-label">Active projects</div>
-        <div class="stat-val" id="d-projects">—</div>
         <div class="stat-sub">across all users</div>
+      </div>
+      <div class="stat-card" onclick="show('agent')">
+        <div class="stat-icon ic-amber"><i class="ti ti-message"></i></div>
+        <div class="stat-label">Conversations</div>
+        <div class="stat-val" id="d-convos">—</div>
+        <div class="stat-sub">chat history</div>
+      </div>
+      <div class="stat-card" onclick="show('memory')">
+        <div class="stat-icon ic-red"><i class="ti ti-topology-star"></i></div>
+        <div class="stat-label">Memory facts</div>
+        <div class="stat-val" id="d-facts">—</div>
+        <div class="stat-sub">in knowledge graph</div>
       </div>
     </div>
 
@@ -396,317 +539,435 @@ main{flex:1;display:flex;overflow:hidden}
           <span class="section-title">Recent models</span>
           <button class="sec-link" onclick="show('registry')">View all →</button>
         </div>
-        <div id="d-recent-models"><div class="empty" style="padding:20px 0"><span style="font-size:12px;color:var(--txt3)">Loading…</span></div></div>
+        <div id="d-recent-models"><div style="color:var(--txt3);font-size:12px">Loading…</div></div>
       </div>
       <div class="card card-p">
-        <div class="section-head"><span class="section-title">Training activity</span></div>
-        <div class="mini-chart" id="activity-chart"></div>
-        <div class="chart-labels"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
-        <div style="margin-top:12px">
-          <div class="section-head"><span class="section-title">Marketplace earnings</span></div>
-          <div id="d-earnings-row" style="display:flex;gap:16px;flex-wrap:wrap"></div>
+        <div class="section-head">
+          <span class="section-title">Activity</span>
         </div>
+        <div class="mini-chart" id="activity-chart"></div>
+        <div class="chart-labels"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+        <div style="margin-top:12px;display:flex;gap:8px" id="d-earnings-row"></div>
+      </div>
+    </div>
+
+    <div class="card card-p" style="margin-bottom:14px">
+      <div class="section-head">
+        <span class="section-title">Platform breakdown</span>
+        <button class="sec-link" onclick="show('marketplace')">Marketplace →</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap" id="d-platform-stats">
+        <div style="padding:12px 16px;color:var(--txt3);font-size:12px">No data yet</div>
       </div>
     </div>
 
     <div class="card card-p">
       <div class="section-head">
-        <span class="section-title">Platform stats</span>
-        <button class="sec-link" onclick="show('marketplace')">Marketplace →</button>
+        <span class="section-title">Quick actions</span>
       </div>
-      <div id="d-platform-stats" style="display:grid;grid-template-columns:repeat(5,1fr);gap:0">
-        <div style="padding:8px 0;text-align:center;font-size:11px;color:var(--txt3)">Loading…</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- PROJECTS -->
-<div class="panel" id="p-projects">
-  <div class="topbar">
-    <i class="ti ti-folder" style="color:var(--accent)"></i>
-    <h1>Projects</h1>
-    <span class="topbar-sub" id="projects-count">0 projects</span>
-    <div class="topbar-spacer"></div>
-    <button class="topbar-btn primary" onclick="openModal('modal-new-project')"><i class="ti ti-plus"></i> New project</button>
-  </div>
-  <div class="panel-body">
-    <div class="projects-grid" id="projects-grid">
-      <div class="empty" style="grid-column:1/-1">
-        <i class="ti ti-folder-open"></i>
-        <div class="empty-title">No projects yet</div>
-        <div class="empty-sub">Create a project to organize your models and experiments</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="show('agent')"><i class="ti ti-message-chatbot"></i> Train with Agent</button>
+        <button class="btn btn-ghost" onclick="show('projects');openModal('modal-new-project')"><i class="ti ti-folder-plus"></i> New project</button>
+        <button class="btn btn-ghost" onclick="show('registry')"><i class="ti ti-database"></i> Model registry</button>
+        <button class="btn btn-ghost" onclick="show('marketplace')"><i class="ti ti-building-store"></i> Marketplace</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- AGENT -->
-<div class="panel" id="p-agent">
+<!-- ── AGENT ── -->
+<div class="panel" id="panel-agent">
   <div class="topbar">
-    <i class="ti ti-robot" style="color:var(--accent)"></i>
-    <h1>Agent</h1>
+    <h1>AI Agent</h1>
     <span class="topbar-sub">AutoML assistant</span>
     <div class="topbar-spacer"></div>
-    <span class="badge badge-green">● Ready</span>
+    <button class="topbar-btn" onclick="newConversation()"><i class="ti ti-plus"></i> New chat</button>
   </div>
   <div class="agent-wrap">
     <div class="agent-sidebar">
       <div class="sidebar-head">
         <span class="sidebar-title">Conversations</span>
-        <button class="sidebar-new" onclick="newConversation()" title="New chat"><i class="ti ti-plus" style="font-size:14px"></i></button>
+        <button class="sidebar-new" onclick="newConversation()"><i class="ti ti-plus" style="font-size:13px"></i></button>
       </div>
       <div class="convo-list" id="convo-list">
-        <div style="padding:20px 14px;text-align:center;font-size:11px;color:var(--txt3)">No conversations yet</div>
+        <div style="padding:16px 14px;font-size:12px;color:var(--txt3)">No conversations yet</div>
       </div>
     </div>
     <div class="chat-area">
       <div class="chat-messages" id="chat-messages">
+        <div class="chat-empty" id="chat-empty">
+          <i class="ti ti-message-chatbot"></i>
+          <div class="chat-empty-title">Genesis AI Agent</div>
+          <div class="chat-empty-sub">Upload a CSV, ask to train a model, find datasets, or generate code</div>
+        </div>
       </div>
-      <div class="chat-input-area">
-        <div class="chips">
-          <span class="chip" onclick="chipSend('Analyze my dataset')">📊 Analyze dataset</span>
-          <span class="chip" onclick="chipSend('Train an XGBoost model')">🤖 Train XGBoost</span>
-          <span class="chip" onclick="chipSend('Show all trained models')">📋 List models</span>
-          <span class="chip" onclick="chipSend('Find the best model')">🏆 Best model</span>
-          <span class="chip" onclick="chipSend('Search dataset for churn prediction')">🔍 Find dataset</span>
-        </div>
-        <div class="input-row">
-          <textarea class="chat-input" id="chat-in" placeholder="Message agent…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}" oninput="autoResize(this)"></textarea>
-          <button class="send-btn" id="send-btn" onclick="sendMsg()"><i class="ti ti-send"></i></button>
-        </div>
+      <div class="chat-chips" id="chat-chips">
+        <button class="chip" onclick="chipSend('Привет! Покажи что ты умеешь')">👋 What can you do?</button>
+        <button class="chip" onclick="chipSend('Найди датасет для предсказания оттока клиентов')">🔍 Find a dataset</button>
+        <button class="chip" onclick="chipSend('Покажи мои модели')">🧠 My models</button>
+        <button class="chip" onclick="chipSend('Сгенерируй код для классификации')">💻 Generate code</button>
+      </div>
+      <div class="chat-input-wrap">
+        <textarea class="chat-in" id="chat-in" placeholder="Ask anything about ML, datasets, models…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}" oninput="autoResize(this)"></textarea>
+        <button class="send-btn" id="send-btn" onclick="sendMsg()"><i class="ti ti-send"></i></button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- MARKETPLACE -->
-<div class="panel" id="p-marketplace">
+<!-- ── BUILDER ── -->
+<div class="panel" id="panel-builder">
   <div class="topbar">
-    <i class="ti ti-building-store" style="color:var(--accent)"></i>
-    <h1>Marketplace</h1>
-    <span class="topbar-sub" id="mkt-count">— listings</span>
+    <i class="ti ti-box-align-left" style="color:var(--accent)"></i>
+    <h1>Pipeline Builder</h1>
+    <span class="topbar-sub">Drag & drop ML blocks</span>
     <div class="topbar-spacer"></div>
-    <button class="topbar-btn" onclick="openModal('modal-publish')"><i class="ti ti-upload"></i> Publish model</button>
+    <button class="topbar-btn" onclick="clearPipeline()"><i class="ti ti-trash"></i> Clear</button>
+    <button class="topbar-btn primary" onclick="generatePipelineCode()"><i class="ti ti-code"></i> Generate Code</button>
+  </div>
+  <div style="display:flex;flex:1;overflow:hidden">
+    <!-- Sidebar -->
+    <div style="width:200px;background:var(--card);border-right:1px solid var(--brd);overflow-y:auto;padding:12px;flex-shrink:0">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);margin:10px 0 6px">📊 Data</div>
+      <div class="pblock" draggable="true" data-block="load_data" ondragstart="dragStart(event)"><span>📊</span> Load CSV</div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);margin:10px 0 6px">🔍 Analysis</div>
+      <div class="pblock" draggable="true" data-block="profile" ondragstart="dragStart(event)"><span>🔍</span> Profile Data</div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);margin:10px 0 6px">🧹 Preprocessing</div>
+      <div class="pblock" draggable="true" data-block="clean" ondragstart="dragStart(event)"><span>🧹</span> Clean Data</div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);margin:10px 0 6px">🤖 Models</div>
+      <div class="pblock" draggable="true" data-block="train_xgboost" ondragstart="dragStart(event)"><span>🤖</span> XGBoost</div>
+      <div class="pblock" draggable="true" data-block="train_random_forest" ondragstart="dragStart(event)"><span>🌲</span> Random Forest</div>
+      <div class="pblock" draggable="true" data-block="train_logistic" ondragstart="dragStart(event)"><span>📐</span> Logistic Reg</div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);margin:10px 0 6px">🔤 NLP</div>
+      <div class="pblock" draggable="true" data-block="tokenize" ondragstart="dragStart(event)"><span>🔤</span> Tokenize</div>
+      <div class="pblock" draggable="true" data-block="embedding" ondragstart="dragStart(event)"><span>🧮</span> Embeddings</div>
+
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);margin:10px 0 6px">⚙️ Feature Engineering</div>
+      <div class="pblock" draggable="true" data-block="scale" ondragstart="dragStart(event)"><span>📏</span> Scale Features</div>
+      <div class="pblock" draggable="true" data-block="encode" ondragstart="dragStart(event)"><span>🏷️</span> Encode Categorical</div>
+      <div class="pblock" draggable="true" data-block="feature_select" ondragstart="dragStart(event)"><span>🎯</span> Feature Selection</div>
+
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);margin:10px 0 6px">🤖 More Models</div>
+      <div class="pblock" draggable="true" data-block="train_svm" ondragstart="dragStart(event)"><span>🎯</span> SVM</div>
+      <div class="pblock" draggable="true" data-block="train_knn" ondragstart="dragStart(event)"><span>👥</span> KNN</div>
+      <div class="pblock" draggable="true" data-block="train_mlp" ondragstart="dragStart(event)"><span>🧠</span> Neural Net</div>
+
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);margin:10px 0 6px">📊 Evaluation</div>
+      <div class="pblock" draggable="true" data-block="evaluate" ondragstart="dragStart(event)"><span>📊</span> Evaluate</div>
+      <div class="pblock" draggable="true" data-block="cross_validate" ondragstart="dragStart(event)"><span>🔁</span> Cross-Validate</div>
+      <div class="pblock" draggable="true" data-block="confusion_matrix" ondragstart="dragStart(event)"><span>🎯</span> Confusion Matrix</div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);margin:10px 0 6px">💾 Output</div>
+      <div class="pblock" draggable="true" data-block="save" ondragstart="dragStart(event)"><span>💾</span> Save Model</div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);margin:10px 0 6px">🤖 AI Blocks</div>
+      <div class="pblock" draggable="true" data-block="ai_cleaner" ondragstart="dragStart(event)"><span>🧹</span> AI Data Cleaner</div>
+      <div class="pblock" draggable="true" data-block="ai_feature" ondragstart="dragStart(event)"><span>⚙️</span> AI Feature Engineer</div>
+      <div class="pblock" draggable="true" data-block="ai_selector" ondragstart="dragStart(event)"><span>🤖</span> AI Model Selector</div>
+      <div class="pblock" draggable="true" data-block="ai_tuner" ondragstart="dragStart(event)"><span>🎛️</span> AI HyperTuner</div>
+      <div class="pblock" draggable="true" data-block="ai_viz" ondragstart="dragStart(event)"><span>📈</span> AI Visualizer</div>
+      <div class="pblock" draggable="true" data-block="ai_report" ondragstart="dragStart(event)"><span>📋</span> AI Report Generator</div>
+    </div> <!-- END SIDEBAR -->
+
+    <!-- Canvas -->
+    <div style="flex:1;overflow-y:auto;padding:20px" ondragover="dragOver(event)" ondrop="dropBlock(event)">
+      <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap">
+        <span class="ptpl" onclick="loadPipeline(['load_data','profile','clean','train_xgboost','evaluate','save'])">⚡ Churn Prediction</span>
+        <span class="ptpl" onclick="loadPipeline(['load_data','profile','train_xgboost_reg','evaluate_reg','save'])">⚡ Price Forecast</span>
+        <span class="ptpl" onclick="loadPipeline(['load_data','train_xgboost','evaluate'])">⚡ Quick Classify</span>
+      </div>
+      <div style="margin-bottom:12px;display:flex;gap:8px">
+        <input class="form-input" id="pipeline-prompt" placeholder="Describe pipeline... (e.g. 'load data, train XGBoost, evaluate, save')" onkeydown="if(event.key==='Enter')buildFromPrompt()">
+        <button class="btn btn-primary" onclick="buildFromPrompt()"><i class="ti ti-sparkles"></i> Build</button>
+      </div>
+      <div id="pipeline-canvas" style="display:flex;align-items:flex-start;gap:4px;flex-wrap:wrap;min-height:200px;padding:20px;border:2px dashed var(--brd);border-radius:12px">
+        <div style="width:100%;text-align:center;color:var(--txt3);padding:60px 0">
+          <i class="ti ti-box-align-left" style="font-size:32px;opacity:.3;display:block;margin-bottom:8px"></i>
+          Drag blocks here or pick a template above
+        </div>
+      </div>
+
+      <!-- Generated Code -->
+      <div id="pipeline-code-wrap" style="display:none;margin-top:16px;background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--brd);font-size:12px;font-weight:600">
+          <span>Generated Code</span>
+          <button class="btn btn-ghost" style="height:24px;font-size:10px" onclick="copyPipelineCode()"><i class="ti ti-copy"></i> Copy</button>
+        </div>
+        <pre id="pipeline-code" style="padding:14px;font-family:monospace;font-size:11px;line-height:1.5;color:var(--txt2);max-height:300px;overflow-y:auto;white-space:pre-wrap"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PROJECTS ── -->
+<div class="panel" id="panel-projects">
+  <div class="topbar">
+    <h1>Projects</h1>
+    <span class="topbar-sub" id="proj-count">0 projects</span>
+    <div class="topbar-spacer"></div>
+    <button class="topbar-btn primary" onclick="openModal('modal-new-project')"><i class="ti ti-folder-plus"></i> New project</button>
   </div>
   <div class="panel-body">
+    <div class="projects-grid" id="projects-grid">
+      <div style="grid-column:1/-1;text-align:center;padding:48px 0;color:var(--txt3)">
+        <i class="ti ti-folder" style="font-size:32px;display:block;margin-bottom:8px;opacity:.3"></i>
+        <div style="font-size:13px;font-weight:500;margin-bottom:4px;color:var(--txt2)">No projects yet</div>
+        <div style="font-size:12px">Create a project to organize your ML work</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── REGISTRY ── -->
+<div class="panel" id="panel-registry">
+  <div class="topbar">
+    <h1>Model Registry</h1>
+    <span class="topbar-sub" id="reg-count">0 models</span>
+    <div class="topbar-spacer"></div>
+    <div style="display:flex;gap:6px">
+      <select class="mkt-sort" id="reg-task-sel" onchange="setRegTask(this.value)">
+        <option value="all">All tasks</option>
+        <option value="binary_classification">Binary classification</option>
+        <option value="multiclass">Multiclass</option>
+        <option value="regression">Regression</option>
+      </select>
+      <button class="topbar-btn" onclick="show('agent');chipSend('Обучи модель на моём датасете')"><i class="ti ti-plus"></i> Train model</button>
+    </div>
+  </div>
+  <div class="reg-table-wrap">
+    <table class="reg-table">
+      <thead>
+        <tr>
+          <th>Model ID</th>
+          <th>Task</th>
+          <th>Type</th>
+          <th>Metric</th>
+          <th>Features</th>
+          <th>Target</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody id="reg-body">
+        <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--txt3)">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── AGENT STORE ── -->
+<div class="panel" id="panel-store">
+  <div class="topbar">
+    <i class="ti ti-building-store" style="color:var(--accent)"></i>
+    <h1>Agent Store</h1>
+    <span class="topbar-sub" id="store-count">0 agents</span>
+    <div class="topbar-spacer"></div>
+    <button class="topbar-btn primary" onclick="openModal('modal-create-agent')"><i class="ti ti-plus"></i> Create Agent</button>
+  </div>
+  <div class="mkt-toolbar">
+    <input class="mkt-search" placeholder="Search agents..." oninput="filterStore(this.value)" id="store-search">
+    <select class="mkt-sort" onchange="storeSort=this.value;renderStore()">
+      <option value="rating">Top rated</option>
+      <option value="new">Newest</option>
+      <option value="usage">Most used</option>
+      <option value="price_asc">Lowest price</option>
+    </select>
+    <button class="topbar-btn" onclick="loadStore()"><i class="ti ti-refresh"></i> Refresh</button>
+  </div>
+  <div style="flex:1;overflow-y:auto">
+    <div class="mkt-grid" id="store-grid">
+      <div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--txt3)">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Create Agent -->
+<div class="modal-overlay" id="modal-create-agent" style="display:none" onclick="overlayClose(event,'modal-create-agent')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <span class="modal-title"><i class="ti ti-robot"></i> Create AI Agent</span>
+      <button class="modal-close" onclick="closeModal('modal-create-agent')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label class="form-label">Name *</label>
+        <input class="form-input" id="ca-name" placeholder="e.g. Marketing Expert">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Description</label>
+        <input class="form-input" id="ca-desc" placeholder="What does this agent do?">
+      </div>
+      <div class="form-field">
+        <label class="form-label">System Prompt *</label>
+        <textarea class="form-input" id="ca-prompt" style="height:80px;padding:8px" placeholder="You are a helpful assistant..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label">Model</label>
+          <select class="form-select" id="ca-model">
+            <option value="llama-3.3-70b-versatile">Llama 3.3 70B</option>
+            <option value="llama-4-scout">Llama 4 Scout (Vision)</option>
+            <option value="gpt-oss-120b">GPT OSS 120B (Reasoning)</option>
+            <option value="gpt-oss-20b">GPT OSS 20B (Fast)</option>
+            <option value="qwen-3-32b">Qwen 3 32B</option>
+            <option value="qwen-3.6-27b">Qwen 3.6 27B (Vision)</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Temperature</label>
+          <input class="form-input" type="number" id="ca-temp" value="0.5" min="0" max="2" step="0.1">
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Tools</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap" id="ca-tools">
+          <label class="chip" style="cursor:pointer"><input type="checkbox" value="web_search"> 🌐 Web Search</label>
+          <label class="chip" style="cursor:pointer"><input type="checkbox" value="dataset_search"> 📊 Dataset Search</label>
+          <label class="chip" style="cursor:pointer"><input type="checkbox" value="code_generation"> 💻 Code Gen</label>
+          <label class="chip" style="cursor:pointer"><input type="checkbox" value="model_training"> 🤖 Model Training</label>
+          <label class="chip" style="cursor:pointer"><input type="checkbox" value="research"> 🔍 Research</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-create-agent')">Cancel</button>
+      <button class="btn btn-primary" onclick="createAgent()"><i class="ti ti-plus"></i> Create Agent</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MARKETPLACE ── -->
+<div class="panel" id="panel-marketplace">
+  <div class="topbar">
+    <h1>Marketplace</h1>
+    <span class="topbar-sub" id="mkt-count">0 listings</span>
+    <div class="topbar-spacer"></div>
+    <button class="topbar-btn primary" onclick="openModal('modal-publish')"><i class="ti ti-upload"></i> Publish model</button>
+  </div>
+  <div class="mkt-toolbar">
     <div class="mkt-filters">
-      <input class="search-box" placeholder="Search models…" oninput="filterMkt(this.value)" id="mkt-search">
       <button class="filter-btn active" onclick="setMktFilter(this,'all')">All</button>
       <button class="filter-btn" onclick="setMktFilter(this,'binary_classification')">Classification</button>
       <button class="filter-btn" onclick="setMktFilter(this,'regression')">Regression</button>
       <button class="filter-btn" onclick="setMktFilter(this,'multiclass')">Multiclass</button>
-      <div style="flex:1"></div>
-      <select class="search-box" style="max-width:130px;cursor:pointer" onchange="mktSort=this.value;renderMkt()">
-        <option value="rating">Top rated</option>
-        <option value="calls">Most used</option>
-        <option value="price_asc">Lowest price</option>
-        <option value="new">Newest</option>
-      </select>
     </div>
+    <input class="mkt-search" placeholder="Search models…" oninput="filterMkt(this.value)">
+    <select class="mkt-sort" onchange="mktSort=this.value;renderMkt()">
+      <option value="rating">Top rated</option>
+      <option value="calls">Most used</option>
+      <option value="new">Newest</option>
+      <option value="price_asc">Lowest price</option>
+    </select>
+  </div>
+  <div style="flex:1;overflow-y:auto">
     <div class="mkt-grid" id="mkt-grid">
-      <div class="empty mkt-empty"><i class="ti ti-building-store"></i>Loading…</div>
+      <div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--txt3)">Loading…</div>
     </div>
   </div>
 </div>
 
-<!-- REGISTRY -->
-<div class="panel" id="p-registry">
+<!-- ── MEMORY ── -->
+<div class="panel" id="panel-memory">
   <div class="topbar">
-    <i class="ti ti-database" style="color:var(--accent)"></i>
-    <h1>Model Registry</h1>
-    <span class="topbar-sub" id="reg-count">— models</span>
+    <h1>Memory & Knowledge Graph</h1>
     <div class="topbar-spacer"></div>
-    <button class="filter-btn" id="rt-all" onclick="setRegTask('all',this)">All</button>
-    <button class="filter-btn" id="rt-binary" onclick="setRegTask('binary_classification',this)">Binary</button>
-    <button class="filter-btn" id="rt-regression" onclick="setRegTask('regression',this)">Regression</button>
-    <button class="filter-btn" id="rt-multi" onclick="setRegTask('multiclass',this)">Multiclass</button>
-  </div>
-  <div class="panel-body">
-    <div class="table-wrap">
-      <table class="tbl">
-        <thead>
-          <tr>
-            <th>Model ID</th>
-            <th>Task</th>
-            <th>Type</th>
-            <th>Top metric</th>
-            <th>Features</th>
-            <th>Target</th>
-            <th>Created</th>
-          </tr>
-        </thead>
-        <tbody id="reg-body"><tr><td colspan="7" style="text-align:center;padding:32px;color:var(--txt3)">Loading…</td></tr></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- MEMORY -->
-<div class="panel" id="p-memory">
-  <div class="topbar">
-    <i class="ti ti-brain" style="color:var(--accent)"></i>
-    <h1>Memory</h1>
-    <span class="topbar-sub">Episodic · Graph · Persona</span>
-    <div class="topbar-spacer"></div>
-    <span class="badge badge-purple" id="facts-count">— facts</span>
+    <button class="topbar-btn" onclick="loadMemory()"><i class="ti ti-refresh"></i> Refresh</button>
   </div>
   <div class="panel-body">
     <div class="memory-grid">
       <div class="memory-card">
-        <div class="memory-title"><i class="ti ti-clock"></i> Episodic Memory</div>
-        <div id="facts-list"><div style="font-size:11px;color:var(--txt3)">Loading…</div></div>
+        <div class="memory-title"><i class="ti ti-user-circle"></i> Persona Core</div>
+        <div id="memory-persona" style="font-size:12px;color:var(--txt2);line-height:1.6">Loading…</div>
       </div>
       <div class="memory-card">
-        <div class="memory-title"><i class="ti ti-chart-network"></i> Knowledge Graph</div>
-        <div class="graph-wrap" id="kg-visual">
-          <svg class="edge-svg" id="kg-svg"></svg>
+        <div class="memory-title"><i class="ti ti-list-details"></i> Learned Facts</div>
+        <div id="memory-facts">
+          <div style="font-size:12px;color:var(--txt3)">Loading…</div>
         </div>
       </div>
-    </div>
-    <div class="memory-card">
-      <div class="memory-title"><i class="ti ti-user-circle"></i> Persona Core</div>
-      <div class="persona-text" id="persona-block">Loading…</div>
+      <div class="memory-card" style="grid-column:1/-1">
+        <div class="memory-title"><i class="ti ti-topology-star-ring"></i> Knowledge Graph</div>
+        <canvas id="kg-canvas"></canvas>
+        <div id="kg-legend" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--txt3)"></div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- SETTINGS -->
-<div class="panel" id="p-settings">
+<!-- ── SETTINGS ── -->
+<div class="panel" id="panel-settings">
   <div class="topbar">
-    <i class="ti ti-settings" style="color:var(--accent)"></i>
     <h1>Settings</h1>
     <div class="topbar-spacer"></div>
-    <button class="topbar-btn primary" onclick="saveSettings()"><i class="ti ti-check"></i> Save changes</button>
+    <button class="topbar-btn primary" onclick="saveSettings()"><i class="ti ti-device-floppy"></i> Save changes</button>
   </div>
-  <div class="settings-layout">
+  <div class="settings-wrap">
     <div class="settings-nav">
-      <div class="settings-nav-item active" onclick="showSettings('commission',this)"><i class="ti ti-coin"></i> Commission</div>
-      <div class="settings-nav-item" onclick="showSettings('platform',this)"><i class="ti ti-server"></i> Platform</div>
-      <div class="settings-nav-item" onclick="showSettings('models',this)"><i class="ti ti-brain"></i> Models</div>
-      <div class="settings-nav-item" onclick="showSettings('api',this)"><i class="ti ti-api"></i> API Keys</div>
-      <div class="settings-nav-item" onclick="showSettings('danger',this)"><i class="ti ti-alert-triangle"></i> Danger zone</div>
+      <button class="settings-nav-item active" onclick="showSettings('ss-profile',this)"><i class="ti ti-user"></i> Profile</button>
+      <button class="settings-nav-item" onclick="showSettings('ss-general',this)"><i class="ti ti-adjustments"></i> General</button>
+      <button class="settings-nav-item" onclick="showSettings('ss-api',this)"><i class="ti ti-key"></i> API Keys</button>
+      <button class="settings-nav-item" onclick="showSettings('ss-apikeys',this)"><i class="ti ti-api"></i> Generated Keys</button>
+      <button class="settings-nav-item" onclick="showSettings('ss-marketplace',this)"><i class="ti ti-building-store"></i> Marketplace</button>
+      <button class="settings-nav-item" onclick="showSettings('ss-danger',this)"><i class="ti ti-alert-triangle" style="color:var(--danger)"></i> Danger zone</button>
     </div>
-    <div class="settings-content">
+    <div class="settings-body">
 
-      <!-- COMMISSION -->
-      <div class="settings-section active" id="ss-commission">
-        <div class="settings-title">Commission Settings</div>
-        <div class="settings-desc">Set the platform fee taken from every marketplace transaction.</div>
-        <div class="settings-card">
-          <div class="settings-card-title">Platform commission</div>
-          <div class="commission-display" id="commission-display">25%</div>
-          <div class="commission-sub">Authors receive the remaining <span id="author-pct">75%</span> of each transaction</div>
-          <div class="slider-wrap">
-            <input type="range" class="range-input" min="5" max="40" value="25" id="commission-slider" oninput="updateCommission(this.value)">
-            <div class="range-labels"><span>5% min</span><span>40% max</span></div>
-          </div>
-          <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-            <div style="padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--brd)">
-              <div style="font-size:10px;color:var(--txt3);margin-bottom:3px">Total transactions</div>
-              <div style="font-size:16px;font-weight:600;color:var(--txt)" id="s-total-txn">—</div>
-            </div>
-            <div style="padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--brd)">
-              <div style="font-size:10px;color:var(--txt3);margin-bottom:3px">Platform fees earned</div>
-              <div style="font-size:16px;font-weight:600;color:var(--accent)" id="s-platform-fees">—</div>
-            </div>
-            <div style="padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--brd)">
-              <div style="font-size:10px;color:var(--txt3);margin-bottom:3px">Author earnings</div>
-              <div style="font-size:16px;font-weight:600;color:var(--success)" id="s-author-fees">—</div>
-            </div>
+      <!-- PROFILE -->
+      <div class="settings-section active" id="ss-profile">
+        <div class="settings-title">Profile</div>
+        <div class="settings-desc">Your account information and preferences.</div>
+        <div class="profile-banner">
+          <div class="profile-avatar" id="p-avatar-letter">U</div>
+          <div>
+            <div class="profile-info-name" id="p-display-name">User</div>
+            <div class="profile-info-email" id="p-display-email">—</div>
+            <div class="profile-info-badge">Free plan</div>
           </div>
         </div>
         <div class="settings-card">
-          <div class="settings-card-title">Commission tiers</div>
-          <div class="setting-row">
-            <div><div class="setting-label">Enable tiered commission</div><div class="setting-desc">Lower commission for high-volume sellers</div></div>
-            <button class="toggle" id="toggle-tiers" onclick="this.classList.toggle('on')"></button>
+          <div class="settings-card-title">Account details</div>
+          <div class="form-field">
+            <label class="form-label">Display name</label>
+            <input class="form-input" id="s-display-name" placeholder="Your name">
           </div>
-          <div class="setting-row">
-            <div><div class="setting-label">Minimum price per call</div><div class="setting-desc">Authors cannot list below this price</div></div>
-            <div style="display:flex;align-items:center;gap:6px"><span style="color:var(--txt3);font-size:12px">$</span><input class="form-input" type="number" min="0" step="0.001" value="0.001" style="width:80px;text-align:right" id="min-price"></div>
+          <div class="form-field">
+            <label class="form-label">Email</label>
+            <input class="form-input" id="s-email" type="email" placeholder="you@example.com" disabled style="opacity:.6">
           </div>
-          <div class="setting-row">
-            <div><div class="setting-label">Payout threshold</div><div class="setting-desc">Minimum author earnings before payout</div></div>
-            <div style="display:flex;align-items:center;gap:6px"><span style="color:var(--txt3);font-size:12px">$</span><input class="form-input" type="number" min="1" step="1" value="10" style="width:80px;text-align:right" id="payout-threshold"></div>
+        </div>
+        <div class="settings-card">
+          <div class="settings-card-title">Change password</div>
+          <div class="form-field">
+            <label class="form-label">Current password</label>
+            <input class="form-input" type="password" id="s-cur-pass" placeholder="••••••••">
           </div>
+          <div class="form-field">
+            <label class="form-label">New password</label>
+            <input class="form-input" type="password" id="s-new-pass" placeholder="At least 6 characters">
+          </div>
+          <button class="btn btn-ghost" onclick="changePassword()"><i class="ti ti-lock"></i> Update password</button>
         </div>
       </div>
 
-      <!-- PLATFORM -->
-      <div class="settings-section" id="ss-platform">
-        <div class="settings-title">Platform Settings</div>
-        <div class="settings-desc">Configure core platform behavior and storage.</div>
+      <!-- GENERAL -->
+      <div class="settings-section" id="ss-general">
+        <div class="settings-title">General</div>
+        <div class="settings-desc">Application behaviour and preferences.</div>
         <div class="settings-card">
-          <div class="settings-card-title">General</div>
+          <div class="settings-card-title">Agent</div>
           <div class="setting-row">
-            <div><div class="setting-label">Marketplace</div><div class="setting-desc">Allow model publishing and purchases</div></div>
+            <div><div class="setting-label">Stream responses</div><div class="setting-desc">Show text as it's generated</div></div>
             <button class="toggle on" onclick="this.classList.toggle('on')"></button>
-          </div>
-          <div class="setting-row">
-            <div><div class="setting-label">Public registry</div><div class="setting-desc">Anyone can view the model registry</div></div>
-            <button class="toggle on" onclick="this.classList.toggle('on')"></button>
-          </div>
-          <div class="setting-row">
-            <div><div class="setting-label">Require approval for listings</div><div class="setting-desc">Review models before they go public</div></div>
-            <button class="toggle" onclick="this.classList.toggle('on')"></button>
-          </div>
-        </div>
-        <div class="settings-card">
-          <div class="settings-card-title">Storage paths</div>
-          <div class="form-field">
-            <label class="form-label">Registry storage</label>
-            <input class="form-input" value="./registry" id="s-registry-path">
-          </div>
-          <div class="form-field">
-            <label class="form-label">Model files</label>
-            <input class="form-input" value="./models" id="s-models-path">
-          </div>
-          <div class="form-field">
-            <label class="form-label">Marketplace storage</label>
-            <input class="form-input" value="./marketplace" id="s-marketplace-path">
-          </div>
-        </div>
-      </div>
-
-      <!-- MODELS -->
-      <div class="settings-section" id="ss-models">
-        <div class="settings-title">Model Settings</div>
-        <div class="settings-desc">Default training parameters for new models.</div>
-        <div class="settings-card">
-          <div class="settings-card-title">Training defaults</div>
-          <div class="form-row">
-            <div class="form-field">
-              <label class="form-label">Default model type</label>
-              <select class="form-select" id="s-default-model">
-                <option value="xgboost">XGBoost</option>
-                <option value="random_forest">Random Forest</option>
-                <option value="logistic">Logistic Regression</option>
-              </select>
-            </div>
-            <div class="form-field">
-              <label class="form-label">Test split size</label>
-              <input class="form-input" type="number" min="0.1" max="0.4" step="0.05" value="0.2" id="s-test-size">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-field">
-              <label class="form-label">CV folds</label>
-              <input class="form-input" type="number" min="2" max="10" value="5" id="s-cv-folds">
-            </div>
-            <div class="form-field">
-              <label class="form-label">Max dataset rows (0 = unlimited)</label>
-              <input class="form-input" type="number" value="0" id="s-max-rows">
-            </div>
           </div>
           <div class="setting-row">
             <div><div class="setting-label">Auto-register after training</div><div class="setting-desc">Automatically save models to registry</div></div>
             <button class="toggle on" onclick="this.classList.toggle('on')"></button>
           </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Memory extraction</div><div class="setting-desc">Learn facts from conversations</div></div>
+            <button class="toggle on" onclick="this.classList.toggle('on')"></button>
+          </div>
         </div>
       </div>
 
-      <!-- API KEYS -->
+      <!-- API KEYS (external) -->
       <div class="settings-section" id="ss-api">
         <div class="settings-title">API Keys</div>
         <div class="settings-desc">Credentials for external integrations.</div>
@@ -721,7 +982,7 @@ main{flex:1;display:flex;overflow:hidden}
             <input class="form-input" type="password" placeholder="sk-ant-…" id="s-anthropic-key">
           </div>
           <div class="form-field">
-            <label class="form-label">Local LLM model path (llama.cpp)</label>
+            <label class="form-label">Local LLM model path</label>
             <input class="form-input" placeholder="./models/qwen2.5-7b-instruct-q4_k_m.gguf" id="s-llm-path">
           </div>
         </div>
@@ -738,7 +999,46 @@ main{flex:1;display:flex;overflow:hidden}
         </div>
       </div>
 
-      <!-- DANGER -->
+      <!-- GENERATED API KEYS -->
+      <div class="settings-section" id="ss-apikeys">
+        <div class="settings-title">API Keys</div>
+        <div class="settings-desc">Keys for accessing trained models via API.</div>
+        <div class="settings-card">
+          <div class="settings-card-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>Your keys</span>
+            <button class="btn btn-primary" style="height:26px;font-size:11px" onclick="createApiKey()"><i class="ti ti-plus"></i> Generate key</button>
+          </div>
+          <div id="apikeys-list"><div style="font-size:12px;color:var(--txt3)">Loading…</div></div>
+        </div>
+        <div class="settings-card">
+          <div class="settings-card-title">Usage log</div>
+          <div id="usage-log"><div style="font-size:12px;color:var(--txt3)">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- MARKETPLACE SETTINGS -->
+      <div class="settings-section" id="ss-marketplace">
+        <div class="settings-title">Marketplace</div>
+        <div class="settings-desc">Configure platform fees and publishing.</div>
+        <div class="settings-card">
+          <div class="settings-card-title">Revenue sharing</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Platform commission</div>
+              <div class="setting-desc">Percentage taken on each transaction</div>
+            </div>
+            <div class="range-wrap">
+              <input type="range" min="0" max="50" value="25" step="1" id="s-commission" oninput="updateCommission(this.value)" style="width:100px">
+              <span class="range-val" id="commission-val">25%</span>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Author share</div><div class="setting-desc">Authors receive the remaining <span id="author-pct">75%</span> per transaction</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DANGER ZONE -->
       <div class="settings-section" id="ss-danger">
         <div class="settings-title">Danger Zone</div>
         <div class="settings-desc">Irreversible actions. Proceed with caution.</div>
@@ -756,20 +1056,25 @@ main{flex:1;display:flex;overflow:hidden}
             <div><div class="setting-label">Wipe memory graph</div><div class="setting-desc">Removes all episodic memory and facts</div></div>
             <button class="btn btn-danger" onclick="confirmDanger('wipe_memory','Wipe memory')">Wipe</button>
           </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Delete account</div><div class="setting-desc">Permanently remove your account and all data</div></div>
+            <button class="btn btn-danger" onclick="confirmDanger('delete_account','Delete my account')">Delete</button>
+          </div>
         </div>
       </div>
 
     </div>
   </div>
 </div>
-
 </main>
 
-<!-- MODAL: New Project -->
+</div><!-- /app -->
+
+<!-- MODALS -->
 <div class="modal-overlay" id="modal-new-project" style="display:none" onclick="overlayClose(event,'modal-new-project')">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-head">
-      <span class="modal-title">New project</span>
+      <span class="modal-title"><i class="ti ti-folder-plus"></i> New project</span>
       <button class="modal-close" onclick="closeModal('modal-new-project')"><i class="ti ti-x"></i></button>
     </div>
     <div class="modal-body">
@@ -806,16 +1111,15 @@ main{flex:1;display:flex;overflow:hidden}
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-new-project')">Cancel</button>
-      <button class="btn btn-primary" onclick="createProject()"><i class="ti ti-plus"></i> Create project</button>
+      <button class="btn btn-primary" onclick="createProject()"><i class="ti ti-plus"></i> Create</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL: Publish model -->
 <div class="modal-overlay" id="modal-publish" style="display:none" onclick="overlayClose(event,'modal-publish')">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-head">
-      <span class="modal-title">Publish to Marketplace</span>
+      <span class="modal-title"><i class="ti ti-upload"></i> Publish to Marketplace</span>
       <button class="modal-close" onclick="closeModal('modal-publish')"><i class="ti ti-x"></i></button>
     </div>
     <div class="modal-body">
@@ -868,7 +1172,6 @@ main{flex:1;display:flex;overflow:hidden}
   </div>
 </div>
 
-<!-- MODAL: Model detail -->
 <div class="modal-overlay" id="modal-model-detail" style="display:none" onclick="overlayClose(event,'modal-model-detail')">
   <div class="modal" style="width:500px" onclick="event.stopPropagation()">
     <div class="modal-head">
@@ -883,7 +1186,6 @@ main{flex:1;display:flex;overflow:hidden}
   </div>
 </div>
 
-<!-- MODAL: Confirm danger -->
 <div class="modal-overlay" id="modal-danger" style="display:none" onclick="overlayClose(event,'modal-danger')">
   <div class="modal" style="width:360px" onclick="event.stopPropagation()">
     <div class="modal-head">
@@ -895,181 +1197,362 @@ main{flex:1;display:flex;overflow:hidden}
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-danger')">Cancel</button>
-      <button class="btn btn-danger" onclick="executeDanger()" id="danger-confirm-btn">Confirm</button>
+      <button class="btn btn-danger" onclick="executeDanger()">Confirm</button>
     </div>
   </div>
 </div>
 
-<!-- TOAST CONTAINER -->
-<div class="toast-wrap" id="toast-wrap"></div>
+<div id="toast"></div>
 
 <script>
+// ── AUTH STATE (localStorage) ──
+const AUTH_KEY = 'genesis_auth_v1';
+const USERS_KEY = 'genesis_users_v1';
 const API = '/api';
 
-// ── STATE ──
+let currentUser = null;
 let conversationId = null;
 let mktData = [];
 let mktFilter = 'all';
 let mktSort = 'rating';
 let mktQuery = '';
 let regTask = 'all';
-let projects = JSON.parse(localStorage.getItem('genesis_projects') || '[]');
+let projects = [];
 let settings = JSON.parse(localStorage.getItem('genesis_settings') || JSON.stringify({
-  commission: 25, minPrice: 0.001, payoutThreshold: 10,
-  registryPath: './registry', modelsPath: './models', marketplacePath: './marketplace',
-  defaultModel: 'xgboost', testSize: 0.2, cvFolds: 5, maxRows: 0
+  commission: 25, autoRegister: true, streamResponses: true
 }));
 let currentModel = null;
 let dangerAction = null;
 
-// ── NAV ──
-const PANELS = ['dashboard','projects','agent','marketplace','registry','memory','settings'];
-function show(id) {
-  PANELS.forEach(p => {
-    document.getElementById('p-'+p).classList.toggle('active', p===id);
-    const nb = document.getElementById('nb-'+p);
-    if (nb) nb.classList.toggle('active', p===id);
-  });
-  if (id==='dashboard') // Load projects from backend
-fetch(API+'/projects').then(r=>r.json()).then(d=>{
-  if (d.projects && d.projects.length) {
-    projects = d.projects;
-    localStorage.setItem('genesis_projects', JSON.stringify(projects));
-    renderProjects();
-    document.getElementById('d-projects').textContent = projects.length;
+// ── PIPELINE BUILDER STATE ──
+const PBLOCKS = {
+  load_data:{name:'Load CSV',icon:'📊'}, profile:{name:'Profile',icon:'🔍'},
+  clean:{name:'Clean',icon:'🧹'}, train_xgboost:{name:'XGBoost',icon:'🤖'},
+  train_xgboost_reg:{name:'XGBoost Reg',icon:'🤖'}, train_random_forest:{name:'Rand Forest',icon:'🌲'},
+  train_logistic:{name:'Logistic',icon:'📐'}, evaluate:{name:'Evaluate',icon:'📊'},
+  evaluate_reg:{name:'Eval Reg',icon:'📊'}, save:{name:'Save',icon:'💾'},
+  tokenize:{name:'Tokenize',icon:'🔤'}, embedding:{name:'Embeddings',icon:'🧮'},
+  scale:{name:'Scale',icon:'📏'}, encode:{name:'Encode',icon:'🏷️'},
+  feature_select:{name:'Feature Select',icon:'🎯'},
+  train_svm:{name:'SVM',icon:'🎯'}, train_knn:{name:'KNN',icon:'👥'},
+  train_mlp:{name:'Neural Net',icon:'🧠'},
+  cross_validate:{name:'Cross-Validate',icon:'🔁'}, confusion_matrix:{name:'Confusion Matrix',icon:'🎯'}
+};
+let pipeline = [];
+
+// ── USER STORE (client-side demo auth) ──
+function getUsers() {
+  return JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
+}
+function saveUsers(users) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+function hashPassword(pw) {
+  // Simple hash for demo — in production use bcrypt on server
+  let h = 0;
+  for (let i = 0; i < pw.length; i++) {
+    h = (Math.imul(31, h) + pw.charCodeAt(i)) | 0;
   }
-}).catch(()=>{});
-loadDashboard();
-  if (id==='agent') loadConversations();
-  if (id==='marketplace') loadMarketplace();
-  if (id==='registry') loadRegistry();
-  if (id==='memory') loadMemory();
-  if (id==='projects') renderProjects();
-  if (id==='settings') loadSettingsUI();
+  return h.toString(36);
+}
+
+// ── AUTH FUNCTIONS ──
+function switchAuthTab(tab) {
+  document.getElementById('form-login').style.display = tab === 'login' ? '' : 'none';
+  document.getElementById('form-register').style.display = tab === 'register' ? '' : 'none';
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+  document.getElementById('login-err').textContent = '';
+  document.getElementById('register-err').textContent = '';
+}
+
+function doLogin() {
+  const email = document.getElementById('l-email').value.trim().toLowerCase();
+  const pw = document.getElementById('l-password').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  if (!email || !pw) { errEl.textContent = 'Please fill in all fields'; return; }
+  const users = getUsers();
+  const user = users.find(u => u.email === email);
+  if (!user || user.passwordHash !== hashPassword(pw)) {
+    errEl.textContent = 'Incorrect email or password';
+    return;
+  }
+  loginSuccess(user);
+}
+
+function doRegister() {
+  const name = document.getElementById('r-name').value.trim();
+  const email = document.getElementById('r-email').value.trim().toLowerCase();
+  const pw = document.getElementById('r-password').value;
+  const errEl = document.getElementById('register-err');
+  errEl.textContent = '';
+  if (!name || !email || !pw) { errEl.textContent = 'Please fill in all fields'; return; }
+  if (pw.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; return; }
+  if (!/\S+@\S+\.\S+/.test(email)) { errEl.textContent = 'Invalid email address'; return; }
+  const users = getUsers();
+  if (users.find(u => u.email === email)) { errEl.textContent = 'Account with this email already exists'; return; }
+  const user = { id: 'u_' + Date.now(), name, email, passwordHash: hashPassword(pw), createdAt: new Date().toISOString() };
+  users.push(user);
+  saveUsers(users);
+  loginSuccess(user);
+}
+
+function loginSuccess(user) {
+  currentUser = user;
+  localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+  document.getElementById('auth-screen').style.display = 'none';
+  const app = document.getElementById('app');
+  app.style.display = 'flex';
+  app.style.flex = '1';
+  app.style.overflow = 'hidden';
+  initApp();
+}
+
+function doLogout() {
+  localStorage.removeItem(AUTH_KEY);
+  currentUser = null;
+  closeUserMenu();
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('l-password').value = '';
+  document.getElementById('l-email').value = '';
+  document.getElementById('login-err').textContent = '';
+}
+
+function checkAuth() {
+  const saved = localStorage.getItem(AUTH_KEY);
+  if (saved) {
+    try {
+      const user = JSON.parse(saved);
+      // Verify user still exists
+      const users = getUsers();
+      const found = users.find(u => u.id === user.id);
+      if (found) { loginSuccess(found); return; }
+    } catch {}
+  }
+  // Show auth screen
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+function changePassword() {
+  const cur = document.getElementById('s-cur-pass').value;
+  const nw = document.getElementById('s-new-pass').value;
+  if (!cur || !nw) { toast('Fill in both password fields', 'error'); return; }
+  if (nw.length < 6) { toast('New password must be at least 6 characters', 'error'); return; }
+  const users = getUsers();
+  const user = users.find(u => u.id === currentUser.id);
+  if (!user || user.passwordHash !== hashPassword(cur)) {
+    toast('Current password is incorrect', 'error'); return;
+  }
+  user.passwordHash = hashPassword(nw);
+  saveUsers(users);
+  currentUser = user;
+  localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+  document.getElementById('s-cur-pass').value = '';
+  document.getElementById('s-new-pass').value = '';
+  toast('Password updated', 'success');
+}
+
+// ── USER MENU ──
+function toggleUserMenu() {
+  document.getElementById('user-menu').classList.toggle('open');
+}
+function closeUserMenu() {
+  document.getElementById('user-menu').classList.remove('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#nav-avatar') && !e.target.closest('#user-menu')) closeUserMenu();
+  if (!e.target.closest('.dropdown')) {
+    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+  }
+});
+
+// ── INIT APP ──
+function initApp() {
+  // Set user info in UI
+  const initial = (currentUser.name || currentUser.email || 'U')[0].toUpperCase();
+  document.getElementById('nav-avatar').textContent = initial;
+  document.getElementById('p-avatar-letter').textContent = initial;
+  document.getElementById('p-display-name').textContent = currentUser.name || '';
+  document.getElementById('p-display-email').textContent = currentUser.email || '';
+  document.getElementById('um-name').textContent = currentUser.name || currentUser.email;
+  document.getElementById('s-display-name').value = currentUser.name || '';
+  document.getElementById('s-email').value = currentUser.email || '';
+
+  // Load user projects from localStorage
+  const userProjKey = 'genesis_projects_' + currentUser.id;
+  projects = JSON.parse(localStorage.getItem(userProjKey) || '[]');
+
+  checkHealth();
+  loadDashboard();
+  loadConversations();
+  loadSettingsUI();
+}
+
+// ── PANEL NAVIGATION ──
+function show(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + id)?.classList.add('active');
+  document.getElementById('nb-' + id)?.classList.add('active');
+  if (id === 'dashboard') loadDashboard();
+  if (id === 'agent') loadConversations();
+  if (id === 'marketplace') loadMarketplace();
+  if (id === 'store') loadStore();
+  if (id === 'registry') loadRegistry();
+  if (id === 'memory') loadMemory();
+  if (id === 'projects') renderProjects();
+  if (id === 'builder') { /* Pipeline builder is already rendered */ }
+  if (id === 'settings') { loadApiKeys(); loadUsageLog(); }
 }
 
 // ── TOAST ──
-function toast(msg, type='info') {
-  const w = document.getElementById('toast-wrap');
-  const t = document.createElement('div');
-  const icons = {success:'ti-check',error:'ti-x',info:'ti-info-circle'};
-  t.className = `toast toast-${type}`;
-  t.innerHTML = `<i class="ti ${icons[type]||'ti-info-circle'}"></i>${msg}`;
-  w.appendChild(t);
-  setTimeout(() => t.remove(), 3200);
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (type !== 'info' ? ' ' + type : '');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = '', 2800);
 }
 
-// ── HEALTH ──
+// ── HEALTH CHECK ──
 async function checkHealth() {
   try {
-    const r = await fetch(API.replace('/api','')+'/health');
+    const r = await fetch('/health');
     const d = await r.json();
-    const badge = document.getElementById('health-badge');
-    badge.className = 'badge badge-green';
-    badge.textContent = '● Online v'+d.version;
+    const dot = document.getElementById('status-dot');
+    const txt = document.getElementById('status-txt');
+    if (d.status === 'healthy') {
+      dot.className = 'status-dot';
+      txt.textContent = 'Connected · v' + (d.version || '—');
+    } else {
+      dot.className = 'status-dot offline';
+      txt.textContent = 'Backend error';
+    }
   } catch {
-    const badge = document.getElementById('health-badge');
-    badge.className = 'badge badge-red';
-    badge.textContent = '● Offline';
+    document.getElementById('status-dot').className = 'status-dot offline';
+    document.getElementById('status-txt').textContent = 'Backend offline';
   }
 }
 
 // ── DASHBOARD ──
 async function loadDashboard() {
-  checkHealth();
   try {
-    const [regStats, mktStats] = await Promise.all([
-      fetch(API+'/registry/stats').then(r=>r.json()).catch(()=>({})),
-      fetch(API+'/marketplace/stats').then(r=>r.json()).catch(()=>({}))
+    const [reg, mkt, convos, facts] = await Promise.all([
+      fetch(API + '/registry/stats').then(r => r.json()).catch(() => ({})),
+      fetch(API + '/marketplace/stats').then(r => r.json()).catch(() => ({})),
+      fetch(API + '/agent/conversations').then(r => r.json()).catch(() => ({ conversations: [] })),
+      fetch(API + '/memory/facts').then(r => r.json()).catch(() => ({ facts: [] }))
     ]);
-
-    document.getElementById('d-models').textContent = regStats.total_models ?? '0';
-    document.getElementById('d-listings').textContent = mktStats.total_listings ?? '0';
-    document.getElementById('d-calls-sub').textContent = (mktStats.total_calls??0)+' total calls';
-    document.getElementById('d-revenue').textContent = '$'+(mktStats.total_platform_fees??0).toFixed(2);
-    document.getElementById('d-commission-sub').textContent = settings.commission+'% commission';
-    document.getElementById('d-projects').textContent = projects.length;
+    document.getElementById('d-models').textContent = reg.total_models ?? '—';
+    document.getElementById('d-listings').textContent = mkt.total_listings ?? '—';
+    document.getElementById('d-convos').textContent = (convos.conversations || []).length;
+    document.getElementById('d-facts').textContent = (facts.facts || []).length;
 
     // Recent models
-    const models = await fetch(API+'/registry/models').then(r=>r.json()).catch(()=>({models:[]}));
-    const recent = (models.models||[]).slice(0,4);
-    const icons = {xgboost:'🔥',random_forest:'🌲',logistic:'📐',linear:'📏'};
-    document.getElementById('d-recent-models').innerHTML = recent.length ? recent.map(m=>`
-      <div class="model-row">
-        <div class="model-icon ic-purple">${icons[m.model_type]||'🤖'}</div>
-        <div style="flex:1;overflow:hidden">
-          <div class="model-name">${m.model_id.slice(0,38)}</div>
-          <div class="model-meta">${m.task} · ${m.model_type}</div>
-        </div>
-        <span class="metric-chip">${Object.values(m.metrics||{})[0]?.toFixed?.(3)||'—'}</span>
-      </div>`).join('') : '<div style="padding:16px 0;text-align:center;font-size:12px;color:var(--txt3)">No models trained yet</div>';
+    const modelsResp = await fetch(API + '/registry/models').then(r => r.json()).catch(() => ({ models: [] }));
+    const models = (modelsResp.models || []).slice(0, 5);
+    const taskIcons = { binary_classification: '🎯', regression: '📈', multiclass: '🔢' };
+    document.getElementById('d-recent-models').innerHTML = models.length
+      ? models.map(m => `
+          <div class="model-row">
+            <div class="model-icon ic-purple">${taskIcons[m.task] || '🤖'}</div>
+            <div><div class="model-name">${m.model_id.slice(0, 36)}</div><div class="model-meta">${m.task} · ${m.model_type}</div></div>
+            <span class="metric-chip">${Object.values(m.metrics || {})[0]?.toFixed?.(3) || '—'}</span>
+          </div>`).join('')
+      : '<div style="padding:16px 0;text-align:center;font-size:12px;color:var(--txt3)">No models trained yet</div>';
 
-    // Activity bars (mock – would come from real API)
-    const acts=[2,1,4,3,6,2,5];
-    const chart=document.getElementById('activity-chart');
-    chart.innerHTML='';
-    acts.forEach(v=>{
-      const b=document.createElement('div');
-      b.className='bar';
-      b.style.height=(v/6*40+3)+'px';
-      b.style.background=v===Math.max(...acts)?'var(--accent)':'rgba(124,109,250,.25)';
+    // Activity bars (mock)
+    const acts = [2, 1, 4, 3, 6, 2, 5];
+    const chart = document.getElementById('activity-chart');
+    chart.innerHTML = '';
+    acts.forEach(v => {
+      const b = document.createElement('div');
+      b.className = 'bar';
+      b.style.height = (v / 6 * 40 + 3) + 'px';
+      b.style.background = v === Math.max(...acts) ? 'var(--accent)' : 'rgba(124,109,250,.25)';
       chart.appendChild(b);
     });
 
-    // Earnings breakdown
+    // Earnings
+    const mktStats = mkt;
     document.getElementById('d-earnings-row').innerHTML = `
       <div style="flex:1;padding:8px 12px;background:var(--card2);border-radius:7px;border:1px solid var(--brd)">
         <div style="font-size:10px;color:var(--txt3)">Author earnings</div>
-        <div style="font-size:14px;font-weight:600;color:var(--success)">$${(mktStats.total_author_earnings??0).toFixed(2)}</div>
+        <div style="font-size:14px;font-weight:600;color:var(--success)">$${(mktStats.total_author_earnings ?? 0).toFixed(2)}</div>
       </div>
       <div style="flex:1;padding:8px 12px;background:var(--card2);border-radius:7px;border:1px solid var(--brd)">
         <div style="font-size:10px;color:var(--txt3)">Platform fees</div>
-        <div style="font-size:14px;font-weight:600;color:var(--accent)">$${(mktStats.total_platform_fees??0).toFixed(2)}</div>
+        <div style="font-size:14px;font-weight:600;color:var(--accent)">$${(mktStats.total_platform_fees ?? 0).toFixed(2)}</div>
       </div>
       <div style="flex:1;padding:8px 12px;background:var(--card2);border-radius:7px;border:1px solid var(--brd)">
         <div style="font-size:10px;color:var(--txt3)">Transactions</div>
-        <div style="font-size:14px;font-weight:600;color:var(--txt)">${mktStats.total_transactions??0}</div>
+        <div style="font-size:14px;font-weight:600;color:var(--txt)">${mktStats.total_transactions ?? 0}</div>
       </div>`;
 
-    // Platform stats
     const byTask = mktStats.by_task || {};
     document.getElementById('d-platform-stats').innerHTML = Object.entries(byTask).length
-      ? Object.entries(byTask).map(([k,v])=>`
+      ? Object.entries(byTask).map(([k, v]) => `
           <div style="padding:12px 16px;border-right:1px solid var(--brd);text-align:center">
             <div style="font-size:11px;color:var(--txt3);margin-bottom:4px">${k}</div>
             <div style="font-size:18px;font-weight:600;color:var(--txt)">${v}</div>
           </div>`).join('')
       : '<div style="padding:12px 16px;color:var(--txt3);font-size:12px">No listings yet</div>';
-
-  } catch(e) { console.error(e); }
+  } catch (e) { console.error(e); }
 }
 
 // ── AGENT ──
 async function loadConversations() {
   try {
-    const r = await fetch(API+'/agent/conversations');
+    const r = await fetch(API + '/agent/conversations');
     const d = await r.json();
     const list = document.getElementById('convo-list');
-    if (!d.conversations?.length) return;
-    list.innerHTML = d.conversations.map(c=>`
-      <div class="convo-item${c.id===conversationId?' active':''}" onclick="loadChat('${c.id}')">
-        <div style="display:flex;justify-content:space-between;align-items:center"><div class="convo-title" style="flex:1">${c.title||'Untitled'}</div><div class="dropdown" style="flex-shrink:0"><button class="project-menu" onclick="event.stopPropagation();toggleDropdown('chat-dd-${c.id}')" style="width:22px;height:22px"><i class="ti ti-dots-vertical" style="font-size:12px"></i></button><div class="dropdown-menu" id="chat-dd-${c.id}"><div class="dropdown-item" onclick="renameChat('${c.id}')"><i class="ti ti-edit"></i>Rename</div><div class="dropdown-item danger" onclick="deleteChat('${c.id}')"><i class="ti ti-trash"></i>Delete</div></div></div></div>
-        <div class="convo-time">${c.date||''}</div>
+    if (!d.conversations?.length) {
+      list.innerHTML = '<div style="padding:16px 14px;font-size:12px;color:var(--txt3)">No conversations yet</div>';
+      return;
+    }
+    list.innerHTML = d.conversations.map(c => `
+      <div class="convo-item${c.id === conversationId ? ' active' : ''}" onclick="loadChat('${c.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="convo-title" style="flex:1">${escHtml(c.title || 'Untitled')}</div>
+          <div class="dropdown" style="flex-shrink:0">
+            <button class="project-menu" style="opacity:1" onclick="event.stopPropagation();toggleDropdown('chat-dd-${c.id}')">
+              <i class="ti ti-dots-vertical" style="font-size:12px"></i>
+            </button>
+            <div class="dropdown-menu" id="chat-dd-${c.id}">
+              <div class="dropdown-item" onclick="event.stopPropagation();renameChat('${c.id}')"><i class="ti ti-edit"></i> Rename</div>
+              <div class="dropdown-item danger" onclick="event.stopPropagation();deleteChat('${c.id}')"><i class="ti ti-trash"></i> Delete</div>
+            </div>
+          </div>
+        </div>
+        <div class="convo-time">${c.updated_at ? c.updated_at.slice(0, 16).replace('T', ' ') : ''}</div>
       </div>`).join('');
   } catch {}
 }
 
 async function loadChat(id) {
   conversationId = id;
-  document.querySelectorAll('.convo-item').forEach(el=>el.classList.toggle('active', el.onclick?.toString().includes(`'${id}'`)));
+  document.querySelectorAll('.convo-item').forEach(el => {
+    el.classList.remove('active');
+  });
+  // Find and activate the correct conversation item
+  const items = document.querySelectorAll('.convo-item');
+  items.forEach(item => {
+    const onclick = item.getAttribute('onclick');
+    if (onclick && onclick.includes(`'${id}'`)) {
+      item.classList.add('active');
+    }
+  });
+  document.getElementById('chat-empty')?.remove();
   try {
-    const r = await fetch(API+'/agent/chat/'+id);
+    const r = await fetch(API + '/agent/chat/' + id);
     const d = await r.json();
     const msgs = document.getElementById('chat-messages');
-    msgs.innerHTML = (d.messages||[]).map(m=>`
-      <div class="msg${m.role==='user'?' user':''}">
-        <div class="avatar ${m.role==='user'?'avatar-user':'avatar-ai'}">${m.role==='user'?'U':'G'}</div>
-        <div class="bubble ${m.role==='user'?'bubble-user':'bubble-ai'}">${escHtml(m.content||'')}</div>
+    msgs.innerHTML = (d.messages || []).map(m => `
+      <div class="msg${m.role === 'user' ? ' user' : ''}">
+        <div class="avatar ${m.role === 'user' ? 'avatar-user' : 'avatar-ai'}">${m.role === 'user' ? (currentUser?.name?.[0]?.toUpperCase() || 'U') : 'G'}</div>
+        <div class="bubble ${m.role === 'user' ? 'bubble-user' : 'bubble-ai'}">${escHtml(m.content || '')}</div>
       </div>`).join('');
     msgs.scrollTop = msgs.scrollHeight;
   } catch {}
@@ -1077,19 +1560,13 @@ async function loadChat(id) {
 
 function newConversation() {
   conversationId = 'chat-' + Date.now();
-  document.getElementById('chat-messages').innerHTML = '<div class="msg"><div class="avatar avatar-ai">G</div><div class="bubble bubble-ai"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div></div>';
-  document.querySelectorAll('.convo-item').forEach(el=>el.classList.remove('active'));
-  // Показать приветствие от агента при новом чате
-  fetch(API+'/agent/message',{
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({message: 'привет', conversation_id: conversationId})
-  }).then(r=>r.json()).then(d=>{
-    addBubble(d.response||'Привет!', false);
-  });
-  document.getElementById('chat-messages').innerHTML = `
-    <div class="msg"><div class="avatar avatar-ai">G</div>
-    <div class="bubble bubble-ai"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div></div>`;
-  document.querySelectorAll('.convo-item').forEach(el=>el.classList.remove('active'));
+  const msgs = document.getElementById('chat-messages');
+  msgs.innerHTML = `<div class="chat-empty" id="chat-empty">
+    <i class="ti ti-message-chatbot"></i>
+    <div class="chat-empty-title">New conversation</div>
+    <div class="chat-empty-sub">Ask anything about ML, datasets, or models</div>
+  </div>`;
+  document.querySelectorAll('.convo-item').forEach(el => el.classList.remove('active'));
 }
 
 let sending = false;
@@ -1099,27 +1576,27 @@ async function sendMsg() {
   const msg = inp.value.trim();
   if (!msg) return;
   sending = true;
-  inp.value = ''; inp.style.height='';
+  inp.value = ''; inp.style.height = '';
   document.getElementById('send-btn').disabled = true;
+  document.getElementById('chat-empty')?.remove();
   addBubble(msg, true);
 
-  // Typing indicator
-  const typingId = 'typing-'+Date.now();
+  const typingId = 'typing-' + Date.now();
   const msgs = document.getElementById('chat-messages');
   msgs.innerHTML += `<div class="msg" id="${typingId}"><div class="avatar avatar-ai">G</div><div class="bubble bubble-ai"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div></div>`;
   msgs.scrollTop = msgs.scrollHeight;
 
   try {
-    const r = await fetch(API+'/agent/message',{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({message: msg, conversation_id: conversationId || 'new-'+Date.now()})
+    const r = await fetch(API + '/agent/message', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, conversation_id: conversationId || ('chat-' + Date.now()) })
     });
     const d = await r.json();
     conversationId = d.conversation_id;
     document.getElementById(typingId)?.remove();
-    addBubble(d.response||'No response', false, d.data);
+    addBubble(d.response || 'No response', false, d.data);
     loadConversations();
-  } catch(e) {
+  } catch (e) {
     document.getElementById(typingId)?.remove();
     addBubble('Connection error. Is the backend running?', false);
   }
@@ -1128,37 +1605,150 @@ async function sendMsg() {
 }
 
 function addBubble(text, isUser, data) {
+  // Автооткрытие модального билдера если агент предложил пайплайн
+  if (!isUser && data && data.builder_link) {
+    const pipelineStr = (data.pipeline || []).join(",");
+    if (pipelineStr) {
+      setTimeout(() => openBuilderModal(pipelineStr), 500);
+    }
+  }
   const wrap = document.getElementById('chat-messages');
   const d = document.createElement('div');
   d.className = 'msg' + (isUser ? ' user' : '');
+  const initial = isUser ? (currentUser?.name?.[0]?.toUpperCase() || 'U') : 'G';
   let extra = '';
   if (!isUser && data && typeof data === 'object' && Object.keys(data).length) {
-    const rows = Object.entries(data).slice(0,8).map(([k,v])=>`
-      <div class="dc-row"><span>${k}</span><span class="dc-val">${typeof v==='number'?v.toFixed(4):v}</span></div>`).join('');
+    const rows = Object.entries(data).slice(0, 8).map(([k, v]) => `
+      <div class="dc-row"><span>${escHtml(String(k))}</span><span class="dc-val">${typeof v === 'number' ? v.toFixed(4) : escHtml(String(v))}</span></div>`).join('');
     extra = `<div class="data-card"><div class="dc-title">Result data</div>${rows}</div>`;
   }
-  d.innerHTML = `<div class="avatar ${isUser?'avatar-user':'avatar-ai'}">${isUser?'U':'G'}</div>
-    <div class="bubble ${isUser?'bubble-user':'bubble-ai'}">${escHtml(text)}${extra}</div>`;
+  d.innerHTML = `<div class="avatar ${isUser ? 'avatar-user' : 'avatar-ai'}">${initial}</div>
+    <div class="bubble ${isUser ? 'bubble-user' : 'bubble-ai'}">${escHtml(text)}${extra}</div>`;
   wrap.appendChild(d);
   wrap.scrollTop = wrap.scrollHeight;
 }
 
-async function renameChat(id){const name=prompt('New name:');if(name){await fetch(API+'/agent/chat/'+id+'/rename',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:name})}).catch(()=>{});loadConversations();}}
-async function deleteChat(id){if(!confirm('Delete this conversation?'))return;await fetch(API+'/agent/chat/'+id,{method:'DELETE'}).catch(()=>{});if(conversationId===id){conversationId=null;document.getElementById('chat-messages').innerHTML='';}loadConversations();}
+async function renameChat(id) {
+  const name = prompt('New name:');
+  if (name) {
+    await fetch(API + '/agent/chat/' + id + '/rename', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: name }) }).catch(() => {});
+    loadConversations();
+  }
+}
+async function deleteChat(id) {
+  if (!confirm('Delete this conversation?')) return;
+  await fetch(API + '/agent/chat/' + id, { method: 'DELETE' }).catch(() => {});
+  if (conversationId === id) { conversationId = null; document.getElementById('chat-messages').innerHTML = ''; }
+  loadConversations();
+}
+
 function chipSend(text) {
   document.getElementById('chat-in').value = text;
   sendMsg();
 }
-
 function autoResize(el) {
   el.style.height = '';
   el.style.height = Math.min(el.scrollHeight, 100) + 'px';
 }
 
+// ── AGENT STORE ──
+let storeData = [];
+let storeSort = "rating";
+
+async function loadStore() {
+  try {
+    const r = await fetch(API + "/agents");
+    const d = await r.json();
+    storeData = d.agents || [];
+    document.getElementById("store-count").textContent = storeData.length + " agents";
+    renderStore();
+  } catch { toast("Could not load agent store", "error"); }
+}
+
+function renderStore() {
+  let data = [...storeData];
+  if (storeSort === "rating") data.sort((a,b) => (b.rating||0) - (a.rating||0));
+  else if (storeSort === "new") data.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  else if (storeSort === "usage") data.sort((a,b) => (b.usage_count||0) - (a.usage_count||0));
+  else if (storeSort === "price_asc") data.sort((a,b) => (a.price_per_call||0) - (b.price_per_call||0));
+
+  const grid = document.getElementById("store-grid");
+  if (!data.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--txt3)"><i class="ti ti-building-store" style="font-size:36px;display:block;margin-bottom:8px;opacity:.3"></i><div class="empty-title">No agents yet</div><div class="empty-sub">Be the first to create an AI agent!</div></div>`;
+    return;
+  }
+  const modelNames = {"groq-70b":"Llama 70B","groq-109b":"Llama 109B","qwen-72b":"Qwen 72B","local-7b":"Qwen 7B"};
+  const toolIcons = {"web_search":"🌐","dataset_search":"📊","code_generation":"💻","model_training":"🤖","research":"🔍"};
+  grid.innerHTML = data.map(a => {
+    const stars = "★".repeat(Math.round(a.rating||0)) + "☆".repeat(5-Math.round(a.rating||0));
+    const tools = (a.tools||[]).map(t => toolIcons[t]||"🔧").join(" ");
+    return `<div class="mkt-card">
+      <div class="mkt-card-head">
+        <div class="mkt-icon">🤖</div>
+        <div style="display:flex;gap:6px">
+          <span class="mkt-price">${a.published ? "$"+a.price_per_call.toFixed(3)+"/call" : "Draft"}</span>
+        <button class="btn btn-primary" style="height:24px;font-size:10px;padding:0 8px" onclick="event.stopPropagation();useAgent('${a.id}')" title="Chat with this agent"><i class="ti ti-message-chatbot"></i> Use</button>
+        </div>
+      </div>
+      <div class="mkt-title">${escHtml(a.name)}</div>
+      <div class="mkt-desc">${escHtml(a.description||"No description")}</div>
+      <div class="mkt-meta">
+        <span class="stars">${stars}</span>
+        <span class="badge badge-purple" style="font-size:9px">${modelNames[a.model]||a.model}</span>
+        <span style="font-size:10px;color:var(--txt3)">${tools}</span>
+      </div>
+      <div class="mkt-footer">
+        <span>👤 ${escHtml(a.author)}</span>
+        <span>📞 ${a.usage_count||0} calls</span>
+        ${a.published ? "" : '<span class="badge badge-amber">Draft</span>'}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function filterStore(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll("#store-grid .mkt-card").forEach(c => {
+    c.style.display = c.innerText.toLowerCase().includes(q) ? "" : "none";
+  });
+}
+
+async function useAgent(agentId) {
+  const agent = storeData.find(a => a.id === agentId);
+  if (!agent) return;
+  localStorage.setItem("genesis_selected_agent", JSON.stringify(agent));
+  fetch("/api/agent/select-model", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({model: agent.model, agent_name: agent.name, system_prompt: agent.system_prompt})}).catch(()=>{});
+  show("agent");
+  toast("Model: " + agent.model, "success");
+}
+
+async function createAgent() {
+  const name = document.getElementById("ca-name").value.trim();
+  const prompt = document.getElementById("ca-prompt").value.trim();
+  if (!name || !prompt) { toast("Name and System Prompt are required", "error"); return; }
+  const tools = [...document.querySelectorAll("#ca-tools input:checked")].map(c => c.value);
+  try {
+    const r = await fetch(API + "/agents/create", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        name, system_prompt: prompt,
+        description: document.getElementById("ca-desc").value,
+        model: document.getElementById("ca-model").value,
+        temperature: parseFloat(document.getElementById("ca-temp").value)||0.5,
+        tools, author: currentUser?.name||"anonymous"
+      })
+    });
+    const d = await r.json();
+    closeModal("modal-create-agent");
+    toast("Agent created!", "success");
+    loadStore();
+  } catch { toast("Could not create agent", "error"); }
+}
+
 // ── MARKETPLACE ──
 async function loadMarketplace() {
   try {
-    const r = await fetch(API+'/marketplace/listings');
+    const r = await fetch(API + '/marketplace/listings');
     const d = await r.json();
     mktData = d.listings || [];
     document.getElementById('mkt-count').textContent = mktData.length + ' listings';
@@ -1168,53 +1758,35 @@ async function loadMarketplace() {
 
 function renderMkt() {
   let data = [...mktData];
-  // Add local projects to marketplace
-  const localProjects = JSON.parse(localStorage.getItem('genesis_projects')||'[]');
-  localProjects.forEach(p => {
-    if (!data.find(d => d.title === p.name)) {
-      data.push({
-        title: p.name,
-        description: p.desc || 'Local project',
-        task: p.task || 'other',
-        model_type: 'custom',
-        price_per_call: 0.005,
-        total_calls: 0,
-        rating: 0,
-        author: 'You',
-        created_at: p.created,
-        metrics: {},
-        is_local: true
-      });
-    }
-  });
-  if (mktFilter !== 'all') data = data.filter(m=>m.task===mktFilter);
-  if (mktQuery) data = data.filter(m=>(m.title+m.description+m.author).toLowerCase().includes(mktQuery));
-  if (mktSort==='rating') data.sort((a,b)=>(b.rating||0)-(a.rating||0));
-  else if (mktSort==='calls') data.sort((a,b)=>(b.total_calls||0)-(a.total_calls||0));
-  else if (mktSort==='price_asc') data.sort((a,b)=>a.price_per_call-b.price_per_call);
-  else if (mktSort==='new') data.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  if (mktFilter !== 'all') data = data.filter(m => m.task === mktFilter);
+  if (mktQuery) data = data.filter(m => (m.title + m.description + m.author).toLowerCase().includes(mktQuery));
+  if (mktSort === 'rating') data.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  else if (mktSort === 'calls') data.sort((a, b) => (b.total_calls || 0) - (a.total_calls || 0));
+  else if (mktSort === 'price_asc') data.sort((a, b) => a.price_per_call - b.price_per_call);
+  else if (mktSort === 'new') data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-  const taskIcons = {binary_classification:'🎯',regression:'📈',multiclass:'🔢',default:'🤖'};
+  const taskIcons = { binary_classification: '🎯', regression: '📈', multiclass: '🔢', default: '🤖' };
   const grid = document.getElementById('mkt-grid');
   if (!data.length) {
     grid.innerHTML = `<div class="mkt-empty"><i class="ti ti-building-store"></i><div class="empty-title">No listings found</div><div class="empty-sub">Be the first to publish a model</div></div>`;
     return;
   }
-  grid.innerHTML = data.map(m=>{
-    const stars = '★'.repeat(Math.round(m.rating||0))+'☆'.repeat(5-Math.round(m.rating||0));
+  grid.innerHTML = data.map(m => {
+    const stars = '★'.repeat(Math.round(m.rating || 0)) + '☆'.repeat(5 - Math.round(m.rating || 0));
     const com = settings.commission;
-    const authorGet = (m.price_per_call * (1 - com/100)).toFixed(4);
-    return `<div class="mkt-card" onclick="${`showMktDetail(${JSON.stringify(m).replace(/"/g,'&quot;')})`}">
+    const authorGet = (m.price_per_call * (1 - com / 100)).toFixed(4);
+    const escapedData = JSON.stringify(m).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+    return `<div class="mkt-card" onclick='showMktDetail(JSON.parse(&quot;${escapedData}&quot;))'>
       <div class="mkt-card-head">
-        <div class="mkt-icon">${taskIcons[m.task]||taskIcons.default}</div>
+        <div class="mkt-icon">${taskIcons[m.task] || taskIcons.default}</div>
         <span class="mkt-price">$${m.price_per_call.toFixed(4)}/call</span>
       </div>
       <div class="mkt-title">${escHtml(m.title)}</div>
-      <div class="mkt-desc">${escHtml(m.description||'No description')}</div>
+      <div class="mkt-desc">${escHtml(m.description || 'No description')}</div>
       <div class="mkt-meta">
         <span class="stars">${stars}</span>
-        <span class="badge badge-purple" style="font-size:9px">${m.task.replace('_',' ')}</span>
-        <span class="badge badge-gray" style="font-size:9px">${m.model_type||''}</span>
+        <span class="badge badge-purple" style="font-size:9px">${m.task.replace('_', ' ')}</span>
+        <span class="badge badge-gray" style="font-size:9px">${m.model_type || ''}</span>
       </div>
       <div class="mkt-footer">
         <span>📞 ${m.total_calls} calls</span>
@@ -1226,214 +1798,207 @@ function renderMkt() {
 }
 
 function setMktFilter(btn, f) {
-  document.querySelectorAll('.mkt-filters .filter-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.mkt-filters .filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   mktFilter = f;
   renderMkt();
 }
-
-function filterMkt(q) {
-  mktQuery = q.toLowerCase();
-  renderMkt();
-}
+function filterMkt(q) { mktQuery = q.toLowerCase(); renderMkt(); }
 
 function showMktDetail(m) {
-  const metrics = Object.entries(m.metrics||{}).map(([k,v])=>`<div class="dc-row"><span>${k}</span><span class="dc-val">${v}</span></div>`).join('');
+  const metrics = Object.entries(m.metrics || {}).map(([k, v]) => `<div class="dc-row"><span>${escHtml(k)}</span><span class="dc-val">${v}</span></div>`).join('');
   document.getElementById('md-title').textContent = m.title;
   document.getElementById('md-body').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <div style="padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--brd)"><div style="font-size:10px;color:var(--txt3)">Price/call</div><div style="font-size:18px;font-weight:700;color:var(--accent)">$${m.price_per_call}</div></div>
       <div style="padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--brd)"><div style="font-size:10px;color:var(--txt3)">Total calls</div><div style="font-size:18px;font-weight:700;color:var(--txt)">${m.total_calls}</div></div>
     </div>
-    <div class="form-field"><div class="form-label">Description</div><div style="font-size:13px;color:var(--txt2);line-height:1.5">${escHtml(m.description||'—')}</div></div>
+    <div class="form-field"><div class="form-label">Description</div><div style="font-size:13px;color:var(--txt2);line-height:1.5">${escHtml(m.description || '—')}</div></div>
     <div class="form-row">
       <div class="form-field"><div class="form-label">Author</div><div style="font-size:13px;font-weight:500">${escHtml(m.author)}</div></div>
       <div class="form-field"><div class="form-label">Task</div><div style="font-size:13px;font-weight:500">${m.task}</div></div>
     </div>
     ${metrics ? `<div class="form-field"><div class="form-label">Metrics</div><div class="data-card" style="margin-top:0">${metrics}</div></div>` : ''}
     <div style="padding:10px;background:rgba(0,184,122,.07);border:1px solid rgba(0,184,122,.2);border-radius:8px;font-size:12px;color:var(--success)">
-      💰 Author receives <strong>$${(m.price_per_call*(1-settings.commission/100)).toFixed(4)}</strong>/call after ${settings.commission}% platform fee
+      💰 Author receives <strong>$${(m.price_per_call * (1 - settings.commission / 100)).toFixed(4)}</strong>/call after ${settings.commission}% platform fee
     </div>`;
   openModal('modal-model-detail');
 }
-
-function publishFromDetail() {
-  closeModal('modal-model-detail');
-  openModal('modal-publish');
-}
+function publishFromDetail() { closeModal('modal-model-detail'); openModal('modal-publish'); }
 
 // ── REGISTRY ──
 async function loadRegistry() {
   try {
-    const url = regTask==='all' ? API+'/registry/models' : API+'/registry/models?task='+regTask;
+    const url = regTask === 'all' ? API + '/registry/models' : API + '/registry/models?task=' + regTask;
     const r = await fetch(url);
     const d = await r.json();
     const models = d.models || [];
-    document.getElementById('reg-count').textContent = models.length+' models';
+    document.getElementById('reg-count').textContent = models.length + ' models';
     const tbody = document.getElementById('reg-body');
     if (!models.length) {
       tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--txt3)">No models in registry yet</td></tr>';
       return;
     }
-    const taskCls = (t)=>t.includes('regression')?'t-reg':t.includes('multi')?'t-mcls':'t-cls';
-    const taskShort = (t)=>t.replace('_classification','').replace('_',' ');
-    tbody.innerHTML = models.map(m=>{
-      const topVal = Object.values(m.metrics||{})[0]||0;
-      const topKey = Object.keys(m.metrics||{})[0]||'';
+    const taskCls = t => t.includes('regression') ? 't-reg' : t.includes('multi') ? 't-mcls' : 't-cls';
+    const taskShort = t => t.replace('_classification', '').replace('_', ' ');
+    tbody.innerHTML = models.map(m => {
+      const topVal = Object.values(m.metrics || {})[0] || 0;
+      const topKey = Object.keys(m.metrics || {})[0] || '';
       return `<tr onclick="showModelDetail('${m.model_id}')">
-        <td class="mono">${m.model_id.slice(0,40)}${m.model_id.length>40?'…':''}</td>
+        <td class="mono">${m.model_id.slice(0, 40)}${m.model_id.length > 40 ? '…' : ''}</td>
         <td><span class="task-badge ${taskCls(m.task)}">${taskShort(m.task)}</span></td>
         <td>${m.model_type}</td>
         <td>
           <div class="metric-bar-wrap">
-            <span style="font-size:11px;font-weight:500">${topKey}: ${typeof topVal==='number'?topVal.toFixed(3):topVal}</span>
-            <div class="metric-bar"><div class="metric-fill" style="width:${Math.min(topVal,1)*100}%"></div></div>
+            <span style="font-size:11px;font-weight:500">${topKey}: ${typeof topVal === 'number' ? topVal.toFixed(3) : topVal}</span>
+            <div class="metric-bar"><div class="metric-fill" style="width:${Math.min(topVal, 1) * 100}%"></div></div>
           </div>
         </td>
-        <td>${(m.features||[]).length}</td>
-        <td>${m.target||'—'}</td>
-        <td style="color:var(--txt3)">${m.created_at?.slice(0,10)||'—'}</td>
+        <td>${(m.features || []).length}</td>
+        <td>${m.target || '—'}</td>
+        <td style="color:var(--txt3)">${m.created_at?.slice(0, 10) || '—'}</td>
       </tr>`;
     }).join('');
-  } catch(e) { toast('Could not load registry', 'error'); }
+  } catch (e) { toast('Could not load registry', 'error'); }
 }
 
-function setRegTask(t, btn) {
+function setRegTask(t) {
   regTask = t;
-  document.querySelectorAll('.topbar .filter-btn').forEach(b=>b.classList.remove('active'));
-  if(btn) btn.classList.add('active');
   loadRegistry();
 }
 
 async function showModelDetail(id) {
   try {
-    const r = await fetch(API+'/registry/models/'+id);
+    const r = await fetch(API + '/registry/models/' + id);
     const m = await r.json();
-    currentModel = m;
-    document.getElementById('md-title').textContent = id.slice(0,42);
-    const metrics = Object.entries(m.metrics||{}).map(([k,v])=>`<div class="dc-row"><span>${k}</span><span class="dc-val">${typeof v==='number'?v.toFixed(4):v}</span></div>`).join('');
+    const metrics = Object.entries(m.metrics || {}).map(([k, v]) => `<div class="dc-row"><span>${escHtml(k)}</span><span class="dc-val">${typeof v === 'number' ? v.toFixed(4) : v}</span></div>`).join('');
+    const fi = Object.entries(m.feature_importance || {}).slice(0, 5).map(([k, v]) => `<div class="dc-row"><span>${escHtml(k)}</span><span class="dc-val">${typeof v === 'number' ? v.toFixed(3) : v}</span></div>`).join('');
+    document.getElementById('md-title').textContent = m.model_id;
     document.getElementById('md-body').innerHTML = `
       <div class="form-row" style="margin-bottom:12px">
-        <div style="padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--brd)"><div style="font-size:10px;color:var(--txt3)">Task</div><div style="font-size:13px;font-weight:600;color:var(--txt)">${m.task}</div></div>
-        <div style="padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--brd)"><div style="font-size:10px;color:var(--txt3)">Type</div><div style="font-size:13px;font-weight:600;color:var(--txt)">${m.model_type}</div></div>
+        <div style="padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--brd)"><div style="font-size:10px;color:var(--txt3)">Task</div><div style="font-size:13px;font-weight:600">${m.task}</div></div>
+        <div style="padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--brd)"><div style="font-size:10px;color:var(--txt3)">Type</div><div style="font-size:13px;font-weight:600">${m.model_type}</div></div>
       </div>
       ${metrics ? `<div class="form-field"><div class="form-label">Metrics</div><div class="data-card" style="margin-top:0">${metrics}</div></div>` : ''}
-      <div class="form-row">
-        <div class="form-field"><div class="form-label">Target column</div><div style="font-size:13px;font-weight:500">${m.target||'—'}</div></div>
-        <div class="form-field"><div class="form-label">Feature count</div><div style="font-size:13px;font-weight:500">${(m.features||[]).length}</div></div>
-      </div>
-      <div class="form-field"><div class="form-label">Features</div><div style="font-size:11px;color:var(--txt2);font-family:monospace;background:var(--card2);border-radius:6px;padding:8px;border:1px solid var(--brd)">${(m.features||[]).join(', ')||'—'}</div></div>
-      <div class="form-field"><div class="form-label">Created</div><div style="font-size:12px;color:var(--txt2)">${m.created_at||'—'}</div></div>`;
+      ${fi ? `<div class="form-field"><div class="form-label">Top features</div><div class="data-card" style="margin-top:0">${fi}</div></div>` : ''}
+      <div class="form-field"><div class="form-label">Created</div><div style="font-size:12px;color:var(--txt2)">${m.created_at || '—'}</div></div>`;
     openModal('modal-model-detail');
-  } catch { toast('Could not load model detail', 'error'); }
+  } catch { toast('Could not load model details', 'error'); }
 }
 
 // ── MEMORY ──
 async function loadMemory() {
   try {
-    const [fr, pr, gr] = await Promise.all([
-      fetch(API+'/memory/facts').then(r=>r.json()).catch(()=>({facts:[]})),
-      fetch(API+'/memory/persona').then(r=>r.json()).catch(()=>({persona:''})),
-      fetch(API+'/memory/graph').then(r=>r.json()).catch(()=>({nodes:[],edges:[]}))
+    const [factsR, personaR, graphR] = await Promise.all([
+      fetch(API + '/memory/facts').then(r => r.json()),
+      fetch(API + '/memory/persona').then(r => r.json()),
+      fetch(API + '/memory/graph').then(r => r.json())
     ]);
-    const facts = fr.facts || [];
-    document.getElementById('facts-count').textContent = facts.length + ' facts';
-    document.getElementById('facts-list').innerHTML = facts.length ? facts.slice(0,10).map(f=>{
-      const conf = f.confidence||0;
-      const color = conf>0.8?'var(--success)':conf>0.5?'var(--warn)':'var(--danger)';
-      return `<div class="fact-item">
-        <span class="fact-key">${escHtml(f.predicate||'')}</span>
-        <span class="fact-val">${escHtml(String(f.object||''))}</span>
-        <div class="conf-dot" style="background:${color}" title="${conf}"></div>
-      </div>`;
-    }).join('') : '<div style="font-size:11px;color:var(--txt3);padding:8px 0">No facts recorded yet</div>';
+    const facts = factsR.facts || [];
+    document.getElementById('memory-facts').innerHTML = facts.length
+      ? facts.map(f => `<div class="fact-row">
+          <span class="fact-pred">${escHtml(f.predicate)}</span>
+          <span class="fact-val">${escHtml(String(f.object))}</span>
+          <span class="fact-conf">${Math.round((f.confidence || 0) * 100)}%</span>
+        </div>`).join('')
+      : '<div style="font-size:12px;color:var(--txt3)">No facts learned yet. Chat with the agent to build memory.</div>';
 
-    document.getElementById('persona-block').textContent = pr.persona || 'No persona generated yet.';
-    drawKG(gr);
-  } catch {}
+    const persona = personaR.persona || {};
+    document.getElementById('memory-persona').innerHTML = typeof persona === 'string'
+      ? persona
+      : Object.entries(persona).map(([k, v]) => `<div style="margin-bottom:4px"><strong>${escHtml(k)}:</strong> ${escHtml(String(v))}</div>`).join('') || 'No persona data yet.';
+
+    drawKG(graphR);
+  } catch (e) { console.error(e); }
 }
 
 function drawKG(g) {
-  const v = document.getElementById('kg-visual');
-  const svg = document.getElementById('kg-svg');
-  v.querySelectorAll('.node').forEach(n=>n.remove());
-  svg.innerHTML = '';
-  const w = v.clientWidth||260, h = 160;
-  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-
-  const nodes = g.nodes?.slice(0,12) || [];
-  if (!nodes.length) { v.innerHTML += '<svg class="edge-svg" id="kg-svg"></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--txt3)">No graph data</div>'; return; }
-
-  const cx = w/2, cy = h/2, r = Math.min(w,h)*0.35;
-  const positions = nodes.map((n,i)=>{
-    if (i===0) return {x:cx,y:cy};
-    const angle = ((i-1)/(nodes.length-1))*Math.PI*2;
-    return {x:cx+r*Math.cos(angle),y:cy+r*Math.sin(angle)};
+  const canvas = document.getElementById('kg-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth;
+  canvas.height = 200;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const nodes = g.nodes || [];
+  const edges = g.edges || [];
+  if (!nodes.length) {
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--txt3').trim() || '#9C9CA0';
+    ctx.font = '12px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('No graph data yet', canvas.width / 2, canvas.height / 2);
+    return;
+  }
+  const positions = {};
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  nodes.forEach((n, i) => {
+    const angle = (i / nodes.length) * Math.PI * 2;
+    const r = Math.min(cx, cy) * 0.65;
+    positions[n.id || n] = { x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r };
   });
-
-  (g.edges||[]).slice(0,20).forEach(e=>{
-    const si = nodes.findIndex(n=>n.id===e.source);
-    const ti = nodes.findIndex(n=>n.id===e.target);
-    if (si<0||ti<0) return;
-    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-    line.setAttribute('x1',positions[si].x); line.setAttribute('y1',positions[si].y);
-    line.setAttribute('x2',positions[ti].x); line.setAttribute('y2',positions[ti].y);
-    line.setAttribute('stroke','var(--brd2)'); line.setAttribute('stroke-width','1');
-    svg.appendChild(line);
+  ctx.strokeStyle = 'rgba(124,109,250,.3)';
+  ctx.lineWidth = 1;
+  edges.forEach(e => {
+    const a = positions[e.source], b = positions[e.target];
+    if (!a || !b) return;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
   });
-
-  nodes.forEach((n,i)=>{
-    const pos = positions[i];
-    const el = document.createElement('div');
-    const size = i===0?46:32;
-    el.className = 'node '+(i===0?'node-main':'node-fact');
-    el.style.cssText = `width:${size}px;height:${size}px;left:${pos.x-size/2}px;top:${pos.y-size/2}px;font-size:${i===0?10:8}px`;
-    el.textContent = (n.label||n.id||'').slice(0,8);
-    el.title = n.id;
-    v.appendChild(el);
+  nodes.forEach(n => {
+    const p = positions[n.id || n];
+    if (!p) return;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7C6DFA';
+    ctx.fill();
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--txt').trim() || '#18181A';
+    ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText(String(n.label || n.id || n).slice(0, 12), p.x, p.y - 8);
   });
 }
 
 // ── PROJECTS ──
 function renderProjects() {
   const grid = document.getElementById('projects-grid');
-  document.getElementById('projects-count').textContent = projects.length + ' projects';
+  document.getElementById('proj-count').textContent = projects.length + ' project' + (projects.length !== 1 ? 's' : '');
   if (!projects.length) {
-    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><i class="ti ti-folder-open"></i><div class="empty-title">No projects yet</div><div class="empty-sub">Create a project to organize your models and experiments</div></div>`;
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px 0;color:var(--txt3)">
+      <i class="ti ti-folder" style="font-size:32px;display:block;margin-bottom:8px;opacity:.3"></i>
+      <div style="font-size:13px;font-weight:500;margin-bottom:4px;color:var(--txt2)">No projects yet</div>
+      <div style="font-size:12px">Create a project to organize your ML work</div>
+    </div>`;
     return;
   }
-  const taskColors = {binary_classification:'ic-purple',regression:'ic-green',multiclass:'ic-amber',other:'ic-red'};
-  grid.innerHTML = projects.map((p,i)=>`
-    <div class="project-card" onclick="openPublishSettings('${p.name}')" style="cursor:pointer">
-      <div class="project-card-top">
-        <div class="project-avatar ${taskColors[p.task]||'ic-purple'}">${p.icon||'🤖'}</div>
-        <div class="dropdown">
-          <button class="project-menu" onclick="toggleDropdown('dd-${i}')"><i class="ti ti-dots-vertical"></i></button>
-          <div class="dropdown-menu" id="dd-${i}">
-            <div class="dropdown-item" onclick="editProject(${i})"><i class="ti ti-edit"></i>Edit</div>
-            <div class="dropdown-item danger" onclick="deleteProject(${i})"><i class="ti ti-trash"></i>Delete</div>
-          </div>
-        </div>
-      </div>
+  grid.innerHTML = projects.map((p, i) => `
+    <div class="project-card">
+      <div style="font-size:24px;margin-bottom:8px">${p.icon || '🤖'}</div>
       <div class="project-name">${escHtml(p.name)}</div>
-      <div class="project-desc">${escHtml(p.desc||'No description')}</div>
-      <div class="project-stats">
-        <div class="project-stat"><span class="project-stat-val">${p.modelCount||0}</span><span>Models</span></div>
-        <div class="project-stat"><span class="project-stat-val">${p.task?.replace('_',' ')}</span><span>Task</span></div>
-        <div class="project-stat"><span class="project-stat-val">${p.created?.slice(0,10)||'—'}</span><span>Created</span></div>
+      <div class="project-desc">${escHtml(p.desc || '')}</div>
+      <div class="project-tags">
+        <span class="badge badge-purple">${p.task || 'other'}</span>
+        <span class="badge badge-gray">${p.modelCount || 0} models</span>
+      </div>
+      <div class="dropdown">
+        <button class="project-menu" onclick="event.stopPropagation();toggleDropdown('proj-dd-${i}')">
+          <i class="ti ti-dots-vertical" style="font-size:12px"></i>
+        </button>
+        <div class="dropdown-menu" id="proj-dd-${i}">
+          <div class="dropdown-item" onclick="event.stopPropagation();openPublishSettings('${escHtml(p.name)}')"><i class="ti ti-upload"></i> Publish</div>
+          <div class="dropdown-item" onclick="event.stopPropagation();editProject(${i})"><i class="ti ti-edit"></i> Edit</div>
+          <div class="dropdown-item danger" onclick="event.stopPropagation();deleteProject(${i})"><i class="ti ti-trash"></i> Delete</div>
+        </div>
       </div>
     </div>`).join('');
 }
 
 function createProject() {
   const name = document.getElementById('np-name').value.trim();
-  if (!name) { toast('Project name required', 'error'); return; }
-  projects.push({
-    name, desc: document.getElementById('np-desc').value,
+  if (!name) { toast('Project name is required', 'error'); return; }
+  const p = {
+    name,
+    desc: document.getElementById('np-desc').value.trim(),
     task: document.getElementById('np-task').value,
     icon: document.getElementById('np-icon').value,
-    created: new Date().toISOString(), modelCount: 0
-  });
+    modelCount: 0,
+    created: new Date().toISOString()
+  };
+  projects.unshift(p);
   saveProjects();
   closeModal('modal-new-project');
   document.getElementById('np-name').value = '';
@@ -1442,111 +2007,295 @@ function createProject() {
   toast('Project created', 'success');
 }
 
-function openPublishSettings(name){const p=projects.find(p=>p.name===name);if(!p)return;document.getElementById('pub-title').value=p.name;document.getElementById('pub-desc').value=p.desc||'';document.getElementById('pub-task').value=p.task||'binary_classification';document.getElementById('pub-price').value='0.01';document.getElementById('pub-model-id').value=p.name.toLowerCase().replace(/ /g,'_')+'_v1';document.getElementById('pub-author').value='You';openModal('modal-publish');}
+function openPublishSettings(name) {
+  const p = projects.find(p => p.name === name);
+  if (!p) return;
+  document.getElementById('pub-title').value = p.name;
+  document.getElementById('pub-desc').value = p.desc || '';
+  document.getElementById('pub-task').value = p.task || 'binary_classification';
+  document.getElementById('pub-price').value = '0.01';
+  document.getElementById('pub-model-id').value = p.name.toLowerCase().replace(/ /g, '_') + '_v1';
+  document.getElementById('pub-author').value = currentUser?.name || 'You';
+  openModal('modal-publish');
+}
 function deleteProject(i) {
-  projects.splice(i,1);
+  if (!confirm('Delete project "' + projects[i].name + '"?')) return;
+  projects.splice(i, 1);
   saveProjects();
   renderProjects();
-  toast('Project deleted', 'success');
+  toast('Project deleted');
 }
-
-function editProject(i) {
-  toast('Edit project — coming soon', 'info');
-}
-
+function editProject(i) { toast('Edit coming soon'); }
 function saveProjects() {
-  localStorage.setItem('genesis_projects', JSON.stringify(projects));
-  document.getElementById('d-projects').textContent = projects.length;
-  // Sync to backend
-  fetch(API+'/projects', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({projects: projects})}).catch(()=>{});
+  const key = 'genesis_projects_' + (currentUser?.id || 'anon');
+  localStorage.setItem(key, JSON.stringify(projects));
 }
 
-function toggleDropdown(id) {
-  document.querySelectorAll('.dropdown-menu').forEach(m=>{ if(m.id!==id) m.classList.remove('open'); });
-  document.getElementById(id)?.classList.toggle('open');
+// ── API KEYS ──
+async function loadApiKeys() {
+  try {
+    const r = await fetch(API + '/keys');
+    const d = await r.json();
+    const keys = d.keys || [];
+    const el = document.getElementById('apikeys-list');
+    el.innerHTML = keys.length
+      ? keys.map(k => `
+          <div class="apikey-row">
+            <span class="apikey-badge badge-${k.active ? 'green' : 'red'}">${k.active ? 'Active' : 'Inactive'}</span>
+            <span class="apikey-str">${k.api_key}</span>
+            <span style="font-size:11px;color:var(--txt3);flex-shrink:0">${k.calls_used}/${k.calls_limit} calls</span>
+            <button class="btn btn-ghost" style="height:24px;font-size:10px;padding:0 8px" onclick="copyKey('${k.api_key}')"><i class="ti ti-copy"></i></button>
+            <button class="btn btn-danger" style="height:24px;font-size:10px;padding:0 8px" onclick="deleteApiKey('${k.api_key}')"><i class="ti ti-trash"></i></button>
+          </div>`).join('')
+      : '<div style="font-size:12px;color:var(--txt3)">No API keys yet. Generate one to access trained models.</div>';
+  } catch {}
 }
-document.addEventListener('click', ()=>document.querySelectorAll('.dropdown-menu').forEach(m=>m.classList.remove('open')));
+
+async function loadUsageLog() {
+  try {
+    const r = await fetch(API + '/usage');
+    const d = await r.json();
+    const logs = d.usage || [];
+    document.getElementById('usage-log').innerHTML = logs.length
+      ? logs.slice(0, 10).map(l => `
+          <div class="apikey-row">
+            <span class="apikey-str">${l.model_id}</span>
+            <span style="font-size:11px;color:var(--txt3)">${l.timestamp?.slice(0, 16).replace('T', ' ') || ''}</span>
+            <span class="badge badge-green">${l.status}</span>
+          </div>`).join('')
+      : '<div style="font-size:12px;color:var(--txt3)">No API calls yet.</div>';
+  } catch {}
+}
+
+async function createApiKey() {
+  try {
+    const r = await fetch(API + '/keys/create', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_name: currentUser?.name || 'user', calls_limit: 100 })
+    });
+    const d = await r.json();
+    toast('Key created: ' + d.api_key, 'success');
+    loadApiKeys();
+  } catch { toast('Could not create key', 'error'); }
+}
+
+async function deleteApiKey(key) {
+  if (!confirm('Delete this key?')) return;
+  await fetch(API + '/keys/' + key, { method: 'DELETE' }).catch(() => {});
+  loadApiKeys();
+  toast('Key deleted');
+}
+
+function copyKey(key) {
+  navigator.clipboard.writeText(key).then(() => toast('Copied to clipboard', 'success')).catch(() => toast('Could not copy'));
+}
 
 // ── PUBLISH ──
 async function publishModel() {
   const author = document.getElementById('pub-author').value.trim();
-  const modelId = document.getElementById('pub-model-id').value.trim();
+  const model_id = document.getElementById('pub-model-id').value.trim();
   const title = document.getElementById('pub-title').value.trim();
-  if (!author || !modelId || !title) { toast('Fill in all required fields', 'error'); return; }
+  const description = document.getElementById('pub-desc').value.trim();
+  const task = document.getElementById('pub-task').value;
+  const model_type = document.getElementById('pub-model-type').value;
+  const price_per_call = parseFloat(document.getElementById('pub-price').value);
+
+  if (!author || !model_id || !title) { toast('Author, Model ID, and Title are required', 'error'); return; }
+
   try {
-    const r = await fetch(API+'/marketplace/publish', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        author, model_id: modelId, title,
-        description: document.getElementById('pub-desc').value,
-        task: document.getElementById('pub-task').value,
-        model_type: document.getElementById('pub-model-type').value,
-        price_per_call: parseFloat(document.getElementById('pub-price').value)||0.01
-      })
+    const r = await fetch(API + '/marketplace/publish', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ author, model_id, title, description, task, model_type, metrics: {}, price_per_call })
     });
-    const d = await r.json();
+    await r.json();
     closeModal('modal-publish');
-    toast('Model published! ID: '+d.listing_id, 'success');
+    toast('Model published to marketplace!', 'success');
     loadMarketplace();
-  } catch { toast('Failed to publish', 'error'); }
+  } catch { toast('Could not publish model', 'error'); }
 }
 
-document.getElementById('pub-price').addEventListener('input', function() {
-  const price = parseFloat(this.value)||0;
-  const com = settings.commission;
-  document.getElementById('pub-commission-pct').textContent = com+'%';
-  document.getElementById('pub-author-pct-hint').textContent = '$'+(price*(1-com/100)).toFixed(5);
-});
+// ── PIPELINE BUILDER ──
+function dragStart(e) { e.dataTransfer.setData('text', e.target.dataset.block); }
+function dragOver(e) { e.preventDefault(); }
+function dropBlock(e) {
+  e.preventDefault();
+  const bid = e.dataTransfer.getData('text');
+  if (bid && PBLOCKS[bid]) { pipeline.push(bid); renderPipeline(); }
+}
+function removeBlock(i) { pipeline.splice(i,1); renderPipeline(); }
+function clearPipeline() { pipeline=[]; renderPipeline(); }
+function loadPipeline(blocks) { pipeline=[...blocks]; renderPipeline(); }
+
+function openBuilderModal(pipelineStr) {
+  // Create modal window with builder
+  const modal = document.createElement("div");
+  modal.className = "modal-builder";
+  modal.innerHTML = `<div class="modal-content">
+    <div class="modal-header">
+      <span style="font-weight:600;font-size:14px">🧬 Pipeline Builder</span>
+      <div style="display:flex;gap:8px">
+        <button class="topbar-btn primary" onclick="generatePipelineCode()"><i class="ti ti-code"></i> Generate Code</button>
+        <button class="topbar-btn" onclick="this.closest('.modal-builder').remove();clearPipeline();show('builder')"><i class="ti ti-external-link"></i> Fullscreen</button>
+        <button class="modal-close" onclick="this.closest('.modal-builder').remove()"><i class="ti ti-x"></i></button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div style="width:200px;background:var(--card);border-right:1px solid var(--brd);overflow-y:auto;padding:8px;flex-shrink:0">
+        ${document.querySelector("#panel-builder > div > div:first-child").innerHTML}
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:16px" ondragover="dragOver(event)" ondrop="dropBlock(event)">
+        <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <span class="ptpl" onclick="loadPipeline(['load_data','profile','clean','train_xgboost','evaluate','save'])">⚡ Churn Prediction</span>
+          <span class="ptpl" onclick="loadPipeline(['load_data','profile','train_xgboost_reg','evaluate_reg','save'])">⚡ Price Forecast</span>
+          <span class="ptpl" onclick="loadPipeline(['load_data','train_xgboost','evaluate'])">⚡ Quick Classify</span>
+        </div>
+        <div id="modal-pipeline-canvas" style="display:flex;align-items:flex-start;gap:4px;flex-wrap:wrap;min-height:150px;padding:16px;border:2px dashed var(--brd);border-radius:12px">
+        </div>
+        <div id="modal-pipeline-code" style="display:none;margin-top:12px;background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:12px;font-family:monospace;font-size:11px;max-height:200px;overflow-y:auto;white-space:pre-wrap"></div>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+
+  // Load pipeline if provided
+  if (pipelineStr) {
+    pipeline = pipelineStr.split(",");
+    renderPipeline();
+  }
+
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+}
+
+function renderPipelineInModal() {
+  const el = document.getElementById("modal-pipeline-canvas");
+  if (!el) return;
+  if (!pipeline.length) {
+    el.innerHTML = '<div style="width:100%;text-align:center;color:var(--txt3);padding:40px 0">Drag blocks here</div>';
+    return;
+  }
+  el.innerHTML = pipeline.map((bid,i) => {
+    const b = PBLOCKS[bid]||{name:bid,icon:'❓'};
+    return `<div class="pstep">${i>0?'<span class="parrow">→</span>':''}<div class="pblock-canvas"><div class="premove" onclick="removeBlock(${i})">✕</div><span class="picon">${b.icon}</span><span class="pname">${b.name}</span></div></div>`;
+  }).join('');
+}
+
+// Override renderPipeline to support modal
+const origRender = renderPipeline;
+renderPipeline = function() {
+  origRender();
+  renderPipelineInModal();
+};
+
+function buildFromPrompt() {
+  const p = document.getElementById('pipeline-prompt').value.toLowerCase();
+  if (!p) return;
+  const blocks = [];
+  if (p.includes('csv')||p.includes('load')||p.includes('data')) blocks.push('load_data');
+  if (p.includes('profil')||p.includes('анализ')) blocks.push('profile');
+  if (p.includes('clean')||p.includes('очист')) blocks.push('clean');
+  if (p.includes('xgboost')||p.includes('xgb')) blocks.push('train_xgboost');
+  if (p.includes('random')||p.includes('лес')) blocks.push('train_random_forest');
+  if (p.includes('logistic')||p.includes('логист')) blocks.push('train_logistic');
+  if (p.includes('regression')||p.includes('регресс')) {
+    const last = blocks.length-1;
+    if (last>=0 && blocks[last].startsWith('train_') && !blocks[last].endsWith('_reg')) blocks[last] += '_reg';
+  }
+  if (p.includes('evaluat')||p.includes('оцен')||p.includes('метрик')) blocks.push('evaluate');
+  if (p.includes('save')||p.includes('сохран')) blocks.push('save');
+  if (blocks.length) { pipeline=blocks; renderPipeline(); document.getElementById('pipeline-prompt').value=''; }
+  else toast('Could not understand. Try: "load data, train xgboost, evaluate"');
+}
+
+function renderPipeline() {
+  const el = document.getElementById('pipeline-canvas');
+  if (!pipeline.length) {
+    el.innerHTML = '<div style="width:100%;text-align:center;color:var(--txt3);padding:60px 0"><i class="ti ti-box-align-left" style="font-size:32px;opacity:.3;display:block;margin-bottom:8px"></i>Drag blocks here or pick a template above</div>';
+    document.getElementById('pipeline-code-wrap').style.display='none';
+    return;
+  }
+  el.innerHTML = pipeline.map((bid,i) => {
+    const b = PBLOCKS[bid]||{name:bid,icon:'❓'};
+    return `<div class="pstep">${i>0?'<span class="parrow">→</span>':''}<div class="pblock-canvas"><div class="premove" onclick="removeBlock(${i})">✕</div><span class="picon">${b.icon}</span><span class="pname">${b.name}</span></div></div>`;
+  }).join('');
+}
+
+async function generatePipelineCode() {
+  if (!pipeline.length) { toast('Add blocks first'); return; }
+  try {
+    const r = await fetch(API + '/pipeline/build', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({description:'Pipeline: '+pipeline.map(b=>PBLOCKS[b]?.name||b).join(' → '), blocks:pipeline})
+    });
+    const d = await r.json();
+    document.getElementById('pipeline-code').textContent = d.code||'// Error';
+    document.getElementById('pipeline-code-wrap').style.display='block';
+  } catch { toast('Failed to generate code'); }
+}
+
+function copyPipelineCode() {
+  const code = document.getElementById('pipeline-code').textContent;
+  navigator.clipboard.writeText(code).then(()=>toast('Copied!','success'));
+}
 
 // ── SETTINGS ──
 function showSettings(id, el) {
-  document.querySelectorAll('.settings-section').forEach(s=>s.classList.remove('active'));
-  document.querySelectorAll('.settings-nav-item').forEach(i=>i.classList.remove('active'));
-  document.getElementById('ss-'+id)?.classList.add('active');
+  document.querySelectorAll('.settings-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.settings-nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById(id)?.classList.add('active');
   el?.classList.add('active');
+  if (id === 'ss-apikeys') { loadApiKeys(); loadUsageLog(); }
 }
 
 function loadSettingsUI() {
-  document.getElementById('commission-slider').value = settings.commission;
-  updateCommission(settings.commission);
-  document.getElementById('min-price').value = settings.minPrice||0.001;
-  document.getElementById('payout-threshold').value = settings.payoutThreshold||10;
-  document.getElementById('s-registry-path').value = settings.registryPath||'./registry';
-  document.getElementById('s-models-path').value = settings.modelsPath||'./models';
-  document.getElementById('s-marketplace-path').value = settings.marketplacePath||'./marketplace';
-  document.getElementById('s-default-model').value = settings.defaultModel||'xgboost';
-  document.getElementById('s-test-size').value = settings.testSize||0.2;
-  document.getElementById('s-cv-folds').value = settings.cvFolds||5;
+  document.getElementById('s-commission').value = settings.commission;
+  document.getElementById('commission-val').textContent = settings.commission + '%';
+  document.getElementById('author-pct').textContent = (100 - settings.commission) + '%';
+  document.getElementById('pub-commission-pct').textContent = settings.commission + '%';
 
-  // Load live stats
-  fetch(API+'/marketplace/stats').then(r=>r.json()).then(d=>{
-    document.getElementById('s-total-txn').textContent = d.total_transactions??'0';
-    document.getElementById('s-platform-fees').textContent = '$'+(d.total_platform_fees??0).toFixed(2);
-    document.getElementById('s-author-fees').textContent = '$'+(d.total_author_earnings??0).toFixed(2);
-  }).catch(()=>{});
+  // Update price calculation
+  const priceInput = document.getElementById('pub-price');
+  if (priceInput) {
+    const v = parseFloat(priceInput.value) || 0;
+    const com = settings.commission;
+    document.getElementById('pub-author-pct-hint').textContent = '$' + (v * (1 - com / 100)).toFixed(4);
+  }
 }
 
 function updateCommission(val) {
-  settings.commission = parseInt(val);
-  document.getElementById('commission-display').textContent = val+'%';
-  document.getElementById('author-pct').textContent = (100-val)+'%';
+  document.getElementById('commission-val').textContent = val + '%';
+  document.getElementById('author-pct').textContent = (100 - val) + '%';
 }
 
 function saveSettings() {
-  settings.commission = parseInt(document.getElementById('commission-slider').value);
-  settings.minPrice = parseFloat(document.getElementById('min-price').value);
-  settings.payoutThreshold = parseFloat(document.getElementById('payout-threshold').value);
-  settings.registryPath = document.getElementById('s-registry-path').value;
-  settings.modelsPath = document.getElementById('s-models-path').value;
-  settings.marketplacePath = document.getElementById('s-marketplace-path').value;
-  settings.defaultModel = document.getElementById('s-default-model').value;
-  settings.testSize = parseFloat(document.getElementById('s-test-size').value);
-  settings.cvFolds = parseInt(document.getElementById('s-cv-folds').value);
+  const name = document.getElementById('s-display-name').value.trim();
+  if (name && currentUser) {
+    currentUser.name = name;
+    const users = getUsers();
+    const u = users.find(x => x.id === currentUser.id);
+    if (u) u.name = name;
+    saveUsers(users);
+    localStorage.setItem(AUTH_KEY, JSON.stringify(currentUser));
+    document.getElementById('p-display-name').textContent = name;
+    document.getElementById('um-name').textContent = name;
+    document.getElementById('nav-avatar').textContent = name[0].toUpperCase();
+    document.getElementById('p-avatar-letter').textContent = name[0].toUpperCase();
+  }
+  settings.commission = parseInt(document.getElementById('s-commission').value);
   localStorage.setItem('genesis_settings', JSON.stringify(settings));
+
+  // Update publisher price hint
+  const priceInput = document.getElementById('pub-price');
+  if (priceInput) {
+    const v = parseFloat(priceInput.value) || 0;
+    const com = settings.commission;
+    document.getElementById('pub-commission-pct').textContent = com + '%';
+    document.getElementById('pub-author-pct-hint').textContent = '$' + (v * (1 - com / 100)).toFixed(4);
+  }
+
   toast('Settings saved', 'success');
 }
 
-// ── DANGER ZONE ──
+// ── DANGER ──
 function confirmDanger(action, label) {
   dangerAction = action;
   document.getElementById('danger-label').textContent = label;
@@ -1554,47 +2303,69 @@ function confirmDanger(action, label) {
 }
 
 function executeDanger() {
-  toast('Action: '+dangerAction+' (backend endpoint not yet implemented)', 'info');
   closeModal('modal-danger');
+  if (dangerAction === 'delete_account') {
+    const users = getUsers().filter(u => u.id !== currentUser.id);
+    saveUsers(users);
+    doLogout();
+    toast('Account deleted');
+  } else {
+    toast('Action would execute on backend: ' + dangerAction, 'info');
+  }
+  dangerAction = null;
 }
 
 // ── MODALS ──
 function openModal(id) {
-  const m = document.getElementById(id);
-  m.style.display = 'flex';
-  setTimeout(()=>m.querySelector('input,textarea')?.focus(), 80);
+  const el = document.getElementById(id);
+  if (el) { el.style.display = 'flex'; }
 }
-
 function closeModal(id) {
-  document.getElementById(id).style.display = 'none';
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'none';
 }
-
 function overlayClose(e, id) {
-  if (e.target.classList.contains('modal-overlay')) closeModal(id);
+  if (e.target === document.getElementById(id)) closeModal(id);
 }
 
-document.addEventListener('keydown', e=>{
-  if (e.key==='Escape') document.querySelectorAll('.modal-overlay').forEach(m=>m.style.display='none');
+function toggleDropdown(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const wasOpen = el.classList.contains('open');
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+  if (!wasOpen) el.classList.add('open');
+}
+
+// ── UTILS ──
+function escHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── KEYBOARD ──
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay').forEach(m => { if (m.style.display !== 'none') m.style.display = 'none'; });
+    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+    // Also close builder modals
+    document.querySelectorAll('.modal-builder').forEach(m => m.remove());
+  }
 });
 
-// ── UTIL ──
-function escHtml(str) {
-  if (typeof str !== 'string') return str;
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ── INIT ──
-document.getElementById('rt-all').classList.add('active');
-// Load projects from backend
-fetch(API+'/projects').then(r=>r.json()).then(d=>{
-  if (d.projects && d.projects.length) {
-    projects = d.projects;
-    localStorage.setItem('genesis_projects', JSON.stringify(projects));
-    renderProjects();
-    document.getElementById('d-projects').textContent = projects.length;
+// ── Initialize price update listener ──
+document.addEventListener('DOMContentLoaded', function() {
+  const priceInput = document.getElementById('pub-price');
+  if (priceInput) {
+    priceInput.addEventListener('input', function () {
+      const v = parseFloat(this.value) || 0;
+      const com = settings.commission;
+      document.getElementById('pub-commission-pct').textContent = com + '%';
+      document.getElementById('pub-author-pct-hint').textContent = '$' + (v * (1 - com / 100)).toFixed(4);
+    });
   }
-}).catch(()=>{});
-loadDashboard();
+});
+
+// ── BOOT ──
+checkAuth();
 </script>
 </body>
 </html>
