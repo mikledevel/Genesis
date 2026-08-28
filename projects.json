@@ -1,0 +1,16 @@
+[
+  {
+    "name": "Churn Prediction",
+    "task": "binary_classification",
+    "modelCount": 2,
+    "icon": "🎯",
+    "created": "2026-06-20"
+  },
+  {
+    "name": "Price Forecast",
+    "task": "regression",
+    "modelCount": 1,
+    "icon": "📈",
+    "created": "2026-06-22"
+  }
+]
