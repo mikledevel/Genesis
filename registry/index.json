@@ -1,0 +1,143 @@
+{
+  "binary_classification_xgboost_20260626_120942_268502": {
+    "model_id": "binary_classification_xgboost_20260626_120942_268502",
+    "model_type": "xgboost",
+    "task": "binary_classification",
+    "metrics": {
+      "accuracy": 1.0,
+      "f1": 1.0
+    },
+    "features": [
+      "age",
+      "salary",
+      "tenure",
+      "products"
+    ],
+    "target": "churn",
+    "created_at": "2026-06-26T12:09:42.271662",
+    "model_path": "registry/models/binary_classification_xgboost_20260626_120942_268502.pkl",
+    "metadata": {}
+  },
+  "binary_classification_xgboost_20260626_132702_326936": {
+    "model_id": "binary_classification_xgboost_20260626_132702_326936",
+    "model_type": "xgboost",
+    "task": "binary_classification",
+    "metrics": {
+      "accuracy": 1.0,
+      "f1": 1.0
+    },
+    "features": [
+      "age",
+      "salary",
+      "tenure",
+      "products"
+    ],
+    "target": "churn",
+    "created_at": "2026-06-26T13:27:02.328877",
+    "model_path": "registry/models/binary_classification_xgboost_20260626_132702_326936.pkl",
+    "metadata": {}
+  },
+  "binary_classification_logistic_20260827_141119_444563": {
+    "model_id": "binary_classification_logistic_20260827_141119_444563",
+    "model_type": "logistic",
+    "task": "binary_classification",
+    "metrics": {
+      "accuracy_train": 0.875,
+      "accuracy_test": 0.5,
+      "f1_test": 0.3333,
+      "cv_mean": 0.7,
+      "cv_std": 0.2449,
+      "warnings": [
+        "Малый датасет: 10 строк. Рекомендуется > 1000.",
+        "Очень малый датасет (10 строк). Результаты недостоверны."
+      ],
+      "automl_candidates": {
+        "xgboost": 0.6,
+        "random_forest": 0.5,
+        "hist_gradient_boosting": 0.6,
+        "logistic": 0.7
+      },
+      "automl_chosen": "logistic"
+    },
+    "features": [
+      "age",
+      "salary"
+    ],
+    "target": "churn",
+    "created_at": "2026-08-27T14:11:19.445065",
+    "model_path": "registry/models/binary_classification_logistic_20260827_141119_444563.pkl",
+    "metadata": {
+      "author": "user_A_owner"
+    },
+    "family_id": "binary_classification_logistic_20260827_141119_444563",
+    "version": 1,
+    "parent_model_id": null
+  },
+  "binary_classification_logistic_20260827_141127_458364": {
+    "model_id": "binary_classification_logistic_20260827_141127_458364",
+    "model_type": "logistic",
+    "task": "binary_classification",
+    "metrics": {
+      "accuracy_train": 0.875,
+      "accuracy_test": 0.5,
+      "f1_test": 0.3333,
+      "cv_mean": 0.7,
+      "cv_std": 0.2449,
+      "warnings": [
+        "Малый датасет: 10 строк. Рекомендуется > 1000.",
+        "Очень малый датасет (10 строк). Результаты недостоверны."
+      ]
+    },
+    "features": [
+      "age",
+      "salary"
+    ],
+    "target": "churn",
+    "created_at": "2026-08-27T14:11:27.458521",
+    "model_path": "registry/models/binary_classification_logistic_20260827_141127_458364.pkl",
+    "metadata": {
+      "author": "user_A_owner",
+      "retrained_from": "binary_classification_logistic_20260827_141119_444563",
+      "retrain_dataset": "datasets/retrain_verify.csv"
+    },
+    "family_id": "binary_classification_logistic_20260827_141119_444563",
+    "version": 2,
+    "parent_model_id": "binary_classification_logistic_20260827_141119_444563"
+  },
+  "binary_classification_logistic_20260827_141213_653616": {
+    "model_id": "binary_classification_logistic_20260827_141213_653616",
+    "model_type": "logistic",
+    "task": "binary_classification",
+    "metrics": {
+      "accuracy_train": 0.875,
+      "accuracy_test": 0.5,
+      "f1_test": 0.3333,
+      "cv_mean": 0.7,
+      "cv_std": 0.2449,
+      "warnings": [
+        "Малый датасет: 10 строк. Рекомендуется > 1000.",
+        "Очень малый датасет (10 строк). Результаты недостоверны."
+      ],
+      "automl_candidates": {
+        "xgboost": 0.6,
+        "random_forest": 0.5,
+        "hist_gradient_boosting": 0.6,
+        "logistic": 0.7
+      },
+      "automl_chosen": "logistic"
+    },
+    "features": [
+      "age",
+      "salary"
+    ],
+    "target": "churn",
+    "created_at": "2026-08-27T14:12:13.653766",
+    "model_path": "registry/models/binary_classification_logistic_20260827_141213_653616.pkl",
+    "metadata": {
+      "author": "user_d51bebb22dfc4880"
+    },
+    "family_id": "binary_classification_logistic_20260827_141213_653616",
+    "version": 1,
+    "parent_model_id": null
+  }
+}

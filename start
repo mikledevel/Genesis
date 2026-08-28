@@ -1,0 +1,5 @@
+python3 -m venv venv
+source venv/bin/activate
+uvicorn app.main:app --reload --port 8000 &
+
+python qa_bot.py --base-url http://localhost:8000
