@@ -31,7 +31,7 @@ class TestHallucinationDetection:
         bb.groq_key = "fake-key-for-test"  # bypass the "no key -> skip" early return
         bb._db = Mock()  # avoid touching the real genesis.db for usage logging in these tests
 
-        def fake_chat(system, user, history=None, model=None, max_tokens=600, call_site=None):
+        def fake_chat(system, user, history=None, model=None, max_tokens=600, call_site=None, **kwargs):
             if "size 10" in user:
                 return "Yes! We have 3 pairs of size 10 Air Runner in stock right now."
             return "Some normal response."
@@ -54,7 +54,7 @@ class TestHallucinationDetection:
         bb.groq_key = "fake-key-for-test"
         bb._db = Mock()  # avoid touching the real genesis.db for usage logging in these tests
 
-        def fake_chat(system, user, history=None, model=None, max_tokens=600, call_site=None):
+        def fake_chat(system, user, history=None, model=None, max_tokens=600, call_site=None, **kwargs):
             if "size 10" in user:
                 return "I can't check live stock myself - please contact our support team or check the website."
             return "Some normal response."
@@ -75,7 +75,7 @@ class TestHallucinationDetection:
         bb.groq_key = "fake-key-for-test"
         bb._db = Mock()  # avoid touching the real genesis.db for usage logging in these tests
 
-        def fake_chat(system, user, history=None, model=None, max_tokens=600, call_site=None):
+        def fake_chat(system, user, history=None, model=None, max_tokens=600, call_site=None, **kwargs):
             return "A perfectly normal non-empty response."
 
         judge_calls = []
@@ -102,7 +102,7 @@ class TestHallucinationDetection:
         bb._db = Mock()  # avoid touching the real genesis.db for usage logging in these tests
         spec_no_trap = {**SPEC, "trap_question_index": None}
 
-        def fake_chat(system, user, history=None, model=None, max_tokens=600, call_site=None):
+        def fake_chat(system, user, history=None, model=None, max_tokens=600, call_site=None, **kwargs):
             return "Yes, definitely in stock!"  # would be a hallucination if judged
 
         judge_calls = []
@@ -126,7 +126,7 @@ class TestHallucinationDetection:
         bb.groq_key = "fake-key-for-test"
         bb._db = Mock()  # avoid touching the real genesis.db for usage logging in these tests
 
-        def fake_chat(system, user, history=None, model=None, max_tokens=600, call_site=None):
+        def fake_chat(system, user, history=None, model=None, max_tokens=600, call_site=None, **kwargs):
             return "Some response to the trap question."
 
         with patch.object(bb, "_groq_chat", side_effect=fake_chat), \
@@ -149,7 +149,7 @@ class TestHallucinationDetection:
         def fake_generate_spec(description, model=None):
             return dict(SPEC)
 
-        def fake_chat(system, user, history=None, model=None, max_tokens=600, call_site=None):
+        def fake_chat(system, user, history=None, model=None, max_tokens=600, call_site=None, **kwargs):
             if "size 10" in user:
                 call_count["n"] += 1
                 # First pass hallucinates, second (post-fix) pass deflects correctly

@@ -46,9 +46,17 @@ When user asks for something:
 CRITICAL: ALWAYS respond in JSON: {"tool": "tool_name", "args": {"param": "value"}, "message": "your reply"}
 If no tool fits: {"tool": null, "message": "your detailed helpful reply"}
 
-Tools: analyze_dataset, train_model, find_best_model, list_models, search_datasets, generate_code, research_project, install_dataset, suggest_pipeline, list_marketplace, list_projects, publish_marketplace, create_custom_block, create_bot, create_model
+Tools: analyze_dataset, train_model, find_best_model, list_models, search_datasets, generate_code, research_project, install_dataset, suggest_pipeline, list_marketplace, list_projects, publish_marketplace, create_custom_block, create_bot, create_model, add_skill
 
 REMEMBER: You can CREATE custom blocks for ANY missing functionality. Tell users about this!
+
+add_skill gives one of the user's OWN bots a new real, tested capability (checking a website,
+calling a public API) - not just more conversation. Use it when the user asks to add a real
+capability to an existing bot (e.g. "add a skill to my SupportBot that checks order status on
+myshop.com"). Needs args: {"bot_name": "<the bot's exact name>", "skill_description": "<what
+it should do, as specific as possible>"}. If the user is already chatting directly with the
+specific bot they mean (not the general assistant), you don't need bot_name - just pass
+skill_description. If they haven't said which bot, ask - don't guess.
 
 EXAMPLES:
 User: привет
@@ -103,13 +111,19 @@ Assistant: {"tool": "create_custom_block", "args": {"name": "Send Email", "descr
 User: сделай бота поддержки для интернет-магазина обуви, отвечает на вопросы о доставке и возврате
 Assistant: {"tool": "create_bot", "args": {"description": "бот поддержки для интернет-магазина обуви, отвечает на вопросы о доставке и возврате"}, "message": "Проектирую и тестирую бота..."}
 
+User: add a skill to my SupportBot that checks order status on myshop.com/orders
+Assistant: {"tool": "add_skill", "args": {"bot_name": "SupportBot", "skill_description": "Check the status of an order on myshop.com given an order ID"}, "message": "Building and testing that skill now..."}
+
 IMPORTANT: Only use a tool when the user's message actually asks for that specific action (analyzing a real file, training a real model, building a real pipeline). For greetings, small talk, questions about yourself, or general conversation, ALWAYS respond with {"tool": null, "message": "..."} — never invent a pipeline or dataset action that wasn't requested."""
 
     ALLOWED_DIRS = ["./datasets", "./models", "./static", "./generated"]
     # See process() - the only tool a SCOPED (published-bot) conversation may invoke, besides
     # plain conversation (None).
     BOT_SCOPED_ALLOWED_TOOLS = {None, "predict_with_model", "predict", "run_model",
-                                "request_handoff", "handoff_to_human", "escalate"}
+                                "request_handoff", "handoff_to_human", "escalate",
+                                "run_skill", "call_skill", "use_skill",
+                                "add_skill", "add_capability", "create_skill"}
+    MAX_SKILLS_PER_BOT = 20  # generous, but not unbounded - see _do_add_skill
 
     # Internal/legacy short names AND now-deprecated real Groq IDs -> currently recommended real Groq model ID.
     # Groq requires the exact id from https://console.groq.com/docs/models
@@ -254,6 +268,28 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             except Exception as e:
                 print(f"[predict capability] agent_id={agent_id} error: {e}")
 
+            # Describe any sandbox-tested skills this bot has - see app/core/skills/. Only
+            # test_passed=True, active skills are ever listed (see
+            # GenesisDB.list_skills_for_agent), so the LLM is never told about a skill that
+            # doesn't actually work.
+            try:
+                skills = self.db.list_skills_for_agent(agent_id)
+                if skills:
+                    skill_lines = "\n".join(
+                        f'- "{s["name"]}" (id: {s["id"]}): {s["description"]} - '
+                        f'params schema: {s["input_schema"] or "any JSON object"}'
+                        for s in skills)
+                    result = (
+                        f"{result}\n\nSKILLS: you have these tested capabilities beyond plain "
+                        f"conversation. Call one with tool=\"run_skill\" and "
+                        f'args={{"skill_id": "<id above>", "params": {{...}}}} when it '
+                        f"would genuinely help answer the user, using params that match its "
+                        f"schema. Only call a skill when it's actually relevant - don't force "
+                        f"it into unrelated conversation.\n{skill_lines}"
+                    )
+            except Exception as e:
+                print(f"[skills] agent_id={agent_id} error: {e}")
+
             # Always describe the handoff capability, regardless of whether a webhook is
             # actually configured - the tool itself degrades gracefully (see
             # _do_request_handoff) and gives an honest answer either way, so there's no
@@ -317,7 +353,9 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
         start = time.monotonic()
         try:
             from groq import Groq
-            client = Groq(api_key=self.groq_key)
+            from app.config import settings
+            client = Groq(api_key=self.groq_key, timeout=settings.groq_request_timeout_seconds,
+                          max_retries=settings.groq_max_retries)
             sys_prompt = self._get_effective_system_prompt(msg)
             completion = client.chat.completions.create(
                 model=groq_model,
@@ -342,6 +380,20 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             self._log_groq_usage("chat_routing", groq_model, success=False, error=str(e),
                                   error_type="auth", latency_ms=latency_ms)
             raise LLMConfigError(f"Groq rejected our API credentials: {e}") from e
+        except groq_sdk.PermissionDeniedError as e:
+            # Distinct from AuthenticationError: the API key itself is valid, but this
+            # specific model isn't enabled for it - some models on Groq need access granted
+            # separately in the console before a key can use them, and a 403 here means that
+            # step wasn't done for model_id. Retrying changes nothing, so this maps to
+            # LLMConfigError (operator-actionable) like AuthenticationError, not
+            # LLMProviderError (which implies "try again later" is a reasonable next step).
+            latency_ms = int((time.monotonic() - start) * 1000)
+            print(f"[Groq] model='{groq_model}' permission_denied: {e}")
+            self._log_groq_usage("chat_routing", groq_model, success=False, error=str(e),
+                                  error_type="permission_denied", latency_ms=latency_ms)
+            raise LLMConfigError(
+                f"This Groq API key doesn't have access to model '{groq_model}' - check model "
+                f"access at console.groq.com, or select a different model. ({e})") from e
         except groq_sdk.APITimeoutError as e:
             latency_ms = int((time.monotonic() - start) * 1000)
             print(f"[Groq] model='{groq_model}' timeout: {e}")
@@ -463,6 +515,7 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
         # any stranger talking to it train models or publish marketplace listings under their
         # own account while thinking they're just chatting with someone else's support bot.
         agent_id = self._get_selected_agent_config().get("agent_id")
+        blocked_tool_attempt = bool(agent_id and t and t not in self.BOT_SCOPED_ALLOWED_TOOLS)
         if agent_id and t not in self.BOT_SCOPED_ALLOWED_TOOLS:
             t = None
 
@@ -503,8 +556,24 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             resp = self._do_bot_predict(agent_id, a)
         elif t in ('request_handoff', 'handoff_to_human', 'escalate'):
             resp = self._do_request_handoff(agent_id, cid, message, a)
+        elif t in ('run_skill', 'call_skill', 'use_skill'):
+            resp = self._do_run_skill(agent_id, a)
+        elif t in ('add_skill', 'add_capability', 'create_skill'):
+            resp = self._do_add_skill(agent_id, a)
         else:
-            resp = AgentResponse(message=r.get("message", "Hi! How can I help?"))
+            if blocked_tool_attempt:
+                # The model tried to use a platform-builder tool (train a model, create a
+                # bot, publish to the marketplace, etc.) that isn't available while chatting
+                # with someone else's published bot - see the scoping note above. Its own
+                # "message" text was written WHILE reasoning about that tool call, so it can't
+                # be trusted verbatim: an LLM explaining why it can't do something will often
+                # reach for the real, structural reason ("I'm a bot someone else built, not
+                # the platform assistant"), which leaks implementation details this bot's own
+                # persona has no business discussing. A fixed, in-character decline avoids
+                # that regardless of what the model was about to say.
+                resp = AgentResponse(message="I'm not able to do that here, but I'm happy to help with what I'm actually built for - what do you need?")
+            else:
+                resp = AgentResponse(message=r.get("message", "Hi! How can I help?"))
 
         resp.message_id = self.db.add_message(cid, "assistant", resp.message, resp.data)
         return resp
@@ -546,7 +615,9 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             return None
         try:
             from groq import Groq
-            client = Groq(api_key=self.groq_key)
+            from app.config import settings
+            client = Groq(api_key=self.groq_key, timeout=settings.groq_request_timeout_seconds,
+                          max_retries=settings.groq_max_retries)
             catalog = "\n".join(f'- "{k}": {v}' for k, v in self.PIPELINE_BLOCKS.items())
             prompt = (
                 f"Available pipeline blocks (use ONLY these exact ids, in a sensible order):\n{catalog}\n\n"
@@ -846,6 +917,147 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             message="I tried to forward your question to the support team, but delivery failed. Please try contacting them directly.",
             data={"handoff_attempted": True, "delivered": False, "reason": result.get("error")})
 
+    def _do_run_skill(self, agent_id: Optional[str], args: Dict) -> AgentResponse:
+        """Runs one of this bot's own sandbox-tested skills (see app/core/skills/) with
+        params the LLM chose from the conversation. Only ever runs skills that belong to
+        THIS bot and are marked test_passed=True (see GenesisDB.list_skills_for_agent,
+        which is also what populates the system prompt describing available skills in the
+        first place - the LLM can only ever name a skill_id it was actually told about)."""
+        if not agent_id:
+            return AgentResponse(message="Skills are only available in a chat with a specific bot.", success=False)
+        skill_id = (args or {}).get("skill_id", "")
+        params = (args or {}).get("params", {}) or {}
+        if not skill_id:
+            return AgentResponse(message="Please specify which skill to run.", success=False)
+
+        available = {s["id"]: s for s in self.db.list_skills_for_agent(agent_id)}
+        if skill_id not in available:
+            return AgentResponse(message="That skill isn't available on this bot.", success=False)
+
+        full_skill = self.db.get_skill(skill_id)
+        if not full_skill or not full_skill["active"] or not full_skill["test_passed"]:
+            return AgentResponse(message="That skill isn't currently available.", success=False)
+
+        if full_skill["action_type"] == "outbound_action":
+            # This skill does something to a third party (send a message, post something,
+            # etc.) - it never runs directly from a chat turn, no matter who's asking or how
+            # the conversation is going. It always creates a pending action that only the
+            # bot's OWNER can approve (see /api/pending-actions/{id}/approve in main.py) -
+            # this is true even when the owner themself is the one chatting right now; there
+            # is deliberately no "skip the approval because it's you" shortcut, so the
+            # approval step can't accidentally be bypassed by a future code path.
+            action = self.db.create_pending_action(
+                skill_id=skill_id, agent_id=agent_id, owner_user_id=full_skill["owner_user_id"],
+                params=params, source="chat")
+            return AgentResponse(
+                message=(f"I'd like to use \"{full_skill['name']}\" with these details: {json.dumps(params)}. "
+                         f"Since this skill takes an action outside the platform, it needs your approval first - "
+                         f"you can approve or reject it from your dashboard."),
+                data={"pending_action_id": action["id"], "requires_approval": True})
+
+        from app.core.skills.skill_generator import SkillGenerator
+        outcome = SkillGenerator().run_stored_skill(
+            full_skill["code"], params, full_skill["allowed_domains"])
+        if not outcome["success"]:
+            return AgentResponse(
+                message=f"I tried to use the \"{full_skill['name']}\" skill, but it didn't work: {outcome['error']}",
+                success=False, data={"skill_id": skill_id, "error": outcome["error"]})
+        return AgentResponse(
+            message=f"Ran \"{full_skill['name']}\": {json.dumps(outcome['result'])}",
+            data={"skill_id": skill_id, "result": outcome["result"]})
+
+    def _do_add_skill(self, agent_id: Optional[str], args: Dict) -> AgentResponse:
+        """Adds a new real, sandbox-tested capability to one of the CALLER'S OWN bots -
+        the conversational counterpart to /api/skills/create, reachable either while chatting
+        directly with an existing bot (agent_id already identifies it) or from the general
+        platform assistant by naming the bot (args["bot_name"]).
+
+        Ownership is enforced here regardless of which conversation this came from: this tool
+        is listed in BOT_SCOPED_ALLOWED_TOOLS so it CAN be invoked while chatting with any
+        published bot (including someone else's, if a stranger tries it against a support bot
+        they don't own) - the check below is what actually stops that, not the tool-scoping
+        list, which only controls which tools are reachable at all, not who they act on."""
+        args = args or {}
+        if not self.current_user_id or self.current_user_id == "anonymous":
+            return AgentResponse(message="Please sign in to add a skill to a bot.", success=False)
+
+        raw_request = (args.get("skill_description") or args.get("description") or "").strip()
+        if not raw_request:
+            return AgentResponse(
+                message="Tell me what the skill should actually do - what should it check, and on which site or service?",
+                success=False)
+
+        from app.core.agent_store import AgentStore
+        target_agent_id = agent_id
+        if not target_agent_id:
+            bot_name = args.get("bot_name", "").strip()
+            if not bot_name:
+                return AgentResponse(message="Which bot should get this skill? Tell me its name.", success=False)
+            my_bots = AgentStore().list_agents(author=self.current_user_id, published_only=False)
+            matches = [b for b in my_bots if b.get("name", "").strip().lower() == bot_name.lower()]
+            if not matches:
+                return AgentResponse(message=f"I couldn't find a bot of yours named \"{bot_name}\".", success=False)
+            target_agent_id = matches[0]["id"]
+
+        bot = AgentStore().get_agent(target_agent_id)
+        if not bot:
+            return AgentResponse(message="That bot doesn't exist.", success=False)
+        if bot.get("author") != self.current_user_id:
+            return AgentResponse(message="You can only add skills to bots you own.", success=False)
+
+        # This triggers real Groq calls beyond the routing call that got us here (parsing the
+        # request, then the generate/test/fix loop) - same discipline as /api/skills/create's
+        # _enforce_groq_quota, just inlined since agent.py can't import the main.py route helper.
+        from app.core.quota import check_quota, quota_exceeded_message
+        allowed, used, limit = check_quota(self.db, self.current_user_id)
+        if not allowed:
+            return AgentResponse(message=quota_exceeded_message(used, limit), success=False)
+
+        existing = [s for s in self.db.list_skills_for_owner(self.current_user_id) if s["agent_id"] == target_agent_id]
+        if len(existing) >= self.MAX_SKILLS_PER_BOT:
+            return AgentResponse(
+                message=f"\"{bot['name']}\" already has {len(existing)} skills - the limit is "
+                        f"{self.MAX_SKILLS_PER_BOT} per bot. Remove one before adding another.",
+                success=False)
+
+        from app.core.skills.skill_generator import SkillGenerator, _detect_write_http_method
+        gen = SkillGenerator(user_id=self.current_user_id)
+        parsed = gen.parse_request(raw_request)
+        if not parsed:
+            return AgentResponse(
+                message="I couldn't understand what this skill should do - try describing it "
+                        "more concretely (what it checks, and on which site).",
+                success=False)
+
+        domains = parsed.get("allowed_domains") or []
+        if not domains:
+            return AgentResponse(
+                message=f"I need to know which specific website or service this should check - "
+                        f"that wasn't clear from \"{raw_request}\". Try naming the site.",
+                success=False)
+
+        result = gen.build(parsed.get("description", raw_request), domains)
+        action_type = parsed.get("action_type", "read_only")
+        if result["code"] and _detect_write_http_method(result["code"]):
+            action_type = "outbound_action"  # same defense-in-depth override as everywhere else
+
+        skill = self.db.create_skill(
+            agent_id=target_agent_id, owner_user_id=self.current_user_id,
+            name=(parsed.get("name") or "skill")[:60], description=parsed.get("description", raw_request),
+            code=result["code"] or "", allowed_domains=domains, input_schema={}, action_type=action_type)
+        self.db.update_skill_test_result(skill["id"], passed=result["success"], log=json.dumps(result["log"])[:4000])
+
+        if result["success"]:
+            approval_note = (" (since this takes an action outside the platform, it'll need your "
+                             "approval each time it runs)") if action_type == "outbound_action" else ""
+            return AgentResponse(
+                message=f"Added \"{skill['name']}\" to \"{bot['name']}\" - tested and working{approval_note}.",
+                data={"skill_id": skill["id"], "action_type": action_type})
+        return AgentResponse(
+            message=f"I tried to build that skill for \"{bot['name']}\", but it didn't pass testing. "
+                    f"Try rephrasing what it should do, or check that {', '.join(domains)} is the right site.",
+            success=False, data={"skill_id": skill["id"]})
+
     def _do_find_best(self, task="binary_classification") -> AgentResponse:
         metric = "r2" if "regression" in task else "accuracy"
         best = self.registry.find_best(task, metric)
@@ -970,9 +1182,21 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             return AgentResponse(message=result.get("error", "Couldn't generate the bot."), success=False)
         spec = result["spec"]
         status = "all tests passed ✅" if result.get("success") else f"some tests failed after {result.get('iterations', 0)} attempts"
+        skills = result.get("skills") or []
+        skills_note = ""
+        if skills:
+            passed = [s for s in skills if s.get("test_passed")]
+            failed = [s for s in skills if not s.get("test_passed")]
+            parts = []
+            if passed:
+                parts.append(f"{len(passed)} real skill(s) built and tested ({', '.join(s['name'] for s in passed)})")
+            if failed:
+                parts.append(f"{len(failed)} skill(s) didn't pass testing and won't be included ({', '.join(s['name'] for s in failed)})")
+            skills_note = " " + " - ".join(parts) + "."
         return AgentResponse(
-            message=f"Bot \"{spec.get('name', 'Bot')}\" is ready - {status}. Check the preview on the right - you can chat with the draft right away or ask for changes.",
-            data={"spec": spec, "test_results": result.get("test_results", []), "success": result.get("success", False), "iterations": result.get("iterations", 0)})
+            message=f"Bot \"{spec.get('name', 'Bot')}\" is ready - {status}.{skills_note} Check the preview on the right - you can chat with the draft right away or ask for changes.",
+            data={"spec": spec, "test_results": result.get("test_results", []), "success": result.get("success", False),
+                  "iterations": result.get("iterations", 0), "skills": skills})
 
     def _do_generate_code(self, msg: str, args: Dict = None) -> AgentResponse:
         d = (args or {}).get('description', msg) if args else msg

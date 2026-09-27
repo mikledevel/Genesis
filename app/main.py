@@ -11,7 +11,19 @@ from typing import Optional, Dict, Any, List
 
 from app.core.auth import get_current_user_id, get_current_user_id_optional, hash_password, verify_password, create_token
 from app.core.rate_limit import RateLimitMiddleware
+from app.core.geo_block import GeoBlockMiddleware
 from app.config import settings
+
+# Error monitoring - optional, only activates if SENTRY_DSN is set (see app/config.py).
+# Without it, unhandled errors just print() to the log as before, which means an operator
+# only finds out about a production outage when a user complains. This does not replace the
+# explicit success/failure logging already done for LLM calls (see GenesisAgent._log_llm_call)
+# - it catches everything else: unhandled exceptions anywhere in a request.
+if settings.sentry_dsn:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    sentry_sdk.init(dsn=settings.sentry_dsn, integrations=[FastApiIntegration()],
+                     traces_sample_rate=0.1, environment="production" if not settings.debug else "development")
 
 app = FastAPI(title="Genesis AI", version="1.0.0")
 # Order matters: Starlette applies the LAST-added middleware outermost, so it must be added
@@ -20,8 +32,32 @@ app = FastAPI(title="Genesis AI", version="1.0.0")
 # CORS headers - otherwise a rate-limited response looks like a CORS failure in the browser
 # instead of the 429 it actually is.
 app.add_middleware(RateLimitMiddleware)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(GeoBlockMiddleware)
+# In debug/local dev, allow any origin so the frontend can be served from anywhere without
+# fiddling with config. In production, ALLOWED_ORIGINS must be set to the real frontend
+# domain(s) - "*" in production would let any website make authenticated requests against
+# this API from a visitor's browser (their cookies/tokens, our CORS headers granting it).
+_allowed_origins = [o.strip() for o in settings.allowed_origins.split(",") if o.strip()]
+if settings.debug and not _allowed_origins:
+    _allowed_origins = ["*"]
+elif not settings.debug and not _allowed_origins:
+    raise RuntimeError(
+        "ALLOWED_ORIGINS is not set. In production (debug=False), you must set it to your "
+        "real frontend domain(s), e.g. ALLOWED_ORIGINS=https://your-domain.com - leaving "
+        "this unset would otherwise require defaulting to '*', which lets any website make "
+        "authenticated requests against this API from a visitor's browser."
+    )
+app.add_middleware(CORSMiddleware, allow_origins=_allowed_origins, allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.on_event("startup")
+async def _start_background_scheduler():
+    # Runs scheduled bot skills (see app/core/scheduler.py) - "Level 3" autonomous checks
+    # that fire on a timer rather than in response to a chat message. Safe to start
+    # unconditionally: with zero scheduled_jobs rows, the poll loop just wakes up every 30s,
+    # finds nothing due, and goes back to sleep.
+    from app.core.scheduler import start_scheduler
+    start_scheduler()
 
 # Refuse to boot with the placeholder JWT signing secret unless we're explicitly in
 # debug/dev mode. Every token issued under "change-me" is forgeable by anyone who has
@@ -60,6 +96,7 @@ class LoginRequest(BaseModel):
 @app.post("/api/auth/register")
 async def auth_register(req: RegisterRequest):
     from app.db.database import GenesisDB
+    from app.core.email_sender import send_verification_email
     db = GenesisDB()
     if len(req.password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
@@ -69,6 +106,8 @@ async def auth_register(req: RegisterRequest):
         raise HTTPException(status_code=409, detail="An account with this email already exists")
     user = db.create_user(req.email, hash_password(req.password), req.name)
     token = create_token(user["id"])
+    verify_token = db.create_auth_token(user["id"], "verify_email", ttl_seconds=86400)
+    send_verification_email(user["email"], verify_token)
     return {"token": token, "user": user}
 
 @app.post("/api/auth/login")
@@ -87,7 +126,58 @@ async def auth_me(user_id: str = Depends(get_current_user_id)):
     user = GenesisDB().get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=401, detail="User no longer exists")
+    user["email_verified"] = GenesisDB().is_email_verified(user_id)
     return {"user": user}
+
+@app.post("/api/auth/verify-email/resend")
+async def resend_verification_email(user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    from app.core.email_sender import send_verification_email
+    db = GenesisDB()
+    if db.is_email_verified(user_id):
+        return {"status": "already_verified"}
+    user = db.get_user_by_id(user_id)
+    verify_token = db.create_auth_token(user_id, "verify_email", ttl_seconds=86400)
+    send_verification_email(user["email"], verify_token)
+    return {"status": "sent"}
+
+@app.post("/api/auth/verify-email/confirm")
+async def confirm_verification_email(data: dict):
+    from app.db.database import GenesisDB
+    db = GenesisDB()
+    user_id = db.consume_auth_token(data.get("token", ""), "verify_email")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="This verification link is invalid or has expired")
+    db.mark_email_verified(user_id)
+    return {"status": "verified"}
+
+@app.post("/api/auth/password-reset/request")
+async def request_password_reset(data: dict):
+    from app.db.database import GenesisDB
+    from app.core.email_sender import send_password_reset_email
+    db = GenesisDB()
+    email = (data.get("email") or "").lower().strip()
+    user = db.get_user_by_email(email)
+    # Always return the same response whether or not the email exists - returning a
+    # different response for "no account with that email" would let anyone enumerate which
+    # emails are registered on the platform just by hitting this endpoint repeatedly.
+    if user:
+        reset_token = db.create_auth_token(user["id"], "password_reset", ttl_seconds=3600)
+        send_password_reset_email(user["email"], reset_token)
+    return {"status": "if_account_exists_email_sent"}
+
+@app.post("/api/auth/password-reset/confirm")
+async def confirm_password_reset(data: dict):
+    from app.db.database import GenesisDB
+    db = GenesisDB()
+    new_password = data.get("new_password", "")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    user_id = db.consume_auth_token(data.get("token", ""), "password_reset")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="This reset link is invalid or has expired")
+    db.update_password(user_id, hash_password(new_password))
+    return {"status": "password_updated"}
 
 # ── Pages ──
 @app.get("/")
@@ -297,7 +387,10 @@ async def registry_models(task: Optional[str] = None):
 @app.get("/api/registry/models/{model_id}")
 async def registry_model(model_id: str):
     from app.core.engine.registry import ModelRegistry
-    return ModelRegistry().get_record(model_id)
+    try:
+        return ModelRegistry().get_record(model_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Model not found")
 
 @app.get("/api/registry/models/{model_id}/history")
 async def registry_model_history(model_id: str):
@@ -607,16 +700,56 @@ async def build_pipeline(data: dict):
 @app.post("/api/pipeline/suggest")
 async def suggest_pipeline_blocks(data: dict):
     """Used by the Pipeline Builder's 'build from prompt' box - asks the real LLM to pick
-    blocks from the fixed catalog, instead of doing naive keyword matching in JS."""
+    blocks from the fixed catalog, instead of doing naive keyword matching in JS.
+
+    BUGFIX: _ai_build_pipeline returns a (blocks, custom_defs) TUPLE on success, or None
+    on failure (see its docstring) - the same contract GenesisAgent._do_suggest_pipeline
+    already unpacks correctly. This route used to do
+    `agent._ai_build_pipeline(description) or agent._keyword_build_pipeline(description)`,
+    which - whenever the AI call actually succeeded - assigned that raw 2-tuple to `blocks`
+    instead of the block-id list inside it. The very next line then called
+    `PIPELINE_BLOCKS.get(b, b)` on `b = <that list>`, which raises "unhashable type: 'list'"
+    since a list can't be a dict key - an unhandled 500 every time the AI path succeeded.
+    It also called _ai_build_pipeline a SECOND time just to compute `used_ai` (a redundant
+    real Groq call/cost), and never materialized any AI-requested custom blocks the way
+    _do_suggest_pipeline does. Fixed by unpacking the tuple once, like the chat path does.
+    """
     from app.core.agent import GenesisAgent
+    from app.core.custom_blocks import CustomBlockStore
     description = data.get("description", "")
     if not description:
         return {"blocks": [], "explanation": "Опишите, что должен делать пайплайн."}
     agent = GenesisAgent()
-    blocks = agent._ai_build_pipeline(description) or agent._keyword_build_pipeline(description)
-    used_ai = agent.groq_key and blocks == (agent._ai_build_pipeline(description) or [])
-    explanation = "\n".join(f"{i+1}. {agent.PIPELINE_BLOCKS.get(b, b)}" for i, b in enumerate(blocks))
-    return {"blocks": blocks, "explanation": explanation, "ai_generated": bool(agent.groq_key)}
+    ai_result = agent._ai_build_pipeline(description)
+    used_ai = ai_result is not None
+    if ai_result:
+        blocks, custom_defs = ai_result
+    else:
+        blocks, custom_defs = agent._keyword_build_pipeline(description), []
+
+    # Materialize any AI-requested custom blocks into real CustomBlock rows and splice
+    # their real ids into the pipeline in place of the "custom:xxx" placeholder - same
+    # step _do_suggest_pipeline performs for the chat-driven path.
+    store = CustomBlockStore()
+    block_labels = dict(agent.PIPELINE_BLOCKS)
+    ref_to_real_id = {}
+    for cdef in custom_defs:
+        ref = cdef.get("ref")
+        name = cdef.get("name", ref)
+        desc = cdef.get("description", "")
+        if not ref or ref in ref_to_real_id:
+            continue
+        created = store.create(
+            name=name,
+            code=f"# TODO: implement '{name}'\n# {desc}\ndef run(data):\n    raise NotImplementedError({desc!r})",
+            icon="🔧", category="custom",
+        )
+        ref_to_real_id[ref] = created["id"]
+        block_labels[created["id"]] = f"{name} (custom) - {desc}"
+    blocks = [ref_to_real_id.get(b, b) for b in blocks]
+
+    explanation = "\n".join(f"{i+1}. {block_labels.get(b, b)}" for i, b in enumerate(blocks))
+    return {"blocks": blocks, "explanation": explanation, "ai_generated": used_ai}
 
 # ── Agent Store ──
 @app.get("/api/agents")
@@ -1067,7 +1200,7 @@ async def bot_builder_revise(data: dict, user_id: Optional[str] = Depends(get_cu
     from app.core.bot_builder import BotBuilder
     bb = BotBuilder(user_id=user_id)
     spec = bb.revise(spec=data.get("spec", {}), feedback=data.get("feedback", ""), model=data.get("model"))
-    test_results = bb.test_draft(spec, model=data.get("model"))
+    test_results = bb.test_draft(spec, model=data.get("model"), skills=spec.get("skills_needed"))
     return {"spec": spec, "test_results": test_results, "success": all(r["ok"] for r in test_results)}
 
 @app.post("/api/bot-builder/publish")
@@ -1144,6 +1277,159 @@ async def delete_block(block_id: str, user_id: str = Depends(get_current_user_id
     if not CustomBlockStore().delete_block(block_id, user_id):
         raise HTTPException(status_code=404, detail="Block not found, or it doesn't belong to you")
     return {"status": "deleted"}
+
+
+# ---- Bot Skills (AI-generated, sandbox-tested network capabilities for a bot) ----
+@app.post("/api/skills/create")
+async def create_skill(data: dict, user_id: str = Depends(get_current_user_id)):
+    """Generates, sandbox-tests, and (if the test passes) saves a new skill for a bot the
+    caller owns. This can take several seconds and several real Groq calls (the
+    generate -> test -> fix loop) - same cost shape as /api/bot-builder/generate, so it's
+    gated by the same quota check."""
+    _enforce_groq_quota(user_id)
+    from app.core.agent_store import AgentStore
+    from app.db.database import GenesisDB
+    from app.core.skills.skill_generator import SkillGenerator
+
+    agent_id = data.get("agent_id")
+    description = (data.get("description") or "").strip()
+    allowed_domains = data.get("allowed_domains") or []
+    if not agent_id or not description:
+        raise HTTPException(status_code=400, detail="agent_id and description are required")
+    if not allowed_domains or not isinstance(allowed_domains, list):
+        raise HTTPException(status_code=400, detail=(
+            "allowed_domains must be a non-empty list of domains this skill is allowed to "
+            "contact, e.g. [\"ebay.com\"] - a skill with no declared domains can't reach the "
+            "network at all, and one is required so the sandbox can enforce it."))
+
+    agent = AgentStore().get_agent(agent_id)
+    if not agent or agent.get("author") != user_id:
+        raise HTTPException(status_code=404, detail="Bot not found, or it doesn't belong to you")
+
+    declared_action_type = data.get("action_type", "read_only")
+    if declared_action_type not in ("read_only", "outbound_action"):
+        raise HTTPException(status_code=400, detail="action_type must be 'read_only' or 'outbound_action'")
+
+    result = SkillGenerator(user_id=user_id).build(description, allowed_domains)
+    from app.core.skills.skill_generator import _detect_write_http_method
+    # Defense in depth: a skill that writes (POST/PUT/DELETE/PATCH) is ALWAYS treated as an
+    # outbound_action, regardless of what the creator declared - see _detect_write_http_method's
+    # docstring. This can only make the gate stricter than requested, never looser.
+    action_type = "outbound_action" if (result["code"] and _detect_write_http_method(result["code"])) else declared_action_type
+
+    db = GenesisDB()
+    skill = db.create_skill(
+        agent_id=agent_id, owner_user_id=user_id,
+        name=data.get("name") or description[:60],
+        description=description, code=result["code"] or "",
+        allowed_domains=allowed_domains, input_schema=data.get("input_schema") or {},
+        action_type=action_type)
+    db.update_skill_test_result(skill["id"], passed=result["success"],
+                                 log=json.dumps(result["log"])[:4000])
+    skill = db.get_skill(skill["id"])
+    del skill["code"]  # never return the generated source to the client - see get_skill's docstring note
+    return {"skill": skill, "test_success": result["success"], "log": result["log"]}
+
+@app.get("/api/skills")
+async def list_my_skills(user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    return {"skills": GenesisDB().list_skills_for_owner(user_id)}
+
+@app.delete("/api/skills/{skill_id}")
+async def delete_skill(skill_id: str, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    if not GenesisDB().delete_skill(skill_id, user_id):
+        raise HTTPException(status_code=404, detail="Skill not found, or it doesn't belong to you")
+    return {"status": "deleted"}
+
+
+# ---- Pending actions ("Level 4": outbound_action skills always stop here first) ----
+@app.get("/api/pending-actions")
+async def list_pending_actions(status: Optional[str] = None, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    return {"actions": GenesisDB().list_pending_actions_for_owner(user_id, status=status)}
+
+@app.post("/api/pending-actions/{action_id}/approve")
+async def approve_pending_action(action_id: str, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    from app.core.skills.skill_generator import SkillGenerator
+    db = GenesisDB()
+    action = db.decide_pending_action(action_id, user_id, approve=True)
+    if not action:
+        raise HTTPException(status_code=404, detail=(
+            "Pending action not found, doesn't belong to you, or was already decided"))
+
+    skill = db.get_skill(action["skill_id"])
+    if not skill or not skill["active"]:
+        db.record_pending_action_result(action_id, success=False, result=None,
+                                         error="The skill this action depends on is no longer available.")
+        raise HTTPException(status_code=409, detail="The underlying skill is no longer available")
+
+    outcome = SkillGenerator().run_stored_skill(skill["code"], action["params"], skill["allowed_domains"])
+    db.record_pending_action_result(action_id, success=outcome["success"],
+                                     result=outcome.get("result"), error=outcome.get("error"))
+    return {"action": db.get_pending_action(action_id)}
+
+@app.post("/api/pending-actions/{action_id}/reject")
+async def reject_pending_action(action_id: str, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    action = GenesisDB().decide_pending_action(action_id, user_id, approve=False)
+    if not action:
+        raise HTTPException(status_code=404, detail=(
+            "Pending action not found, doesn't belong to you, or was already decided"))
+    return {"action": action}
+
+
+# ---- Scheduled jobs ("Level 3": autonomous, timer-driven skill runs) ----
+@app.post("/api/scheduled-jobs/create")
+async def create_scheduled_job(data: dict, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    db = GenesisDB()
+    skill_id = data.get("skill_id")
+    if not skill_id:
+        raise HTTPException(status_code=400, detail="skill_id is required")
+    skill = db.get_skill(skill_id)
+    if not skill or skill["owner_user_id"] != user_id:
+        raise HTTPException(status_code=404, detail="Skill not found, or it doesn't belong to you")
+    if not skill["active"] or not skill["test_passed"]:
+        raise HTTPException(status_code=400, detail="Only an active, sandbox-tested skill can be scheduled")
+
+    try:
+        job = db.create_scheduled_job(
+            skill_id=skill_id, agent_id=skill["agent_id"], owner_user_id=user_id,
+            params=data.get("params") or {},
+            interval_minutes=int(data.get("interval_minutes", 0)),
+            notify_on_change=bool(data.get("notify_on_change", True)))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"job": job}
+
+@app.get("/api/scheduled-jobs")
+async def list_scheduled_jobs(user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    return {"jobs": GenesisDB().list_scheduled_jobs_for_owner(user_id)}
+
+@app.post("/api/scheduled-jobs/{job_id}/pause")
+async def pause_scheduled_job(job_id: str, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    if not GenesisDB().set_scheduled_job_active(job_id, user_id, active=False):
+        raise HTTPException(status_code=404, detail="Job not found, or it doesn't belong to you")
+    return {"status": "paused"}
+
+@app.post("/api/scheduled-jobs/{job_id}/resume")
+async def resume_scheduled_job(job_id: str, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    if not GenesisDB().set_scheduled_job_active(job_id, user_id, active=True):
+        raise HTTPException(status_code=404, detail="Job not found, or it doesn't belong to you")
+    return {"status": "resumed"}
+
+@app.delete("/api/scheduled-jobs/{job_id}")
+async def delete_scheduled_job(job_id: str, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    if not GenesisDB().delete_scheduled_job(job_id, user_id):
+        raise HTTPException(status_code=404, detail="Job not found, or it doesn't belong to you")
+    return {"status": "deleted"}
+
 
 @app.get("/health")
 async def health(): return {"status": "healthy", "version": "1.0.0"}

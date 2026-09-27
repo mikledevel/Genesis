@@ -6,3 +6,5 @@ genesis.db
 generated/
 genesis.db-shm
 genesis.db-wal
+.DS_Store
+agents/store.json

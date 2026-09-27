@@ -45,6 +45,57 @@ class GenesisDB:
                     selected_model_json TEXT,
                     created_at TEXT DEFAULT (datetime('now'))
                 );
+                CREATE TABLE IF NOT EXISTS auth_tokens (
+                    token TEXT PRIMARY KEY, user_id TEXT NOT NULL,
+                    purpose TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    used_at TEXT,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS bot_skills (
+                    id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, owner_user_id TEXT NOT NULL,
+                    name TEXT NOT NULL, description TEXT DEFAULT '',
+                    code TEXT NOT NULL,
+                    allowed_domains_json TEXT NOT NULL DEFAULT '[]',
+                    input_schema_json TEXT NOT NULL DEFAULT '{}',
+                    action_type TEXT NOT NULL DEFAULT 'read_only',
+                    test_passed INTEGER DEFAULT 0,
+                    test_log TEXT DEFAULT '',
+                    active INTEGER DEFAULT 1,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS pending_actions (
+                    id TEXT PRIMARY KEY, skill_id TEXT NOT NULL, agent_id TEXT NOT NULL,
+                    owner_user_id TEXT NOT NULL,
+                    params_json TEXT NOT NULL DEFAULT '{}',
+                    source TEXT NOT NULL DEFAULT 'chat',
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    result_json TEXT, error TEXT,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    decided_at TEXT
+                );
+                CREATE TABLE IF NOT EXISTS scheduled_jobs (
+                    id TEXT PRIMARY KEY, skill_id TEXT NOT NULL, agent_id TEXT NOT NULL,
+                    owner_user_id TEXT NOT NULL,
+                    params_json TEXT NOT NULL DEFAULT '{}',
+                    interval_minutes INTEGER NOT NULL,
+                    notify_on_change INTEGER DEFAULT 1,
+                    next_run_at TEXT NOT NULL,
+                    last_run_at TEXT,
+                    last_result_hash TEXT,
+                    last_result_json TEXT,
+                    last_error TEXT,
+                    consecutive_failures INTEGER DEFAULT 0,
+                    active INTEGER DEFAULT 1,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS scheduled_job_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT NOT NULL,
+                    success INTEGER NOT NULL, result_json TEXT, error TEXT,
+                    changed_from_previous INTEGER DEFAULT 0,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
                 CREATE TABLE IF NOT EXISTS transactions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL,
                     type TEXT NOT NULL, amount_cents INTEGER NOT NULL,
@@ -171,7 +222,9 @@ class GenesisDB:
                                           # indistinguishable from slow-but-working calls in the logs.
                                           ("groq_usage_log", "latency_ms", "INTEGER"),
                                           ("groq_usage_log", "error_type", "TEXT"),
-                                          ("groq_usage_log", "provider", "TEXT")]:
+                                          ("groq_usage_log", "provider", "TEXT"),
+                                          ("users", "email_verified", "INTEGER DEFAULT 0"),
+                                          ("bot_skills", "action_type", "TEXT NOT NULL DEFAULT 'read_only'")]:
                 try:
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coldef}")
                     conn.commit()
@@ -197,6 +250,334 @@ class GenesisDB:
         with self._connect() as conn:
             row = conn.execute("SELECT id, email, name, balance_cents FROM users WHERE id = ?", (user_id,)).fetchone()
             return {"id": row[0], "email": row[1], "name": row[2], "balance_cents": row[3]} if row else None
+
+    def update_password(self, user_id: str, new_password_hash: str):
+        with self._connect() as conn:
+            conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_password_hash, user_id))
+            conn.commit()
+
+    def is_email_verified(self, user_id: str) -> bool:
+        with self._connect() as conn:
+            row = conn.execute("SELECT email_verified FROM users WHERE id = ?", (user_id,)).fetchone()
+            return bool(row and row[0])
+
+    def mark_email_verified(self, user_id: str):
+        with self._connect() as conn:
+            conn.execute("UPDATE users SET email_verified = 1 WHERE id = ?", (user_id,))
+            conn.commit()
+
+    # --- Auth tokens (email verification + password reset) ---
+    # A single table with a "purpose" column rather than two tables - same lifecycle
+    # (create, check validity+expiry, consume once) for both, just different actions taken
+    # by the route handler on successful consumption.
+    def create_auth_token(self, user_id: str, purpose: str, ttl_seconds: int) -> str:
+        import secrets as _secrets
+        from datetime import datetime, timedelta
+        token = _secrets.token_urlsafe(32)
+        expires_at = (datetime.utcnow() + timedelta(seconds=ttl_seconds)).isoformat()
+        with self._connect() as conn:
+            conn.execute("INSERT INTO auth_tokens (token, user_id, purpose, expires_at) VALUES (?, ?, ?, ?)",
+                         (token, user_id, purpose, expires_at))
+            conn.commit()
+        return token
+
+    def consume_auth_token(self, token: str, purpose: str) -> Optional[str]:
+        """Validates the token is unused, unexpired, and for the expected purpose, marks it
+        used, and returns the user_id it belongs to (or None if invalid/expired/already
+        used/wrong purpose). Marking used_at happens in the SAME connection/commit as the
+        validity check to avoid a token being usable twice via a race between two concurrent
+        requests - not perfectly atomic under SQLite's threading model, but the UPDATE...
+        WHERE used_at IS NULL below means only one of two racing requests can ever succeed."""
+        from datetime import datetime
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT user_id, purpose, expires_at, used_at FROM auth_tokens WHERE token = ?", (token,)).fetchone()
+            if not row:
+                return None
+            user_id, row_purpose, expires_at, used_at = row
+            if row_purpose != purpose or used_at is not None:
+                return None
+            if datetime.fromisoformat(expires_at) < datetime.utcnow():
+                return None
+            cur = conn.execute(
+                "UPDATE auth_tokens SET used_at = datetime('now') WHERE token = ? AND used_at IS NULL", (token,))
+            conn.commit()
+            return user_id if cur.rowcount > 0 else None
+
+    # --- Bot skills (AI-generated, sandbox-tested code capabilities for a bot) ---
+    # Ownership is enforced the same way as agents/models elsewhere in this file: every
+    # mutating method takes owner_user_id and only acts on rows that actually belong to that
+    # user - see the agent-store IDOR fix and the model-registry ownership fix for why this
+    # matters (a skill's code and allowed_domains are exactly the kind of thing another user
+    # should not be able to read, edit, or delete).
+    def create_skill(self, agent_id: str, owner_user_id: str, name: str, description: str,
+                      code: str, allowed_domains: list, input_schema: dict,
+                      action_type: str = "read_only") -> Dict:
+        if action_type not in ("read_only", "outbound_action"):
+            raise ValueError("action_type must be 'read_only' or 'outbound_action'")
+        import uuid as _uuid
+        skill_id = f"skill_{_uuid.uuid4().hex[:12]}"
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO bot_skills (id, agent_id, owner_user_id, name, description, code, "
+                "allowed_domains_json, input_schema_json, action_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (skill_id, agent_id, owner_user_id, name, description, code,
+                 json.dumps(allowed_domains), json.dumps(input_schema), action_type))
+            conn.commit()
+        return self.get_skill(skill_id)
+
+    def get_skill(self, skill_id: str) -> Optional[Dict]:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT id, agent_id, owner_user_id, name, description, code, allowed_domains_json, "
+                "input_schema_json, test_passed, test_log, active, created_at, action_type FROM bot_skills WHERE id = ?",
+                (skill_id,)).fetchone()
+            if not row:
+                return None
+            return {
+                "id": row[0], "agent_id": row[1], "owner_user_id": row[2], "name": row[3],
+                "description": row[4], "code": row[5], "allowed_domains": json.loads(row[6]),
+                "input_schema": json.loads(row[7]), "test_passed": bool(row[8]),
+                "test_log": row[9], "active": bool(row[10]), "created_at": row[11],
+                "action_type": row[12],
+            }
+
+    def list_skills_for_agent(self, agent_id: str) -> List[Dict]:
+        """Deliberately does NOT filter by owner - this is called from within a chat session
+        to find which skills a bot can use, and the caller (agent.py) already establishes the
+        bot's own identity/ownership context separately. Do not expose this list (with code)
+        directly to arbitrary users via an API route without an ownership check there - see
+        the /api/skills route in main.py, which does check ownership before returning."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, name, description, allowed_domains_json, input_schema_json, action_type "
+                "FROM bot_skills WHERE agent_id = ? AND active = 1 AND test_passed = 1", (agent_id,)).fetchall()
+            return [{"id": r[0], "name": r[1], "description": r[2],
+                     "allowed_domains": json.loads(r[3]), "input_schema": json.loads(r[4]),
+                     "action_type": r[5]} for r in rows]
+
+    def list_skills_for_owner(self, owner_user_id: str) -> List[Dict]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, agent_id, name, description, test_passed, active, created_at, action_type "
+                "FROM bot_skills WHERE owner_user_id = ? ORDER BY created_at DESC", (owner_user_id,)).fetchall()
+            return [{"id": r[0], "agent_id": r[1], "name": r[2], "description": r[3],
+                     "test_passed": bool(r[4]), "active": bool(r[5]), "created_at": r[6],
+                     "action_type": r[7]} for r in rows]
+
+    def update_skill_test_result(self, skill_id: str, passed: bool, log: str, code: Optional[str] = None):
+        with self._connect() as conn:
+            if code is not None:
+                conn.execute(
+                    "UPDATE bot_skills SET test_passed = ?, test_log = ?, code = ?, updated_at = datetime('now') WHERE id = ?",
+                    (int(passed), log, code, skill_id))
+            else:
+                conn.execute(
+                    "UPDATE bot_skills SET test_passed = ?, test_log = ?, updated_at = datetime('now') WHERE id = ?",
+                    (int(passed), log, skill_id))
+            conn.commit()
+
+    def delete_skill(self, skill_id: str, owner_user_id: str) -> bool:
+        with self._connect() as conn:
+            cur = conn.execute("DELETE FROM bot_skills WHERE id = ? AND owner_user_id = ?", (skill_id, owner_user_id))
+            conn.commit()
+            return cur.rowcount > 0
+
+    # --- Pending actions ("Level 4": a skill that would do something to a third party -
+    # send a message, post something, etc. - never runs on its own, whether triggered from
+    # chat or from a scheduled job. It always creates one of these instead, and the actual
+    # skill code only executes once the owner explicitly approves it here. See
+    # app/core/agent.py's _do_run_skill and app/core/scheduler.py's _run_one_job, both of
+    # which check skill["action_type"] == "outbound_action" and route here instead of
+    # executing directly - this table is the ONLY path an outbound_action skill can run
+    # through, by construction, not by convention.) ---
+    def create_pending_action(self, skill_id: str, agent_id: str, owner_user_id: str,
+                               params: dict, source: str) -> Dict:
+        import uuid as _uuid
+        action_id = f"pact_{_uuid.uuid4().hex[:12]}"
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO pending_actions (id, skill_id, agent_id, owner_user_id, params_json, source) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (action_id, skill_id, agent_id, owner_user_id, json.dumps(params), source))
+            conn.commit()
+        return self.get_pending_action(action_id)
+
+    def get_pending_action(self, action_id: str) -> Optional[Dict]:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT id, skill_id, agent_id, owner_user_id, params_json, source, status, "
+                "result_json, error, created_at, decided_at FROM pending_actions WHERE id = ?",
+                (action_id,)).fetchone()
+            if not row:
+                return None
+            return {
+                "id": row[0], "skill_id": row[1], "agent_id": row[2], "owner_user_id": row[3],
+                "params": json.loads(row[4]), "source": row[5], "status": row[6],
+                "result": json.loads(row[7]) if row[7] else None, "error": row[8],
+                "created_at": row[9], "decided_at": row[10],
+            }
+
+    def list_pending_actions_for_owner(self, owner_user_id: str, status: Optional[str] = None) -> List[Dict]:
+        query = "SELECT id FROM pending_actions WHERE owner_user_id = ?"
+        params = [owner_user_id]
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+        query += " ORDER BY created_at DESC"
+        with self._connect() as conn:
+            ids = [r[0] for r in conn.execute(query, params).fetchall()]
+        return [self.get_pending_action(aid) for aid in ids]
+
+    def decide_pending_action(self, action_id: str, owner_user_id: str, approve: bool) -> Optional[Dict]:
+        """Moves a pending action from 'pending' to 'approved' or 'rejected' - ownership
+        checked, and only succeeds if it's still actually pending (can't re-decide an action
+        that was already approved/rejected, whether by a race or a duplicate click). Returns
+        the updated record, or None if it wasn't found/owned/still-pending. Approving does
+        NOT execute the skill itself - see main.py's route, which calls this THEN runs the
+        skill and calls record_pending_action_result with the outcome."""
+        with self._connect() as conn:
+            cur = conn.execute(
+                "UPDATE pending_actions SET status = ?, decided_at = datetime('now') "
+                "WHERE id = ? AND owner_user_id = ? AND status = 'pending'",
+                ("approved" if approve else "rejected", action_id, owner_user_id))
+            conn.commit()
+            if cur.rowcount == 0:
+                return None
+        return self.get_pending_action(action_id)
+
+    def record_pending_action_result(self, action_id: str, success: bool, result: Optional[dict], error: Optional[str]):
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE pending_actions SET status = ?, result_json = ?, error = ? WHERE id = ?",
+                ("executed" if success else "failed",
+                 json.dumps(result) if result is not None else None, error, action_id))
+            conn.commit()
+
+    # --- Scheduled jobs (background/autonomous skill runs - "Level 3": a bot that checks
+    # something on its own, without a user message triggering each run) ---
+    MIN_SCHEDULE_INTERVAL_MINUTES = 15  # hard floor, regardless of what's requested - see
+    # create_scheduled_job. Prevents one misconfigured or malicious job from hammering an
+    # external site (and, if it were LLM-backed, burning the owner's Groq budget) every few
+    # seconds forever.
+    MAX_ACTIVE_JOBS_PER_OWNER = 10
+    MAX_CONSECUTIVE_FAILURES = 5  # auto-pause after this many failed runs in a row, rather
+    # than retrying forever against something that's clearly broken (wrong domain, dead
+    # site, a bug introduced by editing the skill) and quietly wasting compute/API calls.
+
+    def create_scheduled_job(self, skill_id: str, agent_id: str, owner_user_id: str,
+                              params: dict, interval_minutes: int, notify_on_change: bool = True) -> Dict:
+        if interval_minutes < self.MIN_SCHEDULE_INTERVAL_MINUTES:
+            raise ValueError(f"interval_minutes must be at least {self.MIN_SCHEDULE_INTERVAL_MINUTES}")
+        active_count = len(self.list_scheduled_jobs_for_owner(owner_user_id, active_only=True))
+        if active_count >= self.MAX_ACTIVE_JOBS_PER_OWNER:
+            raise ValueError(f"You already have {active_count} active scheduled jobs - the limit is "
+                              f"{self.MAX_ACTIVE_JOBS_PER_OWNER}. Pause or delete one before adding another.")
+        import uuid as _uuid
+        job_id = f"job_{_uuid.uuid4().hex[:12]}"
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO scheduled_jobs (id, skill_id, agent_id, owner_user_id, params_json, "
+                "interval_minutes, notify_on_change, next_run_at) VALUES "
+                "(?, ?, ?, ?, ?, ?, ?, datetime('now', ?))",
+                (job_id, skill_id, agent_id, owner_user_id, json.dumps(params), interval_minutes,
+                 int(notify_on_change), f"+{interval_minutes} minutes"))
+            conn.commit()
+        return self.get_scheduled_job(job_id)
+
+    def get_scheduled_job(self, job_id: str) -> Optional[Dict]:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT id, skill_id, agent_id, owner_user_id, params_json, interval_minutes, "
+                "notify_on_change, next_run_at, last_run_at, last_result_hash, last_result_json, "
+                "last_error, consecutive_failures, active, created_at FROM scheduled_jobs WHERE id = ?",
+                (job_id,)).fetchone()
+            if not row:
+                return None
+            return {
+                "id": row[0], "skill_id": row[1], "agent_id": row[2], "owner_user_id": row[3],
+                "params": json.loads(row[4]), "interval_minutes": row[5], "notify_on_change": bool(row[6]),
+                "next_run_at": row[7], "last_run_at": row[8], "last_result_hash": row[9],
+                "last_result": json.loads(row[10]) if row[10] else None, "last_error": row[11],
+                "consecutive_failures": row[12], "active": bool(row[13]), "created_at": row[14],
+            }
+
+    def list_scheduled_jobs_for_owner(self, owner_user_id: str, active_only: bool = False) -> List[Dict]:
+        query = "SELECT id FROM scheduled_jobs WHERE owner_user_id = ?"
+        params = [owner_user_id]
+        if active_only:
+            query += " AND active = 1"
+        query += " ORDER BY created_at DESC"
+        with self._connect() as conn:
+            ids = [r[0] for r in conn.execute(query, params).fetchall()]
+        return [self.get_scheduled_job(jid) for jid in ids]
+
+    def claim_due_jobs(self, limit: int = 10) -> List[Dict]:
+        """Atomically claims up to `limit` jobs that are due to run, safe even if multiple
+        server processes call this concurrently (see docstring in app/core/scheduler.py for
+        the full reasoning). A "claim" is implemented as a compare-and-swap on next_run_at:
+        we read it, then try to update it ONLY if it still holds the exact value we just
+        read - if another process already claimed the job in between, our UPDATE affects 0
+        rows and we simply skip it, rather than two processes both running the same job.
+
+        Claimed jobs get next_run_at bumped 10 minutes into the future as a "running" marker
+        - complete_scheduled_job_run() sets the real next_run_at once the run actually
+        finishes. If a process crashes mid-run without calling that, the job self-heals: it
+        simply becomes claimable again after that 10-minute marker passes, rather than being
+        stuck forever."""
+        with self._connect() as conn:
+            candidates = conn.execute(
+                "SELECT id, next_run_at FROM scheduled_jobs WHERE active = 1 AND next_run_at <= datetime('now') "
+                "ORDER BY next_run_at LIMIT ?", (limit,)).fetchall()
+            claimed_ids = []
+            for job_id, next_run_at in candidates:
+                cur = conn.execute(
+                    "UPDATE scheduled_jobs SET next_run_at = datetime('now', '+10 minutes') "
+                    "WHERE id = ? AND next_run_at = ?", (job_id, next_run_at))
+                if cur.rowcount > 0:
+                    claimed_ids.append(job_id)
+            conn.commit()
+        return [self.get_scheduled_job(jid) for jid in claimed_ids]
+
+    def complete_scheduled_job_run(self, job_id: str, success: bool, result: Optional[dict],
+                                    error: Optional[str]) -> Dict:
+        """Records the outcome of a claimed run, schedules the next one (real interval this
+        time, not the 10-minute claim marker), and auto-pauses after too many consecutive
+        failures. Returns {"changed": bool} so the caller (app/core/scheduler.py) knows
+        whether to send a change notification."""
+        import hashlib
+        job = self.get_scheduled_job(job_id)
+        result_json = json.dumps(result) if result is not None else None
+        result_hash = hashlib.sha256(result_json.encode()).hexdigest() if result_json else None
+        changed = success and job["last_result_hash"] is not None and result_hash != job["last_result_hash"]
+        new_failures = 0 if success else job["consecutive_failures"] + 1
+        should_deactivate = new_failures >= self.MAX_CONSECUTIVE_FAILURES
+
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE scheduled_jobs SET last_run_at = datetime('now'), "
+                "next_run_at = datetime('now', ?), last_result_hash = ?, last_result_json = ?, "
+                "last_error = ?, consecutive_failures = ?, active = ? WHERE id = ?",
+                (f"+{job['interval_minutes']} minutes", result_hash, result_json, error,
+                 new_failures, 0 if should_deactivate else 1, job_id))
+            conn.execute(
+                "INSERT INTO scheduled_job_runs (job_id, success, result_json, error, changed_from_previous) "
+                "VALUES (?, ?, ?, ?, ?)", (job_id, int(success), result_json, error, int(changed)))
+            conn.commit()
+        return {"changed": changed, "auto_paused": should_deactivate}
+
+    def set_scheduled_job_active(self, job_id: str, owner_user_id: str, active: bool) -> bool:
+        with self._connect() as conn:
+            cur = conn.execute("UPDATE scheduled_jobs SET active = ? WHERE id = ? AND owner_user_id = ?",
+                               (int(active), job_id, owner_user_id))
+            conn.commit()
+            return cur.rowcount > 0
+
+    def delete_scheduled_job(self, job_id: str, owner_user_id: str) -> bool:
+        with self._connect() as conn:
+            cur = conn.execute("DELETE FROM scheduled_jobs WHERE id = ? AND owner_user_id = ?", (job_id, owner_user_id))
+            conn.commit()
+            return cur.rowcount > 0
 
     def get_balance(self, user_id: str) -> int:
         with self._connect() as conn:

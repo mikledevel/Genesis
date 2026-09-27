@@ -137,7 +137,9 @@ wasn't the cause of the error unchanged - fix only what the traceback/validation
             return None
         try:
             from groq import Groq
-            client = Groq(api_key=self.groq_key)
+            from app.config import settings
+            client = Groq(api_key=self.groq_key, timeout=settings.groq_request_timeout_seconds,
+                          max_retries=settings.groq_max_retries)
             completion = client.chat.completions.create(
                 model=self.MODEL,
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],

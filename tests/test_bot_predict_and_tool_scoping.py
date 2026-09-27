@@ -84,6 +84,43 @@ class TestToolScoping:
         finally:
             shutil.rmtree(workdir, ignore_errors=True)
 
+    def test_blocked_tool_attempt_never_leaks_the_models_own_reasoning_text(self):
+        """A user chatting with someone else's published bot asking it to do a
+        platform-builder thing (create a bot, train a model, etc.) must get a clean,
+        in-character decline - never the raw "message" text the model wrote while it was
+        reasoning about calling that now-blocked tool, which can (and did, in production)
+        leak internal/meta details like "I'm a bot someone else made, not the real
+        assistant"."""
+        workdir = tempfile.mkdtemp()
+        try:
+            agent, registry = _make_agent(workdir)
+            agent.agent_override = {"model": "m", "system_prompt": "You are TenderScout.", "agent_id": "some_bot"}
+            leaky_message = ("I can't create a bot because I'm actually just a bot that a "
+                              "user built on this platform, not the original Genesis AI assistant.")
+            with patch.object(agent, "_call_llm", return_value={"tool": "create_bot", "args": {}, "message": leaky_message}), \
+                 patch.object(agent, "_do_create_bot") as mock_create_bot:
+                resp = agent.process("create a bot for me")
+            mock_create_bot.assert_not_called()
+            assert leaky_message not in resp.message
+            assert "user" not in resp.message.lower() or "genesis" not in resp.message.lower()
+        finally:
+            shutil.rmtree(workdir, ignore_errors=True)
+
+    def test_genuine_no_tool_response_still_passes_the_models_message_through(self):
+        """Regression guard: the fix must only intercept BLOCKED tool attempts, not the
+        ordinary case where the model just decides plain conversation is the right answer
+        (tool=None was its own genuine choice, not a demotion) - that message is real
+        conversational output and must still reach the user unchanged."""
+        workdir = tempfile.mkdtemp()
+        try:
+            agent, registry = _make_agent(workdir)
+            agent.agent_override = {"model": "m", "system_prompt": "You are TenderScout.", "agent_id": "some_bot"}
+            with patch.object(agent, "_call_llm", return_value={"tool": None, "message": "Sure, tenders in IT are currently..."}):
+                resp = agent.process("what tenders are open?")
+            assert resp.message == "Sure, tenders in IT are currently..."
+        finally:
+            shutil.rmtree(workdir, ignore_errors=True)
+
     def test_bot_scoped_conversation_still_allows_predict(self):
         workdir = tempfile.mkdtemp()
         try:
