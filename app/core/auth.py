@@ -59,7 +59,37 @@ def get_current_user_id(authorization: Optional[str] = Header(None)) -> str:
 def get_current_user_id_optional(authorization: Optional[str] = Header(None)) -> Optional[str]:
     """Same as get_current_user_id but returns None instead of raising - for endpoints
     that work for anonymous visitors too (e.g. public marketplace listings) but can
-    personalize behavior when a valid token IS present."""
+    personalize behavior when a valid token IS present.
+    """
     if not authorization or not authorization.startswith("Bearer "):
         return None
     return decode_token(authorization.removeprefix("Bearer ").strip())
+
+
+def get_api_key_from_request(authorization: Optional[str] = Header(None),
+                              x_api_key: Optional[str] = Header(None, alias="X-API-Key")) -> str:
+    """FastAPI dependency for the public developer API (POST /api/v1/chat/completions):
+    require a Genesis API key, return the raw key string (the caller still needs to look it
+    up via GenesisDB.validate_api_key to get the owning user_id and confirm it's active).
+
+    Accepts the key two ways, checked in this order:
+      1. `Authorization: Bearer gen-xxxx` - matches the convention the official OpenAI and
+         Groq Python SDKs use for their own API keys, so a developer can point either SDK's
+         `base_url` at this platform and their existing `Authorization: Bearer <key>` client
+         code just works unchanged, with a Genesis key in place of an OpenAI/Groq one.
+      2. `X-API-Key: gen-xxxx` - same header the older /api/models/{id}/predict endpoint
+         uses, for consistency with the rest of this platform's API-key surface.
+
+    NOTE this is intentionally a DIFFERENT dependency from get_current_user_id: that one
+    reads `Authorization: Bearer <JWT>` for browser session logins, and a Genesis API key
+    (`gen-...`) is never a valid JWT, so there's no ambiguity between the two even though
+    they read the same header - a route takes one dependency or the other, never both.
+    """
+    if authorization and authorization.startswith("Bearer "):
+        key = authorization.removeprefix("Bearer ").strip()
+        if key:
+            return key
+    if x_api_key:
+        return x_api_key
+    raise HTTPException(status_code=401, detail="Missing API key - send it as 'Authorization: Bearer "
+                                                  "<your key>' or the X-API-Key header")

@@ -74,9 +74,3 @@ class CustomBlockStore:
         for b in data["blocks"]:
             if b["id"] == block_id: return b
         return None
-
-    def get_block(self, block_id: str) -> Optional[Dict]:
-        data = self._load()
-        for b in data["blocks"]:
-            if b["id"] == block_id: return b
-        return None

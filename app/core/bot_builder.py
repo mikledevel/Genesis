@@ -212,23 +212,26 @@ Keep everything else unchanged unless the feedback implies otherwise."""
         return tools
 
     def _groq_json(self, system: str, user: str, model: Optional[str] = None, max_tokens: int = 1500,
-                    call_site: str = "bot_builder_json") -> Optional[Dict]:
-        """Call Groq expecting a JSON object back (bot design / fix / revise steps)."""
+                    call_site: str = "bot_builder_json", heavy: bool = False) -> Optional[Dict]:
+        """Call Groq expecting a JSON object back (bot design / fix / revise steps).
+
+        heavy=True (used by generate_spec/fix_spec/revise, which produce a full bot spec) gets
+        a longer read timeout - see settings.groq_read_timeout_heavy_seconds.
+        """
         if not self.groq_key:
             return None
         model = model or self.DEFAULT_MODEL
         try:
-            from groq import Groq
-            from app.config import settings
-            client = Groq(api_key=self.groq_key, timeout=settings.groq_request_timeout_seconds,
-                          max_retries=settings.groq_max_retries)
-            completion = client.chat.completions.create(
+            from app.core.groq_client import call_llm
+            completion = call_llm(
+                self.groq_key,
                 model=model,
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
                 temperature=0.3,
                 max_tokens=max_tokens,
                 response_format={"type": "json_object"},
-                **self._groq_kwargs_for(model),
+                heavy=heavy,
+                groq_only_kwargs=self._groq_kwargs_for(model),
             )
             self._log_usage(call_site, model, completion, success=True)
             return json.loads(completion.choices[0].message.content)
@@ -265,21 +268,17 @@ Keep everything else unchanged unless the feedback implies otherwise."""
         tested_skills = {s["name"]: s for s in (skills or []) if s.get("test_passed") and s.get("code")}
         tools = self._skills_to_tools_schema(list(tested_skills.values())) if tested_skills else None
         try:
-            from groq import Groq
-            from app.config import settings
-            client = Groq(api_key=self.groq_key, timeout=settings.groq_request_timeout_seconds,
-                          max_retries=settings.groq_max_retries)
+            from app.core.groq_client import call_llm
             messages = [{"role": "system", "content": system}]
             for h in (history or [])[-10:]:
                 messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
             messages.append({"role": "user", "content": user})
 
-            kwargs = {"model": model, "messages": messages, "temperature": 0.5,
-                      "max_tokens": max_tokens, **self._groq_kwargs_for(model)}
+            kwargs = {"model": model, "messages": messages, "temperature": 0.5, "max_tokens": max_tokens}
             if tools:
                 kwargs["tools"] = tools
                 kwargs["tool_choice"] = "auto"
-            completion = client.chat.completions.create(**kwargs)
+            completion = call_llm(self.groq_key, groq_only_kwargs=self._groq_kwargs_for(model), **kwargs)
             self._log_usage(call_site, model, completion, success=True)
             msg = completion.choices[0].message
 
@@ -313,9 +312,9 @@ Keep everything else unchanged unless the feedback implies otherwise."""
                     tool_result = outcome["result"] if outcome["success"] else {"error": outcome["error"]}
                 messages.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(tool_result)})
 
-            follow_up = client.chat.completions.create(
-                model=model, messages=messages, temperature=0.5, max_tokens=max_tokens,
-                **self._groq_kwargs_for(model))
+            follow_up = call_llm(
+                self.groq_key, model=model, messages=messages, temperature=0.5, max_tokens=max_tokens,
+                groq_only_kwargs=self._groq_kwargs_for(model))
             self._log_usage(f"{call_site}_tool_followup", model, follow_up, success=True)
             return follow_up.choices[0].message.content
         except Exception as e:
@@ -356,7 +355,7 @@ Keep everything else unchanged unless the feedback implies otherwise."""
     # ---- build loop ----
 
     def generate_spec(self, description: str, model: Optional[str] = None) -> Optional[Dict]:
-        return self._groq_json(self.ARCHITECT_SYSTEM_PROMPT, description, model, call_site="bot_builder_generate_spec")
+        return self._groq_json(self.ARCHITECT_SYSTEM_PROMPT, description, model, call_site="bot_builder_generate_spec", heavy=True)
 
     def _check_hallucination(self, question: str, response: str, model: Optional[str] = None) -> Dict:
         """Judge whether the trap question's answer invented a fact it couldn't know, using a
@@ -410,7 +409,7 @@ Keep everything else unchanged unless the feedback implies otherwise."""
         if not failures:
             return spec
         payload = json.dumps({"current_spec": spec, "failures": failures}, ensure_ascii=False)
-        fixed = self._groq_json(self.FIX_SYSTEM_PROMPT, payload, model, call_site="bot_builder_fix_spec")
+        fixed = self._groq_json(self.FIX_SYSTEM_PROMPT, payload, model, call_site="bot_builder_fix_spec", heavy=True)
         return {**spec, **fixed} if fixed else spec
 
     def build(self, description: str, model: Optional[str] = None, max_iterations: Optional[int] = None) -> Dict:
@@ -482,7 +481,7 @@ Keep everything else unchanged unless the feedback implies otherwise."""
 
     def revise(self, spec: Dict, feedback: str, model: Optional[str] = None) -> Dict:
         payload = json.dumps({"current_spec": spec, "user_feedback": feedback}, ensure_ascii=False)
-        revised = self._groq_json(self.REVISE_SYSTEM_PROMPT, payload, model, call_site="bot_builder_revise")
+        revised = self._groq_json(self.REVISE_SYSTEM_PROMPT, payload, model, call_site="bot_builder_revise", heavy=True)
         # Merge rather than replace: if the model's response omits a field (e.g. forgets to
         # repeat "name" or "greeting"), keep the original value instead of losing it.
         return {**spec, **revised} if revised else spec

@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 
-from app.core.auth import get_current_user_id, get_current_user_id_optional, hash_password, verify_password, create_token
+from app.core.auth import get_current_user_id, get_current_user_id_optional, get_api_key_from_request, hash_password, verify_password, create_token
 from app.core.rate_limit import RateLimitMiddleware
 from app.core.geo_block import GeoBlockMiddleware
 from app.config import settings
@@ -91,6 +91,19 @@ class RegisterRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     email: str; password: str
+
+class ChatCompletionMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatCompletionsRequest(BaseModel):
+    """Body for POST /api/v1/chat/completions - the public developer API. Deliberately named
+    and shaped like OpenAI's chat-completions request so existing tooling/snippets built for
+    that shape need minimal changes to point at this platform instead."""
+    model: Optional[str] = None
+    messages: List[ChatCompletionMessage]
+    max_tokens: Optional[int] = None
+    temperature: Optional[float] = 0.7
 
 # ── Auth ──
 @app.post("/api/auth/register")
@@ -249,9 +262,19 @@ async def agent_message(req: MessageRequest, user_id: str = Depends(get_current_
         # (critically) never reach the charge_for_usage call below, so nobody is billed for
         # a message the model never produced. See app.core.llm_errors for the status-code
         # mapping (config -> 503, rate limit -> 429, timeout -> 504, generic -> 502).
-        raise HTTPException(status_code=e.http_status, detail=(
-            "The AI provider failed to generate a response. Please try again in a moment. "
-            f"({type(e).__name__})"))
+        # The exact exception (incl. its class name) is already logged server-side above, in
+        # _log_groq_usage/print - no need to leak it into the user-facing chat bubble, which
+        # previously showed raw text like "... (LLMTimeoutError)" verbatim in the UI.
+        from app.core.llm_errors import LLMConfigError, LLMRateLimitError, LLMTimeoutError
+        if isinstance(e, LLMTimeoutError):
+            friendly = "That took longer than expected to answer. Please try again."
+        elif isinstance(e, LLMRateLimitError):
+            friendly = "The AI provider is busy right now. Please wait a moment and try again."
+        elif isinstance(e, LLMConfigError):
+            friendly = "The AI provider isn't configured correctly on this server. Please let the site operator know."
+        else:
+            friendly = "The AI provider failed to generate a response. Please try again in a moment."
+        raise HTTPException(status_code=e.http_status, detail=friendly)
 
     if billable:
         charge = db.charge_for_usage(
@@ -656,6 +679,122 @@ async def model_predict(
                 db.add_transaction(record_author, "usage_earning_reversal", -author_share,
                                    f"Reversal: {listing.get('title', model_id)} (prediction error)", related_id=model_id)
         raise HTTPException(status_code=500, detail=str(e))
+
+# ── Public Developer API ──
+# OpenAI-compatible-shaped chat completions endpoint for third-party integrations: point an
+# existing OpenAI- or Groq-SDK-based client at this platform (base_url + a Genesis API key in
+# place of the provider's own) and it works with minimal changes. Priced per token and billed
+# against the caller's platform account balance - top up the same way as the web app (POST
+# /api/payments/checkout, or POST /api/payments/dev-credit in a DEBUG=true environment). See
+# app/config.py's public_api_* settings for pricing/limits and
+# app/core/public_api_billing.py for the pre-charge/reconcile billing logic that makes the
+# per-token pricing possible without knowing the real cost until after generation.
+#
+# Model list: the same non-retired ids GenesisAgent.MODEL_MAP resolves internally (see that
+# map's comments for which Groq ids are currently live vs retired) - kept as an explicit
+# allowlist here rather than accepting any string, so an unsupported/typo'd model name fails
+# fast with a clear 400 instead of an opaque provider-side error several seconds later.
+PUBLIC_API_SUPPORTED_MODELS = {
+    "openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile", "qwen/qwen3.6-27b",
+}
+
+@app.post("/api/v1/chat/completions")
+async def chat_completions_v1(req: ChatCompletionsRequest, api_key: str = Depends(get_api_key_from_request)):
+    import time, uuid
+    import groq as groq_sdk
+    from app.db.database import GenesisDB
+    from app.core.groq_client import call_llm
+    from app.core.public_api_billing import estimate_worst_case_cost_cents, reconcile_charge, estimate_prompt_tokens
+
+    db = GenesisDB()
+    key_info = db.validate_api_key(api_key)
+    if not key_info:
+        raise HTTPException(status_code=401, detail="Invalid or inactive API key")
+    user_id = key_info["user_id"]
+
+    if not req.messages:
+        raise HTTPException(status_code=400, detail="'messages' must be a non-empty array")
+    model = req.model or settings.public_api_default_model
+    if model not in PUBLIC_API_SUPPORTED_MODELS:
+        raise HTTPException(status_code=400, detail=(
+            f"Unsupported model '{model}'. Supported models: {sorted(PUBLIC_API_SUPPORTED_MODELS)}"))
+    max_tokens = min(req.max_tokens or 1024, settings.public_api_max_tokens_cap)
+    if max_tokens < 1:
+        raise HTTPException(status_code=400, detail="max_tokens must be at least 1")
+
+    messages = [{"role": m.role, "content": m.content} for m in req.messages]
+
+    # PRE-CHARGE the worst case before spending anything with the provider - see
+    # public_api_billing.py's module docstring for why this has to happen before generation,
+    # not after. Nothing is sent to Groq/OpenRouter at all if this fails.
+    pre_charge_cents = estimate_worst_case_cost_cents(messages, max_tokens)
+    charge = db.charge_for_usage(user_id, pre_charge_cents,
+                                  f"Public API call ({model}, up to {max_tokens} tokens)", related_id=api_key)
+    if not charge["ok"]:
+        raise HTTPException(status_code=402, detail=(
+            f"Insufficient balance: at current pricing this call could cost up to "
+            f"{pre_charge_cents} cent(s), but your balance is {charge['balance_cents']} cent(s). "
+            f"Top up at POST /api/payments/checkout."))
+
+    try:
+        completion = call_llm(
+            os.environ.get("GROQ_API_KEY", "") or settings.groq_api_key,
+            model=model, messages=messages,
+            temperature=req.temperature if req.temperature is not None else 0.7,
+            max_tokens=max_tokens,
+        )
+    except Exception as e:
+        # Nothing was generated at all - refund the FULL pre-charge, not a partial amount.
+        db.add_transaction(user_id, "public_api_refund", pre_charge_cents,
+                            f"Refund: public API call failed before generating a response "
+                            f"({type(e).__name__})", related_id=api_key)
+        status_code = 504 if isinstance(e, groq_sdk.APITimeoutError) else 502
+        raise HTTPException(status_code=status_code,
+                             detail=f"The AI provider failed to generate a response: {e}")
+
+    usage = getattr(completion, "usage", None)
+    prompt_tokens = getattr(usage, "prompt_tokens", None) or estimate_prompt_tokens(messages)
+    completion_tokens = getattr(usage, "completion_tokens", None) or 0
+    final_charge_cents = reconcile_charge(db, user_id, api_key, pre_charge_cents, prompt_tokens, completion_tokens)
+    db.log_public_api_usage(api_key, user_id, model, prompt_tokens, completion_tokens, final_charge_cents)
+
+    choice = completion.choices[0]
+    return {
+        "id": f"genesis-{uuid.uuid4().hex[:24]}",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": model,
+        "choices": [{
+            "index": 0,
+            "message": {"role": "assistant", "content": choice.message.content},
+            "finish_reason": getattr(choice, "finish_reason", None) or "stop",
+        }],
+        "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens,
+                   "total_tokens": prompt_tokens + completion_tokens},
+        # Non-standard extra field (ignored by any OpenAI-compatible client, which only reads
+        # the fields above) - included because unlike OpenAI's own API, billing here is
+        # prepaid-balance-based, so surfacing what THIS call actually cost and what's left is
+        # directly useful to show a developer without a second API call.
+        "genesis_billing": {"charged_cents": final_charge_cents, "balance_cents_remaining": db.get_balance(user_id)},
+    }
+
+@app.get("/api/v1/models")
+async def list_models_v1(api_key: str = Depends(get_api_key_from_request)):
+    """OpenAI-SDK-compatible model list (client.models.list()) - also doubles as a cheap way
+    for a developer to confirm their API key works before wiring up real calls."""
+    from app.db.database import GenesisDB
+    if not GenesisDB().validate_api_key(api_key):
+        raise HTTPException(status_code=401, detail="Invalid or inactive API key")
+    return {"object": "list", "data": [{"id": m, "object": "model", "owned_by": "genesis-ai"}
+                                        for m in sorted(PUBLIC_API_SUPPORTED_MODELS)]}
+
+@app.get("/api/v1/usage")
+async def public_api_usage_v1(user_id: str = Depends(get_current_user_id)):
+    """Spend/token summary for the LOGGED-IN platform account (not per-key) - reuses the
+    normal JWT session auth, since this is meant for a developer checking their own dashboard,
+    not for embedding in a server-to-server integration the way chat/completions is."""
+    from app.db.database import GenesisDB
+    return GenesisDB().get_public_api_usage_summary(user_id)
 
 # ── Code Generation ──
 @app.post("/api/codegen/generate")

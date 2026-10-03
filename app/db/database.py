@@ -202,6 +202,13 @@ class GenesisDB:
                     event_type TEXT NOT NULL, detail TEXT,
                     created_at TEXT DEFAULT (datetime('now'))
                 );
+                CREATE TABLE IF NOT EXISTS public_api_usage (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, api_key TEXT NOT NULL,
+                    user_id TEXT NOT NULL, model TEXT NOT NULL,
+                    prompt_tokens INTEGER NOT NULL, completion_tokens INTEGER NOT NULL,
+                    charged_cents INTEGER NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
                 PRAGMA journal_mode=WAL;
             """)
             conn.commit()
@@ -635,16 +642,47 @@ class GenesisDB:
         """Deduct amount_cents from the buyer's balance for using a paid bot/model, and credit
         the author their share (minus the platform fee) if there is one (author_user_id may be
         None for platform-owned demo content). Returns {"ok": False, "reason": "insufficient_balance"}
-        if the buyer doesn't have enough balance - the caller must not fulfil the request in that case."""
-        balance = self.get_balance(buyer_user_id)
-        if balance < amount_cents:
-            return {"ok": False, "reason": "insufficient_balance", "balance_cents": balance, "needed_cents": amount_cents}
-        self.add_transaction(buyer_user_id, "usage_charge", -amount_cents, description, related_id=related_id)
-        if author_user_id and author_user_id != buyer_user_id:
-            author_share = round(amount_cents * (1 - platform_fee_pct / 100))
-            if author_share > 0:
-                self.add_transaction(author_user_id, "usage_earning", author_share,
-                                     f"Earning: {description}", related_id=related_id)
+        if the buyer doesn't have enough balance - the caller must not fulfil the request in that case.
+
+        BUGFIX: the balance check and the deduction used to be two separate transactions
+        (a get_balance() read, then a later add_transaction() write) - two concurrent calls
+        for the same user (e.g. two paid predictions fired in quick succession) could both
+        read the same starting balance, both see it as sufficient, and both deduct, letting a
+        buyer go negative - a real double-spend, and on real money. The check and the
+        deduction are now a single atomic conditional UPDATE inside one transaction:
+        `WHERE balance_cents >= ?` can only succeed for one of two concurrent callers, because
+        SQLite serializes writers - whichever transaction commits first makes the balance no
+        longer satisfy the WHERE clause for the other, which then correctly sees 0 rows
+        affected and reports insufficient_balance instead of both silently succeeding.
+        """
+        with self._connect() as conn:
+            conn.execute("BEGIN")
+            try:
+                cur = conn.execute(
+                    "UPDATE users SET balance_cents = balance_cents - ? WHERE id = ? AND balance_cents >= ?",
+                    (amount_cents, buyer_user_id, amount_cents))
+                if cur.rowcount == 0:
+                    conn.rollback()
+                    balance = self.get_balance(buyer_user_id)
+                    return {"ok": False, "reason": "insufficient_balance", "balance_cents": balance,
+                            "needed_cents": amount_cents}
+                conn.execute(
+                    "INSERT INTO transactions (user_id, type, amount_cents, description, related_id, stripe_session_id) "
+                    "VALUES (?, 'usage_charge', ?, ?, ?, NULL)",
+                    (buyer_user_id, -amount_cents, description, related_id))
+                if author_user_id and author_user_id != buyer_user_id:
+                    author_share = round(amount_cents * (1 - platform_fee_pct / 100))
+                    if author_share > 0:
+                        conn.execute("UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?",
+                                     (author_share, author_user_id))
+                        conn.execute(
+                            "INSERT INTO transactions (user_id, type, amount_cents, description, related_id, stripe_session_id) "
+                            "VALUES (?, 'usage_earning', ?, ?, ?, NULL)",
+                            (author_user_id, author_share, f"Earning: {description}", related_id))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
         return {"ok": True, "charged_cents": amount_cents}
 
     # --- Chats ---
@@ -814,15 +852,55 @@ class GenesisDB:
             return None
 
     def use_api_key(self, api_key: str, model_id: str) -> bool:
-        """Increments the call counter and logs usage."""
+        """Increments the call counter and logs usage. Atomic check-and-increment in one
+        conditional UPDATE (same reasoning as charge_for_usage's docstring above) - the old
+        version did a separate SELECT-then-check-in-Python-then-UPDATE, so two concurrent
+        calls on a key with exactly 1 call remaining could both pass the check and both
+        increment, letting a key run over its calls_limit (and, since this gates
+        /api/models/{id}/predict, potentially over whatever was actually paid for)."""
         with self._connect() as conn:
-            row = conn.execute("SELECT calls_used, calls_limit FROM api_keys WHERE api_key = ? AND active = 1", (api_key,)).fetchone()
-            if not row or row[0] >= row[1]:
+            cur = conn.execute(
+                "UPDATE api_keys SET calls_used = calls_used + 1 "
+                "WHERE api_key = ? AND active = 1 AND calls_used < calls_limit", (api_key,))
+            if cur.rowcount == 0:
+                conn.rollback()
                 return False
-            conn.execute("UPDATE api_keys SET calls_used = calls_used + 1 WHERE api_key = ?", (api_key,))
             conn.execute("INSERT INTO usage_log (api_key, model_id) VALUES (?, ?)", (api_key, model_id))
             conn.commit()
             return True
+
+    def log_public_api_usage(self, api_key: str, user_id: str, model: str, prompt_tokens: int,
+                              completion_tokens: int, charged_cents: int):
+        """Records one billed call to the public developer API (POST /api/v1/chat/completions)
+        - separate from groq_usage_log (that table tracks what WE pay Groq internally, across
+        every AI-powered feature; this one tracks what we CHARGE external developers for this
+        one specific product surface) and separate from usage_log (that one is call-count
+        metering for the older, non-token-priced /api/models/{id}/predict path)."""
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO public_api_usage (api_key, user_id, model, prompt_tokens, completion_tokens, "
+                "charged_cents) VALUES (?, ?, ?, ?, ?, ?)",
+                (api_key, user_id, model, prompt_tokens, completion_tokens, charged_cents))
+            conn.commit()
+
+    def get_public_api_usage_summary(self, user_id: str, limit: int = 100) -> Dict:
+        """Aggregate spend/token counts for one developer's public API usage, plus their most
+        recent individual calls (capped at `limit`) for a detail view."""
+        with self._connect() as conn:
+            totals = conn.execute(
+                "SELECT COUNT(*), SUM(prompt_tokens), SUM(completion_tokens), SUM(charged_cents) "
+                "FROM public_api_usage WHERE user_id = ?", (user_id,)).fetchone()
+            rows = conn.execute(
+                "SELECT api_key, model, prompt_tokens, completion_tokens, charged_cents, created_at "
+                "FROM public_api_usage WHERE user_id = ? ORDER BY id DESC LIMIT ?", (user_id, limit)).fetchall()
+            return {
+                "total_calls": totals[0] or 0,
+                "total_prompt_tokens": totals[1] or 0,
+                "total_completion_tokens": totals[2] or 0,
+                "total_charged_cents": totals[3] or 0,
+                "recent": [{"api_key": r[0], "model": r[1], "prompt_tokens": r[2], "completion_tokens": r[3],
+                           "charged_cents": r[4], "created_at": r[5]} for r in rows],
+            }
 
     def list_api_keys(self, owner_user_id: str) -> List[Dict]:
         """Only ever returns keys owned by owner_user_id - callers must always pass the

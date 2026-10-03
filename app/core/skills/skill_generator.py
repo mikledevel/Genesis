@@ -177,11 +177,9 @@ that wasn't the cause of the error unchanged - fix only what the error points to
         if not self.groq_key:
             return None
         try:
-            from groq import Groq
-            from app.config import settings
-            client = Groq(api_key=self.groq_key, timeout=settings.groq_request_timeout_seconds,
-                          max_retries=settings.groq_max_retries)
-            completion = client.chat.completions.create(
+            from app.core.groq_client import call_llm
+            completion = call_llm(
+                self.groq_key,
                 model=self.MODEL,
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
                 temperature=0.2, max_tokens=1200,

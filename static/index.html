@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="description" content="Genesis AI — build conversational AI agents and train AutoML models without code, then publish either to a live marketplace.">
 <title>Genesis AI — AI Agents &amp; AutoML Platform</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
@@ -18,54 +18,46 @@
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --nav-w:52px;
-  /* Palette: a single confident cobalt (not the violet-to-cornflower "AI gradient" this
-     used to be). --accent-2 stays in the SAME hue, just deeper, so the existing two-stop
-     gradients (logo mark, hero CTA banner, auth mark) read as tonal depth rather than a
-     hue-shifting rainbow wash - one accent, used with conviction, instead of two competing
-     ones. Kept clearly out of the --success/--warn/--danger hue family below so a primary
-     action never gets mistaken for a status color. */
-  --accent:#2A5FE0;
-  --accent-2:#1B46B8;
-  --accent-dim:rgba(42,95,224,.12);
-  --accent-hover:#1F4FC7;
-  --surface:#FAFAF8;
-  --page:#F3F2ED;
-  --card:#FFFFFF;
-  --card2:#F8F7F3;
-  --txt:#18181A;
-  --txt2:#5C5C60;
-  --txt3:#75757A;
-  --brd:rgba(0,0,0,.07);
-  --brd2:rgba(0,0,0,.13);
-  --r:10px;
+  /* Palette: matches the native iOS app's Theme.swift exactly (see that file's comment -
+     "Centralized design tokens... keeps every screen visually consistent") so the product
+     looks and feels like one thing across web and mobile, not two different apps that
+     happen to share a name. Pure monochrome, single forced-dark theme (the iOS app calls
+     .preferredColorScheme(.dark) unconditionally - there is no light mode to match here
+     either): near-black surfaces, white text at three opacities, and NO saturated accent
+     color anywhere - "accent" here just means "full-opacity white" vs. everything else
+     sitting at reduced opacity, exactly like the iOS app's white-pill primary button and
+     dimmed/full-white tab bar icons.
+     --accent-ink is the one addition beyond a literal token-for-token port: since --accent
+     is now white (not a saturated color), anything using it as a BACKGROUND needs dark text
+     on top instead of white-on-white - --accent-ink is that dark text color, matching iOS's
+     PrimaryButtonStyle (Color(white: 0.05) text on a white pill). */
+  --accent:#FFFFFF;
+  --accent-2:#E4E4E7;
+  --accent-ink:#0D0D0D;
+  --accent-dim:rgba(255,255,255,.10);
+  --accent-hover:#E8E8EA;
+  --surface:#0A0A0A;
+  --page:#0A0A0A;
+  --card:#1A1A1A;
+  --card2:#202020;
+  --txt:#FFFFFF;
+  --txt2:rgba(255,255,255,.7);
+  --txt3:rgba(255,255,255,.45);
+  --brd:rgba(255,255,255,.10);
+  --brd2:rgba(255,255,255,.22);
+  --r:12px;
   --r-lg:16px;
   --r-xl:22px;
-  --success:#00B87A;
-  --warn:#F5A623;
-  --danger:#E05252;
-  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
-  --shadow-md:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
-  --shadow-lg:0 20px 60px rgba(0,0,0,.14),0 4px 16px rgba(0,0,0,.06);
+  --success:#4DD999;
+  --warn:#F2B84D;
+  --danger:#F25959;
+  --shadow:0 1px 3px rgba(0,0,0,.3);
+  --shadow-md:0 4px 12px rgba(0,0,0,.4);
+  --shadow-lg:0 24px 70px rgba(0,0,0,.5),0 4px 16px rgba(0,0,0,.3);
   --ease:cubic-bezier(.16,1,.3,1);
   --dur-fast:.13s;
   --dur:.22s;
   --font-display:'Inter Tight','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
-}
-@media(prefers-color-scheme:dark){
-  :root{
-    --surface:#141416;
-    --page:#141416;
-    --card:#1E1E22;
-    --card2:#252528;
-    --txt:#EEEEF0;
-    --txt2:#A6A6AC;
-    --txt3:#84848A;
-    --brd:rgba(255,255,255,.06);
-    --brd2:rgba(255,255,255,.11);
-    --shadow:0 1px 3px rgba(0,0,0,.3);
-    --shadow-md:0 4px 12px rgba(0,0,0,.4);
-    --shadow-lg:0 24px 70px rgba(0,0,0,.5),0 4px 16px rgba(0,0,0,.3);
-  }
 }
 
 html{-webkit-text-size-adjust:100%}
@@ -74,16 +66,16 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,s
 /* ── ACCESSIBILITY: focus & skip link ── */
 a,button,input,select,textarea,[tabindex]{outline:none}
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
-.skip-link{position:fixed;top:-100px;left:12px;background:var(--accent);color:#fff;padding:10px 16px;border-radius:8px;z-index:5000;font-size:13px;font-weight:600;transition:top .15s}
+.skip-link{position:fixed;top:-100px;left:12px;background:var(--accent);color:var(--accent-ink);padding:10px 16px;border-radius:8px;z-index:5000;font-size:13px;font-weight:600;transition:top .15s}
 .skip-link:focus{top:12px}
 @media(max-width:640px){body{font-size:13.5px}}
 
 /* ── AUTH SCREEN ── */
-#auth-screen{position:fixed;inset:0;background:var(--page);display:flex;align-items:center;justify-content:center;z-index:1000}
+#auth-screen{position:fixed;inset:0;background:radial-gradient(circle at 22% 20%,rgba(255,255,255,.10),transparent 42%),radial-gradient(circle at 78% 78%,rgba(255,255,255,.07),transparent 42%),var(--page);display:flex;align-items:center;justify-content:center;z-index:1000}
 .auth-box{width:380px;background:var(--card);border:1px solid var(--brd);border-radius:16px;padding:36px 32px;box-shadow:var(--shadow-md)}
 .auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
 .auth-logo-icon{width:38px;height:38px;border-radius:11px;background:var(--accent);display:flex;align-items:center;justify-content:center}
-.auth-logo-icon svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.auth-logo-icon svg{width:20px;height:20px;fill:none;stroke:var(--accent-ink);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .auth-logo-text{font-size:18px;font-weight:700;color:var(--txt)}
 .auth-logo-sub{font-size:11px;color:var(--txt3)}
 .auth-tabs{display:flex;gap:0;border-bottom:1px solid var(--brd);margin-bottom:22px}
@@ -93,7 +85,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .auth-label{font-size:11px;font-weight:600;color:var(--txt2);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:.03em}
 .auth-input{width:100%;height:36px;border:1px solid var(--brd2);border-radius:8px;padding:0 12px;font-size:13px;background:var(--card);color:var(--txt);outline:none;font-family:inherit;transition:.13s}
 .auth-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
-.auth-btn{width:100%;height:38px;border-radius:9px;background:var(--accent);border:none;color:#fff;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px;font-family:inherit;transition:.13s;display:flex;align-items:center;justify-content:center;gap:7px}
+.auth-btn{width:100%;height:38px;border-radius:9px;background:var(--accent);border:none;color:var(--accent-ink);font-size:13px;font-weight:600;cursor:pointer;margin-top:6px;font-family:inherit;transition:.13s;display:flex;align-items:center;justify-content:center;gap:7px}
 .auth-btn:hover{background:var(--accent-hover)}
 .auth-btn:disabled{opacity:.6;cursor:default}
 .auth-err{font-size:12px;color:var(--danger);margin-top:10px;text-align:center;min-height:16px}
@@ -105,7 +97,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 /* ── NAV ── */
 nav{width:var(--nav-w);background:var(--card);border-right:1px solid var(--brd);display:flex;flex-direction:column;align-items:center;padding:10px 0 12px;gap:2px;flex-shrink:0;z-index:20}
 .nav-logo{width:34px;height:34px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:10px;flex-shrink:0}
-.nav-logo svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.nav-logo svg{width:18px;height:18px;fill:none;stroke:var(--accent-ink);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .nav-btn{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);transition:all .14s;border:none;background:none;position:relative;flex-shrink:0}
 .nav-btn:hover{background:var(--card2);color:var(--txt2)}
 .nav-btn.active{background:var(--accent-dim);color:var(--accent)}
@@ -114,7 +106,7 @@ nav{width:var(--nav-w);background:var(--card);border-right:1px solid var(--brd);
 .nav-spacer{flex:1}
 .nav-tooltip{position:absolute;left:calc(var(--nav-w) + 6px);top:50%;transform:translateY(-50%);background:var(--txt);color:var(--card);font-size:11px;font-weight:500;padding:4px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s;z-index:100}
 .nav-btn:hover .nav-tooltip{opacity:1}
-.nav-avatar{width:30px;height:30px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;cursor:pointer;position:relative}
+.nav-avatar{width:30px;height:30px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--accent-ink);cursor:pointer;position:relative}
 .nav-user-menu{position:absolute;left:calc(var(--nav-w) + 8px);bottom:8px;background:var(--card);border:1px solid var(--brd);border-radius:10px;box-shadow:var(--shadow-md);padding:6px;min-width:180px;display:none;z-index:200}
 .nav-user-menu.open{display:block}
 .num-item{padding:8px 10px;border-radius:7px;font-size:12px;cursor:pointer;color:var(--txt2);display:flex;align-items:center;gap:8px;transition:.1s}
@@ -143,7 +135,7 @@ main{flex:1;display:flex;overflow:hidden}
 .topbar-spacer{flex:1}
 .topbar-btn{height:30px;padding:0 12px;border-radius:7px;border:1px solid var(--brd2);background:var(--card2);color:var(--txt2);font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:5px;transition:.13s;font-family:inherit}
 .topbar-btn:hover{border-color:var(--accent);color:var(--accent)}
-.topbar-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.topbar-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .topbar-btn.primary:hover{background:var(--accent-hover)}
 
 /* ── BADGE ── */
@@ -174,7 +166,7 @@ main{flex:1;display:flex;overflow:hidden}
 .model-toggle{font-size:10px;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;font-family:inherit;text-align:left}
 .cat-chip{padding:5px 11px;border-radius:20px;border:1px solid var(--brd2);background:none;font-size:11px;font-weight:500;color:var(--txt2);cursor:pointer;transition:.1s;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
 .cat-chip:hover{border-color:var(--accent);color:var(--accent)}
-.cat-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.cat-chip.active{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .auto-mode-box{background:var(--accent-dim);border:1px solid var(--accent);border-radius:12px;padding:12px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 
 /* ── PANEL BODY ── */
@@ -229,7 +221,7 @@ main{flex:1;display:flex;overflow:hidden}
 .sidebar-head{padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--brd)}
 .sidebar-title{font-size:11px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.04em}
 .sidebar-new{width:26px;height:26px;border-radius:7px;background:var(--accent-dim);border:none;cursor:pointer;color:var(--accent);display:flex;align-items:center;justify-content:center;transition:.13s}
-.sidebar-new:hover{background:var(--accent);color:#fff}
+.sidebar-new:hover{background:var(--accent);color:var(--accent-ink)}
 .convo-list{overflow-y:auto;flex:1}
 .convo-item{padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--brd);transition:.1s;position:relative}
 .convo-item:hover{background:var(--card2)}
@@ -254,7 +246,7 @@ main{flex:1;display:flex;overflow:hidden}
 .msg-rate-btn{width:22px;height:22px;border-radius:6px;border:1px solid var(--brd2);background:none;color:var(--txt3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;transition:.13s}
 .msg-rate-btn:hover{border-color:var(--accent);color:var(--accent)}
 .msg-rate-btn.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
-.bubble-user{background:var(--accent);color:#fff;border-radius:12px 12px 3px 12px}
+.bubble-user{background:var(--accent);color:var(--accent-ink);border-radius:12px 12px 3px 12px}
 .typing{display:flex;gap:4px;align-items:center;padding:2px 0}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--txt3);animation:bounce .9s infinite}
 .dot:nth-child(2){animation-delay:.15s}
@@ -263,7 +255,7 @@ main{flex:1;display:flex;overflow:hidden}
 .chat-input-wrap{padding:12px 16px;background:var(--card);border-top:1px solid var(--brd);display:flex;gap:8px;align-items:flex-end}
 .chat-in{flex:1;border:1px solid var(--brd2);border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;background:var(--surface);color:var(--txt);outline:none;resize:none;max-height:100px;min-height:36px;line-height:1.5;transition:.13s}
 .chat-in:focus{border-color:var(--accent)}
-.send-btn{width:36px;height:36px;border-radius:9px;background:var(--accent);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.13s;flex-shrink:0}
+.send-btn{width:36px;height:36px;border-radius:9px;background:var(--accent);border:none;color:var(--accent-ink);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.13s;flex-shrink:0}
 .send-btn:hover{background:var(--accent-hover)}
 .send-btn:disabled{opacity:.5;cursor:default}
 .chat-chips{display:flex;gap:6px;padding:8px 16px 0;flex-wrap:wrap}
@@ -284,7 +276,7 @@ main{flex:1;display:flex;overflow:hidden}
 .mkt-filters{display:flex;gap:4px;flex-wrap:wrap}
 .filter-btn{padding:4px 10px;border-radius:20px;border:1px solid var(--brd2);background:none;font-size:11px;font-weight:500;color:var(--txt3);cursor:pointer;transition:.1s;font-family:inherit}
 .filter-btn:hover{border-color:var(--accent);color:var(--accent)}
-.filter-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.filter-btn.active{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .mkt-search{flex:1;min-width:140px;height:30px;border:1px solid var(--brd2);border-radius:8px;padding:0 10px;font-size:12px;background:var(--card2);color:var(--txt);outline:none;font-family:inherit}
 .mkt-search:focus{border-color:var(--accent)}
 .mkt-sort{height:30px;border:1px solid var(--brd2);border-radius:8px;padding:0 8px;font-size:12px;background:var(--card);color:var(--txt);outline:none;cursor:pointer;font-family:inherit}
@@ -312,7 +304,7 @@ main{flex:1;display:flex;overflow:hidden}
 .reg-table tr:hover td{background:var(--card2);cursor:pointer}
 .mono{font-family:monospace;font-size:11px;color:var(--txt)}
 .task-badge{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600}
-.t-cls{background:rgba(42,95,224,.1);color:var(--accent)}
+.t-cls{background:rgba(255,255,255,.10);color:var(--accent)}
 .t-reg{background:rgba(0,184,122,.1);color:var(--success)}
 .t-mcls{background:rgba(245,166,35,.1);color:var(--warn)}
 .metric-bar-wrap{display:flex;flex-direction:column;gap:3px}
@@ -391,7 +383,7 @@ main{flex:1;display:flex;overflow:hidden}
 
 /* ── BTN ── */
 .btn{height:32px;padding:0 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.13s;font-family:inherit;border:none}
-.btn-primary{background:var(--accent);color:#fff}
+.btn-primary{background:var(--accent);color:var(--accent-ink)}
 .btn-primary:hover{background:var(--accent-hover)}
 .btn-ghost{background:var(--card2);color:var(--txt2);border:1px solid var(--brd2)}
 .btn-ghost:hover{border-color:var(--brd2);background:var(--card)}
@@ -440,7 +432,7 @@ main{flex:1;display:flex;overflow:hidden}
 .status-dot.offline{background:var(--danger);box-shadow:0 0 0 2px rgba(224,82,82,.2)}
 
 /* ── PROFILE BANNER (settings) ── */
-.profile-banner{background:linear-gradient(135deg,var(--accent) 0%,#a78bfa 100%);border-radius:10px;padding:18px;color:#fff;margin-bottom:16px;display:flex;align-items:center;gap:14px}
+.profile-banner{background:var(--card2);border:1px solid var(--brd);border-radius:10px;padding:18px;color:var(--txt);margin-bottom:16px;display:flex;align-items:center;gap:14px}
 .profile-avatar{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0}
 .profile-info-name{font-size:16px;font-weight:700}
 .profile-info-email{font-size:12px;opacity:.8;margin-top:2px}
@@ -450,11 +442,10 @@ main{flex:1;display:flex;overflow:hidden}
    LANDING / EXPLORE (pre-auth) — Discover → Explore → Try → Register
    ══════════════════════════════════════════════════════════════ */
 #landing-screen{position:fixed;inset:0;background:var(--surface);overflow-y:auto;overflow-x:hidden;z-index:10;display:flex;flex-direction:column}
-.ld-nav{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:14px 32px;background:rgba(250,250,248,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--brd)}
-@media(prefers-color-scheme:dark){.ld-nav{background:rgba(20,20,22,.82)}}
+.ld-nav{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:14px 32px;background:rgba(10,10,10,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--brd)}
 .ld-logo{display:flex;align-items:center;gap:9px;font-family:var(--font-display);font-weight:800;font-size:16px;color:var(--txt)}
 .ld-logo-icon{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.ld-logo-icon svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
+.ld-logo-icon svg{width:16px;height:16px;fill:none;stroke:var(--accent-ink);stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
 .ld-nav-links{display:flex;gap:22px;margin-left:24px}
 .ld-nav-link{font-size:13px;font-weight:500;color:var(--txt2);cursor:pointer;background:none;border:none;font-family:inherit;padding:6px 0}
 .ld-nav-link:hover{color:var(--txt)}
@@ -463,8 +454,8 @@ main{flex:1;display:flex;overflow:hidden}
 .ld-btn{height:36px;padding:0 16px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid transparent;display:inline-flex;align-items:center;gap:7px;transition:all var(--dur-fast) var(--ease)}
 .ld-btn-ghost{background:none;color:var(--txt2);border-color:var(--brd2)}
 .ld-btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
-.ld-btn-primary{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(42,95,224,.3)}
-.ld-btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:0 6px 16px rgba(42,95,224,.38)}
+.ld-btn-primary{background:var(--accent);color:var(--accent-ink);box-shadow:var(--shadow-md)}
+.ld-btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-lg)}
 .ld-btn-lg{height:46px;padding:0 24px;font-size:14px;border-radius:11px}
 
 .ld-hero{padding:88px 32px 56px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:20px;animation:riseIn .5s var(--ease)}
@@ -512,21 +503,19 @@ main{flex:1;display:flex;overflow:hidden}
 
 .ld-flow{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .ld-flow-step{position:relative;padding:20px 16px 16px;background:var(--card);border:1px solid var(--brd);border-radius:var(--r-lg)}
-.ld-flow-num{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.ld-flow-num{width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
 .ld-flow-title{font-size:13px;font-weight:700;color:var(--txt);margin-bottom:4px}
 .ld-flow-desc{font-size:11.5px;color:var(--txt2);line-height:1.5}
 
 .ld-explore-toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;justify-content:center}
 .ld-mkt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 .ld-skeleton{background:var(--card);border:1px solid var(--brd);border-radius:var(--r-lg);padding:14px;height:130px;position:relative;overflow:hidden}
-.ld-skeleton::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(42,95,224,.08),transparent);animation:shimmer 1.3s infinite}
+.ld-skeleton::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);animation:shimmer 1.3s infinite}
 @keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
 
-.ld-cta{background:linear-gradient(135deg,var(--accent) 0%,var(--accent-2) 100%);border-radius:var(--r-xl);padding:48px 32px;text-align:center;color:#fff;display:flex;flex-direction:column;align-items:center;gap:14px}
+.ld-cta{background:var(--card);border:1px solid var(--brd2);border-radius:var(--r-xl);padding:48px 32px;text-align:center;color:var(--txt);display:flex;flex-direction:column;align-items:center;gap:14px}
 .ld-cta h2{font-family:var(--font-display);font-size:clamp(20px,3vw,28px);font-weight:800}
 .ld-cta p{font-size:13.5px;opacity:.9;max-width:440px}
-.ld-cta .ld-btn-primary{background:#fff;color:var(--accent);box-shadow:0 4px 14px rgba(0,0,0,.15)}
-.ld-cta .ld-btn-primary:hover{background:#fff;opacity:.92}
 
 .ld-footer{padding:24px 32px;text-align:center;font-size:12px;color:var(--txt3);border-top:1px solid var(--brd)}
 .ld-footer a{color:var(--txt3)}
@@ -541,7 +530,7 @@ main{flex:1;display:flex;overflow:hidden}
 .auth-close:hover{color:var(--txt);background:var(--brd)}
 .auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px}
 .auth-logo-icon{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center}
-.auth-logo-icon svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.auth-logo-icon svg{width:20px;height:20px;fill:none;stroke:var(--accent-ink);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .auth-logo-text{font-family:var(--font-display);font-size:18px;font-weight:800;color:var(--txt)}
 .auth-logo-sub{font-size:11px;color:var(--txt3)}
 .auth-tabs{display:flex;gap:0;border-bottom:1px solid var(--brd);margin-bottom:22px}
@@ -556,7 +545,7 @@ main{flex:1;display:flex;overflow:hidden}
 .auth-input-wrap .auth-input{padding-right:38px}
 .auth-eye{position:absolute;right:2px;top:2px;width:34px;height:34px;border:none;background:none;color:var(--txt3);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:7px}
 .auth-eye:hover{color:var(--txt2)}
-.auth-btn{width:100%;height:40px;border-radius:10px;background:var(--accent);border:none;color:#fff;font-size:13.5px;font-weight:600;cursor:pointer;margin-top:6px;font-family:inherit;transition:.13s;display:flex;align-items:center;justify-content:center;gap:7px}
+.auth-btn{width:100%;height:40px;border-radius:10px;background:var(--accent);border:none;color:var(--accent-ink);font-size:13.5px;font-weight:600;cursor:pointer;margin-top:6px;font-family:inherit;transition:.13s;display:flex;align-items:center;justify-content:center;gap:7px}
 .auth-btn:hover{background:var(--accent-hover)}
 .auth-btn:disabled{opacity:.6;cursor:default}
 .auth-btn-ghost{background:none;color:var(--txt2);border:1px solid var(--brd2);margin-top:8px}
@@ -622,6 +611,49 @@ main{flex:1;display:flex;overflow:hidden}
   .auth-choice-grid{grid-template-columns:1fr}
   .modal{width:94vw}
 }
+/* ===================================================================== */
+/* RESPONSIVE: app shell (nav rail, conversation sidebar, topbar, auth)  */
+/* Everything above this point in the file was effectively desktop-only */
+/* - a fixed-height flex row (nav | sidebar | content) with no fallback */
+/* for narrow viewports. NOTE: nav's own mobile behavior (-> a fixed     */
+/* bottom bar via position:fixed, which never touches body's own layout) */
+/* and the conversation list's off-canvas drawer already existed before */
+/* this revision, at the @media(max-width:640px) and (max-width:820px)  */
+/* blocks just above - this section only adds what wasn't already       */
+/* covered there, to avoid two rules fighting over the same elements.   */
+/* Safe-area insets are honored for notched phones throughout.          */
+/* ===================================================================== */
+@media(max-width:860px){
+  html{ scroll-padding-top:env(safe-area-inset-top,0px); }
+
+  /* Fixed-width surfaces (auth card) go fluid with real margins instead of overflowing or
+     clipping on a narrow screen. */
+  .auth-box{ width:100%; max-width:380px; margin:0 16px; }
+  #auth-screen{ padding:16px; padding-top:calc(16px + env(safe-area-inset-top,0px)); padding-bottom:calc(16px + env(safe-area-inset-bottom,0px)); }
+
+  /* Two/three-column grids common across Dashboard/Registry/Marketplace/Agent Store collapse
+     to one column - a bare min-width-based auto-fit grid just produces unusably thin columns
+     below ~860px rather than reflowing sensibly. */
+  div[style*="grid-template-columns:repeat(2"],
+  div[style*="grid-template-columns:repeat(3"],
+  div[style*="grid-template-columns:repeat(4"]{
+    grid-template-columns:1fr !important;
+  }
+}
+@media(max-width:640px){
+  /* The pre-existing rule just above already fixes nav to the bottom edge (position:fixed) -
+     this just adds safe-area clearance for a notched/home-indicator phone on top of it. */
+  nav{ padding-bottom:env(safe-area-inset-bottom,0px); height:calc(56px + env(safe-area-inset-bottom,0px)); }
+  main{ padding-bottom:calc(56px + env(safe-area-inset-bottom,0px)); }
+  .topbar{ padding:0 12px; gap:8px; }
+}
+@media(max-width:480px){
+  /* Topbar action labels ("Open Agent", "New chat", ...) are bare text next to an <i> icon,
+     not wrapped in their own element - can't selectively hide just the text, so shrink the
+     whole button instead of letting it overflow/wrap awkwardly on the narrowest phones. */
+  .topbar-btn{ padding:0 9px; font-size:11.5px; gap:5px; }
+}
+
 @media(max-width:400px){
   .stats-grid,.grid-3{grid-template-columns:1fr}
 }
@@ -975,7 +1007,7 @@ main{flex:1;display:flex;overflow:hidden}
         <button class="btn btn-secondary" style="height:28px;font-size:12px" onclick="document.getElementById('topup-amount').value=50">$50</button>
         <button class="btn btn-secondary" style="height:28px;font-size:12px" onclick="document.getElementById('topup-amount').value=100">$100</button>
       </div>
-      <div id="topup-err" style="color:var(--red);font-size:12px"></div>
+      <div id="topup-err" style="color:var(--danger);font-size:12px"></div>
       <div style="border-top:1px solid var(--brd);padding-top:10px;margin-top:4px">
         <button class="btn btn-secondary" style="width:100%;font-size:11px" onclick="devCredit()">🧪 Add $10 test balance (dev mode only)</button>
         <div style="font-size:10px;color:var(--txt3);margin-top:4px">Only works if DEBUG=true is set in your .env — lets you test paid bots/models without a working Stripe account.</div>
@@ -1112,7 +1144,7 @@ main{flex:1;display:flex;overflow:hidden}
       </div>
       <div style="padding:16px;display:flex;flex-direction:column;gap:16px">
         <div id="bb-result">
-          <div style="border:1px solid var(--brd);border-radius:12px;padding:16px;background:var(--bg2)">
+          <div style="border:1px solid var(--brd);border-radius:12px;padding:16px;background:var(--card2)">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
               <strong id="bb-bot-name" style="font-size:15px"></strong>
               <span class="badge" id="bb-status-badge"></span>
@@ -1124,7 +1156,7 @@ main{flex:1;display:flex;overflow:hidden}
           </div>
 
           <div style="border:1px solid var(--brd);border-radius:12px;margin-top:12px;overflow:hidden">
-            <div style="padding:10px 14px;background:var(--bg2);font-size:12px;font-weight:600;border-bottom:1px solid var(--brd)">Live preview - chat with the drерновиком</div>
+            <div style="padding:10px 14px;background:var(--card2);font-size:12px;font-weight:600;border-bottom:1px solid var(--brd)">Live preview - chat with the drерновиком</div>
             <div id="bb-preview-chat" style="max-height:280px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px"></div>
             <div style="display:flex;gap:8px;padding:10px;border-top:1px solid var(--brd)">
               <input class="form-input" id="bb-preview-input" placeholder="Write a message to the bot..." onkeydown="if(event.key==='Enter')sendBotPreviewMessage()">
@@ -1147,7 +1179,7 @@ main{flex:1;display:flex;overflow:hidden}
         </div>
       </div>
     </div>
-    <button id="bot-dock-reopen" onclick="document.getElementById('bot-dock').style.display='flex';this.style.display='none'" style="display:none;position:absolute;right:12px;top:70px;z-index:2;align-items:center;gap:6px;background:var(--accent);color:#fff;border:none;border-radius:20px;padding:8px 14px;font-size:12px;cursor:pointer">
+    <button id="bot-dock-reopen" onclick="document.getElementById('bot-dock').style.display='flex';this.style.display='none'" style="display:none;position:absolute;right:12px;top:70px;z-index:2;align-items:center;gap:6px;background:var(--accent);color:var(--accent-ink);border:none;border-radius:20px;padding:8px 14px;font-size:12px;cursor:pointer">
       <i class="ti ti-wand"></i> Bot Preview
     </button>
   </div>
@@ -1415,7 +1447,7 @@ main{flex:1;display:flex;overflow:hidden}
       </div>
     </div>
     <div class="modal-footer" style="display:flex;justify-content:space-between">
-      <button class="btn btn-secondary" style="color:var(--red)" onclick="deleteMyBot()"><i class="ti ti-trash"></i> Delete</button>
+      <button class="btn btn-secondary" style="color:var(--danger)" onclick="deleteMyBot()"><i class="ti ti-trash"></i> Delete</button>
       <button class="btn btn-primary" onclick="saveBotSettings()"><i class="ti ti-check"></i> Save</button>
     </div>
   </div>
@@ -1922,7 +1954,7 @@ main{flex:1;display:flex;overflow:hidden}
         <input class="form-input" id="use-model-features" placeholder="e.g. 25, 50000, 3, 1">
         <div class="form-hint">Enter the same feature values, in the same order, the model was trained on.</div>
       </div>
-      <div id="use-model-err" style="color:var(--red);font-size:12px"></div>
+      <div id="use-model-err" style="color:var(--danger);font-size:12px"></div>
       <div id="use-model-result" style="display:none;padding:12px;background:rgba(0,184,122,.08);border:1px solid rgba(0,184,122,.2);border-radius:8px">
         <div style="font-size:11px;color:var(--txt3)">Prediction</div>
         <div id="use-model-prediction" style="font-size:16px;font-weight:700;color:var(--success)"></div>
@@ -2615,7 +2647,7 @@ async function loadDashboard() {
       b.className = 'bar';
       b.title = v + ' messages';
       b.style.height = (v / maxAct * 40 + 3) + 'px';
-      b.style.background = v === maxAct && v > 0 ? 'var(--accent)' : 'rgba(42,95,224,.25)';
+      b.style.background = v === maxAct && v > 0 ? 'var(--accent)' : 'rgba(255,255,255,.20)';
       chart.appendChild(b);
     });
     const labelsEl = document.querySelector('#activity-chart').nextElementSibling;
@@ -2728,8 +2760,18 @@ async function sendMsg() {
 
   const typingId = 'typing-' + Date.now();
   const msgs = document.getElementById('chat-messages');
-  msgs.innerHTML += `<div class="msg" id="${typingId}"><div class="avatar avatar-ai">G</div><div class="bubble bubble-ai"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div></div>`;
+  msgs.innerHTML += `<div class="msg" id="${typingId}"><div class="avatar avatar-ai">G</div><div class="bubble bubble-ai"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><div class="typing-note" style="display:none;font-size:11px;color:var(--txt3);margin-top:4px"></div></div></div>`;
   msgs.scrollTop = msgs.scrollHeight;
+  // Complex requests (heavier tool use, longer generations) can legitimately take a while -
+  // without any feedback that just looks identical to the app being stuck. Progressively
+  // reassure the user instead of leaving three static dots up for up to ~90s.
+  const reassure = (ms, text) => setTimeout(() => {
+    const note = document.querySelector(`#${typingId} .typing-note`);
+    if (note) { note.textContent = text; note.style.display = 'block'; }
+  }, ms);
+  reassure(6000, 'Still working on it…');
+  reassure(20000, 'This one is taking longer than usual — complex requests can take up to a minute.');
+  reassure(45000, 'Still going. If this doesn\u2019t finish soon, it\u2019s worth trying again in a moment.');
 
   try {
     const r = await apiFetch(API + '/agent/message', {
@@ -2883,7 +2925,7 @@ function renderMyBots() {
     return;
   }
   el.innerHTML = myBotsData.map(a => `
-    <div style="display:flex;align-items:center;gap:10px;border:1px solid var(--brd);border-radius:10px;padding:10px 12px;background:var(--bg2)">
+    <div style="display:flex;align-items:center;gap:10px;border:1px solid var(--brd);border-radius:10px;padding:10px 12px;background:var(--card2)">
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600">${escHtml(a.name)} ${a.published ? '<span class="badge badge-green" style="font-size:8px">published</span>' : '<span class="badge" style="font-size:8px">draft</span>'}</div>
         <div style="font-size:11px;color:var(--txt3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(a.description || '')}</div>
@@ -3038,7 +3080,7 @@ async function loadBotAnalytics(agentId) {
       ${questions ? `<div style="font-size:10px;color:var(--txt3);text-transform:uppercase;margin-bottom:4px">Recent questions</div>${questions}` : ''}
     `;
   } catch (e) {
-    el.innerHTML = `<div style="color:var(--red)">Could not load analytics.</div>`;
+    el.innerHTML = `<div style="color:var(--danger)">Could not load analytics.</div>`;
   }
 }
 
@@ -3059,7 +3101,7 @@ async function loadKbDocuments(agentId) {
         <button class="model-toggle" onclick="deleteKbDocument('${agentId}', '${doc.id}')"><i class="ti ti-trash"></i></button>
       </div>`).join('');
   } catch (e) {
-    el.innerHTML = `<div style="font-size:11px;color:var(--red)">Could not load documents.</div>`;
+    el.innerHTML = `<div style="font-size:11px;color:var(--danger)">Could not load documents.</div>`;
   }
 }
 
@@ -3945,7 +3987,7 @@ function drawKG(g) {
     const r = Math.min(cx, cy) * 0.65;
     positions[n.id || n] = { x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r };
   });
-  ctx.strokeStyle = 'rgba(42,95,224,.3)';
+  ctx.strokeStyle = 'rgba(255,255,255,.3)';
   ctx.lineWidth = 1;
   edges.forEach(e => {
     const a = positions[e.source], b = positions[e.target];
@@ -3956,9 +3998,9 @@ function drawKG(g) {
     const p = positions[n.id || n];
     if (!p) return;
     ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#2A5FE0';
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#FFFFFF';
     ctx.fill();
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--txt').trim() || '#18181A';
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--txt').trim() || '#FFFFFF';
     ctx.font = '10px system-ui'; ctx.textAlign = 'center';
     ctx.fillText(String(n.label || n.id || n).slice(0, 12), p.x, p.y - 8);
   });

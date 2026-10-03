@@ -1,0 +1,50 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      # Only needed for the AI-code-generator tests that execute generated code inside a
+      # Docker sandbox (see app/core/codegen/docker_sandbox.py). GitHub-hosted runners already
+      # have a Docker daemon available, so no extra setup is needed beyond this being a
+      # ubuntu-latest runner - listed here for clarity, not because it needs starting.
+      docker:
+        image: docker:dind
+        options: --privileged
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install OpenMP (required by xgboost on Linux runners too)
+        run: sudo apt-get update && sudo apt-get install -y libgomp1
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run test suite
+        env:
+          # A random-per-run secret is enough for tests - they never boot the real server
+          # with debug=False against a real deployment, they just import app.main, which
+          # requires this to not be the "change-me" placeholder.
+          SECRET_KEY: ${{ secrets.SECRET_KEY || 'ci-test-secret-not-used-in-production' }}
+          DEBUG: "true"
+          # Tests never make real Groq calls (see tests/test_agent.py - the network boundary
+          # is always mocked), so this only needs to be non-empty to satisfy code paths that
+          # check "is a key configured", never a real one.
+          GROQ_API_KEY: "gsk_ci_placeholder_not_a_real_key"
+        run: python -m pytest tests/ -v

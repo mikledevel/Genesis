@@ -352,12 +352,10 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
 
         start = time.monotonic()
         try:
-            from groq import Groq
-            from app.config import settings
-            client = Groq(api_key=self.groq_key, timeout=settings.groq_request_timeout_seconds,
-                          max_retries=settings.groq_max_retries)
+            from app.core.groq_client import call_llm
             sys_prompt = self._get_effective_system_prompt(msg)
-            completion = client.chat.completions.create(
+            completion = call_llm(
+                self.groq_key,
                 model=groq_model,
                 messages=[
                     {"role": "system", "content": sys_prompt},
@@ -366,7 +364,7 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
                 temperature=0.1,
                 max_tokens=1200,
                 response_format={"type": "json_object"},
-                **self._groq_kwargs_for(groq_model),
+                groq_only_kwargs=self._groq_kwargs_for(groq_model),
             )
         except groq_sdk.RateLimitError as e:
             latency_ms = int((time.monotonic() - start) * 1000)
@@ -614,10 +612,7 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
         if not self.groq_key:
             return None
         try:
-            from groq import Groq
-            from app.config import settings
-            client = Groq(api_key=self.groq_key, timeout=settings.groq_request_timeout_seconds,
-                          max_retries=settings.groq_max_retries)
+            from app.core.groq_client import call_llm
             catalog = "\n".join(f'- "{k}": {v}' for k, v in self.PIPELINE_BLOCKS.items())
             prompt = (
                 f"Available pipeline blocks (use ONLY these exact ids, in a sensible order):\n{catalog}\n\n"
@@ -630,12 +625,13 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
                 'Do not mix train_cnn with tabular data, do not add tokenize unless there is text.'
             )
             groq_model = self._resolve_groq_model(self._get_selected_model())
-            completion = client.chat.completions.create(
+            completion = call_llm(
+                self.groq_key,
                 model=groq_model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1, max_tokens=800,
                 response_format={"type": "json_object"},
-                **self._groq_kwargs_for(groq_model),
+                groq_only_kwargs=self._groq_kwargs_for(groq_model),
             )
             parsed = json.loads(completion.choices[0].message.content)
             self._log_groq_usage("pipeline_builder", groq_model, completion, success=True)
