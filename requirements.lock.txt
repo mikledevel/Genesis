@@ -1,0 +1,23 @@
+# Direct dependencies pinned to the versions this repo's 492 tests passed against (Python 3.12).
+# Use: pip install -r requirements.lock.txt   (requirements.txt keeps the loose ranges).
+
+fastapi==0.143.0
+uvicorn[standard]==0.54.0
+pydantic==2.14.0
+pydantic-settings==2.15.0
+pandas==3.0.2
+numpy==2.4.4
+scikit-learn==1.8.0
+xgboost==3.4.1
+pytest==9.1.1
+python-multipart==0.0.32
+groq==1.7.0
+httpx==0.28.1
+openai==3.28.0
+python-dotenv==1.2.2
+bcrypt==5.0.0
+PyJWT==2.15.1
+stripe==16.0.0
+docker==7.2.0
+sentry-sdk[fastapi]==2.71.0
+pypdf==5.9.0

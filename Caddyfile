@@ -1,0 +1,48 @@
+# Caddy reverse proxy config for Genesis AI.
+#
+# Caddy handles HTTPS automatically: it requests and renews a free Let's Encrypt certificate
+# for your domain with zero manual setup - no certbot, no cron job for renewal, no manual
+# nginx TLS config. This is the easiest correct option if you're hosting on your own VM
+# rather than a platform (Render/Railway/Fly.io) that already terminates HTTPS for you.
+#
+# Prerequisites before this works:
+#   1. Your domain's DNS A record must point at this server's public IP address.
+#   2. Ports 80 and 443 must be open/forwarded to this machine (80 is needed for Let's
+#      Encrypt's HTTP-01 challenge, even though all real traffic ends up on 443).
+#   3. The app itself must be running locally on port 8000 (see below).
+#
+# Usage:
+#   1. Replace "your-domain.com" below with your real domain.
+#   2. Install Caddy:  brew install caddy   (macOS)   |   apt install caddy   (Debian/Ubuntu)
+#   3. Run the app as usual:  uvicorn app.main:app --host 127.0.0.1 --port 8000
+#      (bind to 127.0.0.1, not 0.0.0.0 - only Caddy should be reachable from the internet,
+#      the app itself should only be reachable from Caddy on the same machine)
+#   4. Run Caddy from the directory containing this file:  caddy run
+#
+# Remember to also set ALLOWED_ORIGINS=https://your-domain.com in .env once this is live -
+# see app/config.py / the CORS fix in app/main.py.
+
+your-domain.com {
+	reverse_proxy 127.0.0.1:8000
+
+	# Reasonable default security headers on top of what FastAPI already sets.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	encode gzip
+
+	log {
+		output file /var/log/caddy/genesis-ai.log
+		format json
+	}
+}
+
+# Optional: redirect the bare www subdomain to the apex domain (or vice versa - adjust to
+# your preference). Remove this block if you only ever use one form of the domain.
+www.your-domain.com {
+	redir https://your-domain.com{uri} permanent
+}
