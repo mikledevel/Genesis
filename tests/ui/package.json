@@ -1,0 +1,6 @@
+{
+  "name": "genesis-ui-tests",
+  "private": true,
+  "description": "Browser-less UI tests for static/index.html (agent chat, steps, bot window, modals). Run: cd tests/ui && npm install && node ui_test.js",
+  "devDependencies": { "jsdom": "24.1.3" }
+}

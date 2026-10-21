@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<title>GenesisAI admin</title>
+<style>
+:root{color-scheme:light dark;--bg:#f6f7f9;--card:#fff;--text:#111827;--muted:#6b7280;--line:#e5e7eb;--accent:#2563eb;--bad:#b91c1c}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#171a21;--text:#e5e7eb;--muted:#9ca3af;--line:#272b35;--accent:#60a5fa;--bad:#f87171}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:16px}h1{font-size:20px;margin:6px 0 14px}h2{font-size:15px;margin:22px 0 8px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}.card b{display:block;font-size:20px}.card span{color:var(--muted);font-size:12px}
+.bar{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}input,select,button{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+button{cursor:pointer}button:hover{border-color:var(--accent)}.danger{color:var(--bad)}
+.wrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;min-width:760px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}th{color:var(--muted);font-weight:600;font-size:12px}
+.tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}.tag.admin{color:var(--accent);border-color:var(--accent)}.tag.off{color:var(--bad);border-color:var(--bad)}
+#msg{margin:10px 0;color:var(--bad)}.muted{color:var(--muted)}
+</style></head><body><main>
+<h1>GenesisAI admin</h1>
+<div id="msg" role="alert"></div>
+<div id="app" hidden>
+  <div class="cards" id="cards"></div>
+  <div class="bar"><button id="emailTest" type="button">Send a test e-mail to me</button><span id="info" class="muted" role="status"></span></div>
+  <h2>Users</h2>
+  <div class="bar"><input id="q" type="search" placeholder="Search e-mail, name or id" maxlength="100" aria-label="Search users"><span id="count" class="muted"></span>
+    <button id="prev" type="button">Prev</button><button id="next" type="button">Next</button></div>
+  <div class="wrap"><table><thead><tr><th>E-mail</th><th>Name</th><th>Plan</th><th>Tokens (month)</th><th>Limit override</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody id="users"></tbody></table></div>
+  <h2>Recent admin actions</h2>
+  <div class="wrap"><table><thead><tr><th>When (UTC)</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead><tbody id="audit"></tbody></table></div>
+</div>
+<script src="/static/admin.js"></script>
+</main></body></html>
