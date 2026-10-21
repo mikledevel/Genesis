@@ -11,3 +11,4 @@ genesis.db
 chats.json
 projects.json
 .pytest_cache/
+start
