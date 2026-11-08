@@ -79,6 +79,13 @@ def _agent_message_sync(req: MessageRequest, user_id: str) -> dict:
     agent_id = selected.get("agent_id")
     if agent_id:
         ab_test = db.get_running_ab_test_for_agent(agent_id)
+        if ab_test:
+            # defence in depth: a test created by someone who is not the bot's author (older data, or a future bug) must not
+            # replace the author's system prompt
+            from app.core.agent_store import AgentStore
+            _bot = AgentStore().get_agent(agent_id)
+            if not _bot or _bot.get("author") != ab_test.get("user_id"):
+                ab_test = None
         if ab_test and ab_test["variants"]:
             variant = db.get_or_assign_variant(ab_test["id"], ab_test["variants"], cid)
             agent.agent_override = {**selected, "system_prompt": variant["system_prompt"]}

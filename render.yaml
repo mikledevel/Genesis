@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: genesis-ai
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.render.txt
+    startCommand: python scripts/start_render.py
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.12
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: AGENT_BROWSER_ENABLED
+        value: "false"
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"

@@ -101,6 +101,9 @@ class UseModelRequest(BaseModel):
 class CheckoutRequest(BaseModel):
     amount_usd: float
 
+class SubscriptionCheckoutRequest(BaseModel):
+    plan_id: str
+
 # ── Public Developer API ──
 # OpenAI-compatible-shaped chat completions endpoint for third-party integrations: point an
 # existing OpenAI- or Groq-SDK-based client at this platform (base_url + a Genesis API key in

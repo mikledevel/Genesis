@@ -22,16 +22,44 @@ async def marketplace_listings(task: Optional[str] = None):
     from app.core.marketplace import Marketplace
     return {"listings": Marketplace().search(task=task) if task else Marketplace().search()}
 
+LOCAL_LABEL = ("Trained on the owner's own computer, not by the platform. The scores below were measured by the platform on a hidden "
+               "test set; the platform cannot check which rows the model was trained on.")
+
+
+def listing_args(record: dict, user_id: str) -> dict:
+    """Everything a listing says about a model, taken from the registry record (what the platform measured). Raises HTTPException if the
+    caller is not the author or the platform rates the model as unreliable. Shared by both publish routes."""
+    meta = record.get("metadata") or {}
+    if meta.get("author") != user_id:
+        raise HTTPException(status_code=403, detail="Only the author of a model can publish it.")
+    trust = meta.get("trust") or {}
+    if trust.get("level") == "low":
+        why = "; ".join(str(r) for r in (trust.get("reasons") or [])[:3])
+        raise HTTPException(status_code=400, detail="The platform's check rates this model as not reliable enough to sell"
+                                                    + (f": {why}" if why else "") + ".")
+    provenance = {"trained_on": meta.get("trained_on", "platform"), "built_via": meta.get("built_via"),
+                  "verified": bool(meta.get("verified", False)), "trust": trust or None}
+    if meta.get("trained_on") == "user_machine":
+        provenance["label"] = LOCAL_LABEL
+    measured = {k: v for k, v in (record.get("metrics") or {}).items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
+    return {"task": record.get("task", "unknown"), "model_type": record.get("model_type", "unknown"),
+            "metrics": measured, "provenance": provenance}
+
+
 @router.post("/api/marketplace/publish")
 async def marketplace_publish(req: PublishRequest, user_id: str = Depends(get_current_user_id)):
+    """Only the author can list a model. The listing's task, algorithm and scores come from the registry record (what the platform
+    measured), never from the request: `task`, `model_type` and `metrics` in the body are accepted for compatibility and ignored."""
     from app.core.marketplace import Marketplace
     from app.core.engine.registry import ModelRegistry
     try:
-        ModelRegistry().get_record(req.model_id)
+        record = ModelRegistry().get_record(req.model_id)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Model '{req.model_id}' not found in Registry - train/register it first")
-    lid = Marketplace().publish(author=user_id, model_id=req.model_id, title=req.title, description=req.description, task=req.task, model_type=req.model_type, metrics=req.metrics, price_per_call=req.price_per_call)
-    return {"listing_id": lid}
+    kw = listing_args(record, user_id)
+    lid = Marketplace().publish(author=user_id, model_id=req.model_id, title=req.title, description=req.description,
+                                price_per_call=req.price_per_call, **kw)
+    return {"listing_id": lid, "provenance": kw["provenance"]}
 
 @router.get("/api/marketplace/stats")
 async def marketplace_stats():

@@ -8,6 +8,9 @@ from app.core.engine.forecaster import Forecaster, prepare_series, infer_freq, s
 from app.core.engine.registry import ModelRegistry
 
 
+from tests.pro_user import make_pro_user  # noqa: E402
+
+
 def series(n=400, freq="D", season=7, trend=0.2, amp=15, noise=3, seed=0, start="2022-01-01"):
     rng = np.random.RandomState(seed); d = pd.date_range(start, periods=n, freq=freq)
     y = 100 + trend * np.arange(n) + amp * np.sin(2 * np.pi * np.arange(n) / season) + rng.randn(n) * noise
@@ -24,6 +27,12 @@ def test_frequency_and_season_are_inferred(freq, prefix, season):
     idx = pd.date_range("2020-01-01", periods=60, freq=freq)
     f, notes = infer_freq(idx)                                   # pandas may anchor it (W-SUN, QS-OCT): same meaning
     assert f.startswith(prefix) and not notes and season_for(f) == season
+
+
+def test_frequency_offset_objects_are_normalized_to_strings():
+    idx = pd.date_range("2024-01-01", periods=4, freq="D")
+    with patch.object(F.pd, "infer_freq", return_value=pd.offsets.Day()):
+        assert infer_freq(idx) == ("D", [])
 
 
 def test_irregular_dates_get_a_median_step_and_a_note():
@@ -162,7 +171,7 @@ def agent(tmp_path, monkeypatch):
     from app.db.database import GenesisDB
     monkeypatch.chdir(tmp_path); os.makedirs("datasets")
     a = GenesisAgent(trainer=DatasetTrainer(str(tmp_path / "m")), registry=ModelRegistry(storage_dir=str(tmp_path / "r")), db=GenesisDB(db_path=str(tmp_path / "t.db")))
-    a.current_user_id = "u1"; a.groq_key = ""; return a
+    a.current_user_id = "u1"; make_pro_user(a.db, "u1"); a.groq_key = ""; return a
 
 
 def test_agent_forecasts_and_registers_with_a_chart_payload(agent):

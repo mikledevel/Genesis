@@ -9,6 +9,9 @@ from app.core.engine.predict_utils import build_model_input
 from app.core.engine.transformers import DateFeatures, detect_datetime_columns, detect_text_columns
 
 
+from tests.pro_user import make_pro_user  # noqa: E402
+
+
 def T():
     return DatasetTrainer(tempfile.mkdtemp())
 
@@ -281,6 +284,7 @@ def test_agent_passes_the_budget_and_plans_a_tune_step(tmp_path, monkeypatch):
     trainer.train = lambda *a, **k: (seen.update(k), orig(*a, **k))[1]
     agent = GenesisAgent(trainer=trainer, registry=ModelRegistry(storage_dir=str(tmp_path / "r")), db=GenesisDB(db_path=str(tmp_path / "t.db")))
     agent.current_user_id = "u1"
+    make_pro_user(agent.db, "u1")
     try:
         r = agent._do_train("train", {"path": "datasets/d.csv", "target_column": "y", "model_type": "random_forest", "budget": "THOROUGH"})
         assert r.success, r.message and seen["budget"] == "thorough"

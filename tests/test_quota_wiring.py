@@ -103,7 +103,8 @@ class TestRestLayerQuotaGate:
             with patch("app.db.database.GenesisDB.__init__", return_value=None), \
                  patch("app.db.database.GenesisDB.get_groq_usage_this_month", return_value=5_000_000), \
                  patch("app.db.database.GenesisDB.get_user_groq_limit", return_value=None), \
-                 patch("app.config.settings.default_monthly_groq_token_limit", 2_000_000):
+                 patch("app.core.plans.gate_message", return_value=None), \
+                 patch("app.config.settings.default_monthly_groq_token_limit", 2_000_000):   # this test is about the token cap, not the plan
                 r = client.post("/api/model-builder/generate", json={"description": "x", "dataset_path": "datasets/x.csv"})
             assert r.status_code == 429
         finally:

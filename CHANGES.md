@@ -1,3 +1,187 @@
+# Round 14 - Oct 24, 2026 - plan limits, a better Pro, improving weak models, four holes closed
+
+**About this archive.** The earlier archive held only the files changed in Rounds 11-12 (no `app/core/engine`, no database layer), and the GitHub copy
+(`mikledevel/Genesis`, last commit Oct 21) is still at Round 10. This archive is the COMPLETE tree: the GitHub files + Rounds 11-12 + Rounds 13-14.
+The whole test suite runs on it (numbers at the end).
+
+**Plan limits: Free -> Pro (-> Business)** (`app/core/plans.py`, same dict the server enforces and `GET /api/plans` shows; table in docs/PRICING.md)
+| | Free | Pro | Business |
+|---|---|---|---|
+| Knowledge-base documents per bot | 3 | 25 | 100 |
+| Knowledge-base text per bot (characters) | 200,000 | 5,000,000 | 25,000,000 |
+| Knowledge-base passages the bot reads per answer (owner's plan) | 3 | 6 | 8 |
+| Active scheduled jobs | 1 | 10 | 50 |
+| A/B tests | 2 | 20 | 100 |
+| Saved prompts | 10 | 100 | 500 |
+| Server training jobs per month | none | 40 | 300 |
+| Model improvement search depth | - | balanced | thorough |
+Every Pro value is strictly above Free and Business is never below Pro (a test checks it, and that docs/PRICING.md shows the code's numbers).
+Server jobs (train, forecast, retrain, improve, create model, model-builder generate) are counted when they START, in the new `feature_usage`
+table; owner/admin and internal callers are not limited. A job refused by another gate (saved-model slots, token quota, missing path) is not counted.
+The knowledge base had NO limit at all before: any account could upload any amount, and every chat message reads the whole corpus of the bot.
+A file larger than 4 bytes per allowed character is refused without being read whole.
+Settings -> "Plan & usage" (`static/index.html`): current plan, usage bars, a Free vs Pro table, all from `/api/me/plan` and `/api/plans`. Checked:
+the JS parses and the row formatting was run on the real catalogue; NOT opened in a browser.
+
+**Holes closed** (found by reading; each has a test that fails on the old code unless noted)
+- A/B tests: `POST /api/ab-tests` did not check that the bot belongs to the caller, and the chat uses the variant prompt of ANY running test for
+  the bot it is talking to, so anyone could replace another author's bot prompt for its users (and block the author's own tests). Now the route
+  answers 404 for a bot that is not yours, and the chat only honours a test created by the bot's author (the chat-side check has no test:
+  it needs a chat with an LLM).
+- `_do_retrain` / `POST .../retrain`: no check of the dataset path against the allowed folders (train_model had it).
+- `/api/model-builder/suggest` and `/generate`: only `os.path.exists`. Now `app/core/paths.py:is_allowed_path`.
+- `_validate_path` compared with `startswith`, so `./datasets_backup` or `./static_private` counted as inside `./datasets` / `./static`.
+  Now the folder itself or below it (symlinks and `../` resolved).
+
+**Improving weak models** (`app/core/model_improver.py`, agent tool `improve_model`, `POST /api/registry/models/{id}/improve`)
+`improve_model(model, df, target, task, ...)` takes a registered model (the trainer stores a Pipeline: ColumnTransformer + estimator; checked on a
+model trained by the real trainer). It diagnoses (score vs the trivial baseline, train/validation gap, rare class), then tries continuing the
+estimator (warm start: random forest, extra trees, gradient boosting, hist gradient boosting, xgboost), a refit of the same settings, bigger,
+regularised and class-balanced variants and other families. Candidates are ranked on VALIDATION, the winner is refitted on train+validation and
+the untouched TEST rows are looked at once: accepted only with a gain >= 0.01 and a paired bootstrap better in >= 95% of resamples; otherwise the
+ORIGINAL model is returned and the report says why. A better model becomes a new VERSION of the same family, with the old metadata (input_schema
+...), `improved_from`, the report, and the same metric keys the trainer writes (computed on the improver's test rows: compare versions through
+`test_before_improvement`, not through raw `find_best` numbers). The search depth is capped by the plan; the monthly job allowance applies.
+- Measured on synthetic data: an overfitted gradient boosting 0.843 -> 0.893 balanced accuracy on rows no decision used; on pure noise "improved"
+  was claimed 2 times in 60 (3%): not zero by design, several candidates are compared. Real stack: new data where the pattern flipped gave a
+  registered version 2 with lineage, full metrics, working `build_model_input` + predict, the old version unchanged.
+- Refuses with a reason (never crashes): supervised preprocessing, non-Pipeline models, < 60 rows, unseen labels, data the preprocessing cannot encode.
+
+**Known about training from scratch** (read, and run through the real trainer once)
+- `_do_retrain` always refits from scratch and registers the result as the newest version even when it is worse than the version before; it has no
+  comparison with the previous version (`improve_model` has one). The docstring of `_do_retrain` sits after the plan-gate code (cosmetic).
+- The tuned model the trainer picked (a logistic regression on the test data) was already the best candidate: improve_model correctly said
+  "not changed".
+
+**Tests**
+- New: `test_plan_limits.py` (44), `test_path_validation.py`, `test_model_improver.py` (16), `test_improve_model_agent.py` (10, real DB and plan gates, fake
+  registry), `test_improve_model_registry.py` (3, real trainer + registry + agent), plus `test_knowledge_base_quality.py` from Round 13.
+- Changed: `test_plans_admin.py::test_my_plan_reports_limits_and_usage` (the API now reports more usage keys).
+- Full suite on the complete tree (`tests/ui` excluded; env: DEBUG=true because there is no Docker here, ALLOWED_ORIGINS and SECRET_KEY set):
+  966 passed, 1 skipped, 1 deselected (`test_llm_failover::test_llm_check_reports_each_provider_and_exit_code`, which depends on provider keys in the
+  environment). Without DEBUG=true the 26 Docker-sandbox tests fail on this machine, on the untouched tree as well.
+- One existing test changed for a reason: `test_model_builder_publish.py` wrote its dataset outside `datasets/`; a real upload lands inside it.
+
+**Not done / not verified**
+- Subscriptions are still sold by hand (no Stripe subscription webhook).
+- `tests/ui` was not run. The Plan & usage panel was not opened in a browser.
+- 26 tests need the Docker sandbox and 1 depends on provider keys in the environment: they fail the same way on the untouched GitHub + Round 11-12
+  tree here (`Docker sandbox is unavailable and debug=False`) and pass with DEBUG=true except the key-dependent one. Run the suite where Docker runs.
+- No Russian questions and no customer documents for the knowledge-base gate (Round 13 notes); no held-out data for improve_model beyond synthetic.
+- A job counts when it starts, even if it then fails on bad input (documented in docs/PRICING.md).
+
+# Round 13 - Oct 23, 2026 - bot knowledge base: review fixes
+
+Review of Round 12. Fixes were checked on small examples; the dev-set numbers below (27+6 questions) are a regression check, not evidence of
+improvement. The held-out set further down is the first number that was not used while building.
+
+**Changed**
+- Ranking: names and numbers in the question ("Pro", "14", "B2B": capitalised non-first words, anything with a digit) multiply a chunk's
+  ranking score by up to 1.5 when the chunk contains them as exact words. Before, "How much is the Pro plan?" ranked the Business chunk first.
+  The relevance gate does not use it. Eval: best-first 22 -> 23 of 27, in-top-3 23 -> 24, unanswerable dropped 5 of 6 (unchanged).
+- Follow-ups: `build_retrieval_query` prepends the last 2 user messages when the question has at most one content word, or points back
+  ("it / this / это / он"). Self-contained questions are untouched. `agent.py` passes `history` to `_get_effective_system_prompt` (5 lines).
+- Prompt injection: `format_context_block` fences the documents in `<kb_documents>`, declares them data, and a document cannot close its own
+  fence. This lowers the risk; it does not remove it.
+- Thread safety: the index cache is guarded by a lock (the fit happens outside it).
+- Tests: `test_the_gate_can_be_loosened_by_the_caller` asserted `is not None` and could never fail; it now asserts a non-empty list.
+  10 of the 11 new tests fail on the Round 12 code. The concurrency test does not (it did not reproduce the race there): a smoke test only.
+
+**Held-out set and gate sweep** (`eval/kb/questions_basecamp_heldout.json`, `kb_eval.py --sweep`, `--chunker section`)
+34 answerable + 16 unanswerable questions on sections the dev set does not touch, written (by the model, not by real users) before any
+retrieval was run on them and not edited afterwards. Default chunker, gate 0.16:
+
+|                        | dev (27 + 6) | held-out (34 + 16) |
+|------------------------|--------------|--------------------|
+| best chunk first       | 23/27        | 27/34              |
+| in top 3               | 24/27        | 29/34              |
+| answerable got nothing | 2/27         | 4/34               |
+| unanswerable dropped   | 5/6          | 12/16              |
+
+The gate is a trade-off, not a cliff: from 0.12 to 0.24 the share of unanswerable questions dropped rises from 9/16 to 16/16 on held-out while
+answerable questions that get nothing rise from 1/34 to 13/34. 0.16 stays: it is a defensible knee on both sets, but on the dev set it sits on a
+steep part of the curve (0.14 -> 2/6, 0.16 -> 5/6), so the dev "5 of 6" is the least trustworthy number here. Moving the gate is a product
+decision (a bot that says "not covered" too often vs one that attaches irrelevant text), not something these questions settle. Most held-out
+misses are the gate saying "not covered" to paraphrases ("close relative dies" vs "bereavement", "move to another state").
+
+**Added, not enabled: `chunk_text_by_section`**
+Heading-aware chunks (`[Section: A > B]` label, small sections packed together, no overlap across sections, never cuts inside a word).
+Same retrieval on both sets together (best-first 50/61, in-top-3 53/61 as with the default: 22/27 + 28/34, 23/27 + 30/34 vs 23 + 27, 24 + 29) but
+worse "not covered": 14/22 vs 17/22 (dev 2/6, held-out 12/16). Not the default. Its gate looks at the chunk body only, so a heading cannot make
+a question look answered.
+
+**Not done**
+- The held-out set is written by the model and the corpus is English; there are no Russian questions and no customer documents yet. The gate
+  has not been checked on Russian text at all.
+- Overlapping neighbouring chunks of one document can still fill several of the 3 slots.
+- Default chunker still cuts on characters (mid-word) and overlaps across sections.
+- The cache key still hashes the whole corpus per message (milliseconds; the DB read in `get_kb_chunks_for_agent` is the cost to measure).
+- `agent.py` was only compiled and diffed here: the archive has no `app/core/engine`, so the agent-level tests could not run.
+
+# Round 12 - Oct 23, 2026 - bot knowledge base: measured on open data, retrieval rewritten
+
+Test data: the open Basecamp employee handbook (github.com/basecamp/handbook, 16 files, ~16k words) as a stand-in for "a company's documents a newcomer asks about".
+27 newcomer questions with the section that answers each (written by reading the handbook) + 6 questions the handbook does not answer. Retrieval only: there is no LLM
+key in the test environment, so the quality of the bot's final answers was NOT measured.
+- Before (word TF-IDF, English stop words, threshold 0.05): the right passage was the best chunk for 17/27 questions and among the 3 injected chunks for 23/27 (91% when the
+  question shares words with the document, 50% for paraphrases); for 5 of the 6 unanswerable questions it injected unrelated chunks anyway (the bot is told "don't guess if
+  it is not covered", but handing it unrelated context makes inventing an answer more likely). It re-fitted the whole corpus on every chat message.
+- After (app/core/knowledge_base.py): word-stem TF-IDF (first 6 letters, English + Russian stop words) gates "does the knowledge base answer this at all" (RELEVANCE_GATE 0.16, question
+  words no document uses count against the score, OOV_WEIGHT 0.75); character 3-5-gram TF-IDF ranks the chunks; the weak tail (< 60% of the best) is cut; the corpus index is built once
+  and cached (8 corpora, keyed by content hash). Same function signature; `min_similarity` is now the gate. Result: best chunk first 22/27, in the top 3 23/27 (unchanged),
+  5 of 6 unanswerable questions correctly retrieve nothing.
+- It is a trade-off, not a free win. Top-3 recall is unchanged because one gain and one loss cancel: "How do I schedule time off?" is now found, "Which Linux distribution does the company
+  use?" (found before) is now missed by the ranking. Two questions that used to get wrong chunks ("What is a cycle and how long does it last?", "Am I allowed to have a side job?") now get
+  nothing, i.e. the bot deflects. The gate keeps 25 of 27 answerable questions; a stricter one (0.18) catches the last bad unanswerable case but loses two more good ones.
+- Russian: the old retrieval had no Russian stop words and no stemming. On a SYNTHETIC Russian FAQ written for the test (5 questions, a mechanism check, not a quality measurement) the old code
+  failed 2 (a different case of "отпуск", and a paraphrase it answered with nothing); the new one matches the 4 whose words appear in the FAQ in another form and deflects on the 5th, a paraphrase
+  with no shared word ("листок нетрудоспособности" vs "больничный лист"). Known limits, pinned in tests: "shipping" does not find "ship" (6-letter prefix stems), pure paraphrases deflect.
+- The threshold was tuned on this one English set (27 + 6 questions): re-run `python3 eval/kb/kb_eval.py --corpus <folder> --questions <json>` on each customer's own documents before trusting it.
+  eval/kb/ holds the harness and the Basecamp questions (the corpus is not vendored: git clone it).
+- Tests: tests/test_knowledge_base_quality.py (22; the last one needs the cloned corpus and is skipped without it, set GENESIS_KB_CORPUS or clone to /tmp/handbook).
+Not verified: answer quality with a real LLM; a corpus with thousands of chunks (the index build time grows; the cache keeps it to once per corpus, per process); Python 3.14 on Apple Silicon.
+
+# Round 11 - Oct 21, 2026 - server training is a paid feature; free training on the user's own computer
+
+- Plans: new limit `server_training` (Free no, Pro / Business / owner yes) in app/core/plans.py, new gate kind `server_training`. Enforced at every
+  server-side training entry point: the agent's train_model, forecast_model, retrain_model, create_model (also /api/registry/models/{id}/retrain,
+  which goes through the agent) and POST /api/model-builder/generate (403 with the plan message). Side effect: that route used to let a Free account
+  run LLM-written code (it never checked `custom_code`); it is now Pro-only.
+- Local training: app/core/local_training.py + scripts/train_local.py. `GET /api/local-training/bundle` (public, no login) returns a zip with the SAME
+  DatasetTrainer the server uses (trainer, transformers, predict_utils) and one CLI: `python3 train_local.py data.csv --target churn`
+  -> model.pkl + metrics.json; `--predict --model model.pkl` writes predictions.csv. `GET /api/local-training/command` returns the ready command text.
+  New agent tool `train_local` (any plan): returns the download link and a command, never runs anything. The plan-limit message shows the same command.
+- The platform does NOT get access to a user's terminal and must not: it hands out fixed open code (not LLM-written per request) and text. File and column
+  names go into the printed command through shlex.quote, control characters are stripped (tests with hostile names).
+- Bringing a locally trained model back: app/core/local_models.py, three login-only routes. POST /api/local-training/prepare {upload_id, target} cleans the
+  dataset like the verified-model path (duplicates, ID columns, probable leakage), keeps a hidden test set ON THE SERVER and returns train.csv + the command;
+  GET /api/local-training/prepared/{id}/train.csv serves only that file; POST /api/local-training/register (multipart: prepare_id, model) loads model.pkl with
+  the restricted unpickler (never pickle.load), scores it on the hidden test set, adds the trust verdict and registers it (built_via=local_training,
+  trained_on=user_machine). Needs no server-training plan (almost no CPU); saved-model slots still count. Prepared sets expire after 7 days. 25 MB model cap.
+  Limit that cannot be fixed: the owner has the full dataset, so nothing stops a seller from training on all of it instead of train.csv. The score is real
+  for the withheld rows; "trained on train.csv only" is not checkable, and the registry note says so.
+- Marketplace publishing (routers/marketplace.py, POST /api/marketplace/publish) is now author-only: before, any logged-in user could list ANY registry
+  model_id and the listing's scores/task/algorithm were whatever the request said. Now the author is checked against the registry record (403 otherwise;
+  records with no author - very old models - cannot be listed until they are re-registered), task / model_type / metrics come from the registry record
+  (the request's values are accepted for compatibility and ignored), and a model the platform rates "low" trust is refused with the reasons. Listings carry
+  `provenance` {trained_on, built_via, verified, trust, label}; locally trained models get the label "Trained on the owner's own computer, not by the platform...".
+- POST /api/model-builder/publish had the same problem and is fixed: it took `saved_model_path` (a server file path) and `metrics` from the request, so a user
+  could register another user's model file, point it at any pickle on the server, or list a model with made-up scores. Now /generate stores what the build
+  produced (app/core/build_records.py, datasets/builds/<user>/<build_id>.json) and returns `build_id`; publish reads the file, scores and trust verdict from that record.
+  Older clients that send the `saved_model_path` /generate returned still work, but only for THIS user's own builds; `metrics` in the body is ignored. Only a verified
+  build can be listed (price_per_call >= 0); price_per_call -1 just saves it to the user's models (status "saved"). A "low" trust build is refused before anything is
+  registered; publishing the same build twice reuses the model_id. Both publish routes share routers/marketplace.listing_args().
+- Frontend (static/index.html): listing cards (marketplace grid, landing "explore" grid) and the listing detail modal show `provenance`: an amber "Trained on owner's
+  computer" badge (the full label in the tooltip and as a notice in the detail modal) and a green "Verified score" badge. publishModel() used to show "Model published!"
+  whatever the server answered (it never looked at the status code); with the new author/trust checks that would have lied, so it now shows the server's reason.
+- Tests: tests/test_local_training.py (20) and tests/test_model_builder_publish.py (7: record used not the request, old path style, other users' builds/files/paths refused, unverified can't be sold, low trust refused before registering, no double registration, bad price) , tests/test_marketplace_publish.py (3: author-only, measured scores + label, unreliable model refused), tests/test_local_models.py (10: whole flow on Free, hidden rows never served, another user's id invisible, hostile pickle runs nothing, oversized/garbage files, wrong-column model explained, useless model gets a LOW verdict), including an end-to-end run of the unpacked zip with the repo NOT importable (train -> model.pkl, metrics.json ->
+  predict). tests/pro_user.py: tests that exercise the training code itself now use a real Pro account (unknown ids are Free). Full run: 832 passed,
+  1 failed - test_llm_failover::test_llm_check_reports_each_provider_and_exit_code, which also fails on the untouched repo here (it depends on which provider
+  keys are in the environment).
+Not verified: a real browser download of the zip, the chat tool choice by the real LLM (the prompt got a train_local example; the dispatch is tested, the
+model's choice is not), Python 3.14 on Apple Silicon (tested on 3.12 Linux), the Free plan's `max_models` slots now only matter for models made before
+this change.
+
 # Round 10 - Oct 18, 2026 - the report script reads Excel (.xlsx)
 
 Found while researching the CIS market: marketplace and 1C exports arrive as .xlsx, scripts/make_report.py read CSV only, so the advice

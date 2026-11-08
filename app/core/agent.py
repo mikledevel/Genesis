@@ -59,7 +59,7 @@ When user asks for something:
 CRITICAL: ALWAYS respond in JSON: {"tool": "tool_name", "args": {"param": "value"}, "message": "your reply"}
 If no tool fits: {"tool": null, "message": "your detailed helpful reply"}
 
-Tools: analyze_dataset, train_model, forecast_model, find_best_model, list_models, search_datasets, generate_code, research_project, install_dataset, suggest_pipeline, list_marketplace, list_projects, publish_marketplace, create_custom_block, create_bot, create_model, add_skill
+Tools: analyze_dataset, train_model, forecast_model, find_best_model, list_models, search_datasets, generate_code, research_project, install_dataset, suggest_pipeline, list_marketplace, list_projects, publish_marketplace, create_custom_block, create_bot, create_model, add_skill, train_local, improve_model
 
 REMEMBER: You can CREATE custom blocks for ANY missing functionality. Tell users about this!
 
@@ -105,6 +105,24 @@ Assistant: {"tool": "suggest_pipeline", "args": {"description": "churn predictio
 
 User: построй полноценную модель для прогноза оттока клиентов
 Assistant: {"tool": "create_model", "args": {"description": "модель для прогноза оттока клиентов"}, "message": "Строю и тестирую модель на реальных данных..."}
+
+train_local: the user wants to train ON THEIR OWN COMPUTER ("на моём компьютере", "локально", "train it myself", "give me a command",
+"without uploading my data"). It never trains anything on the server: it returns a ready command the user runs in their own terminal.
+Never offer or claim to run commands on the user's computer yourself - you cannot, and you must not try.
+Training on the platform's servers (train_model / forecast_model / retrain_model / create_model) is a paid feature; if the user's plan
+does not include it the tool says so and shows the same local command.
+
+User: хочу обучить модель у себя на компьютере, мои данные не загружать
+Assistant: {"tool": "train_local", "args": {"path": "churn.csv", "target_column": "churn"}, "message": "Даю команду для запуска у вас..."}
+
+improve_model: the user wants to IMPROVE / FINE-TUNE / CONTINUE TRAINING an EXISTING model that works poorly ("дообучи модель", "улучши слабую модель",
+"fine-tune it", "it got worse on new data"). args: model_id, path (the data; new rows or the same file), new_data (true when the rows are data the model has not seen),
+budget (fast | balanced | thorough). It tries continuing the model, a bigger/regularised/class-balanced refit and other model families, ranks them on
+validation, and keeps a change ONLY if rows that no decision used confirm it; otherwise the model stays as it is and the tool says so. A better model becomes a
+new version of the same model (the old one stays in the history). It is a server-training feature (paid plans). Do not promise an improvement: report what it found.
+
+User: дообучи мою модель на новых данных, она стала хуже предсказывать
+Assistant: {"tool": "improve_model", "args": {"model_id": "<id from the conversation>", "path": "new_orders.csv", "new_data": true}, "message": "Пробую дообучить и проверю результат на данных, которые не участвовали в выборе..."}
 
 IMPORTANT - suggest_pipeline vs create_model vs generate_code vs train_model, these are
 easily confused, pick carefully:
@@ -226,7 +244,7 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             return resolved or internal_name
         return internal_name
 
-    def _get_effective_system_prompt(self, query: str = "") -> str:
+    def _get_effective_system_prompt(self, query: str = "", history: Optional[List[Dict]] = None) -> str:
         """Combine the base Genesis AI identity/tool spec with an optional custom
         agent persona. When chatting AS a specific published bot (agent_id present):
           - tool access is SCOPED (see process()/BOT_SCOPED_ALLOWED_TOOLS) - a bot persona
@@ -267,10 +285,19 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
 
         if agent_id and query:
             try:
-                from app.core.knowledge_base import retrieve_relevant_chunks, format_context_block
+                from app.core.knowledge_base import retrieve_relevant_chunks, format_context_block, build_retrieval_query
                 chunks = self.db.get_kb_chunks_for_agent(agent_id)
                 if chunks:
-                    relevant = retrieve_relevant_chunks(query, chunks)
+                    # a short follow-up ("and how much is it?") is searched together with the previous user turns
+                    top_k = 3
+                    try:     # how many passages the bot gets is decided by its OWNER's plan, not by whoever is chatting
+                        from app.core import plans
+                        from app.core.agent_store import AgentStore
+                        owner = (AgentStore().get_agent(agent_id) or {}).get("author")
+                        top_k = plans.kb_top_k(self.db, owner) if owner else top_k
+                    except Exception as e:
+                        print(f"[KB retrieval] plan lookup failed, using {top_k} passages: {e}")
+                    relevant = retrieve_relevant_chunks(build_retrieval_query(query, history), chunks, top_k=top_k)
                     context_block = format_context_block(relevant)
                     if context_block:
                         result = f"{result}\n\n{context_block}"
@@ -388,7 +415,7 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
         start = time.monotonic()
         try:
             from app.core.groq_client import call_llm
-            sys_prompt = self._get_effective_system_prompt(msg)
+            sys_prompt = self._get_effective_system_prompt(msg, history)
 
             def _attempt():
                 return call_llm(
@@ -487,7 +514,7 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
         if not self.llm:
             raise LLMConfigError("No Groq API key is configured and no local model is loaded")
         turns = "".join(f"<|im_start|>{h['role']}\n{h['content']}<|im_end|>\n" for h in (history or []))
-        p = (f"<|im_start|>system\n{self._get_effective_system_prompt(msg)}<|im_end|>\n{turns}"
+        p = (f"<|im_start|>system\n{self._get_effective_system_prompt(msg, history)}<|im_end|>\n{turns}"
              f"<|im_start|>user\n{msg}<|im_end|>\n<|im_start|>assistant\n")
         try:
             t = self.llm(p, max_tokens=300, stop=["<|im_end|>"], temperature=0.1)["choices"][0]["text"].strip()
@@ -644,10 +671,14 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             resp = self._do_analyze(p) if p else AgentResponse(message="Please provide a file path.", success=False)
         elif t in ('train_model', 'train', 'fit_model'):
             resp = self._do_train(message, a)
+        elif t in ('train_local', 'local_train', 'train_locally', 'local_training'):
+            resp = self._do_train_local(message, a)
         elif t in ('forecast_model', 'forecast', 'time_series', 'predict_future'):
             resp = self._do_forecast(message, a)
         elif t in ('retrain_model', 'retrain', 'update_model'):
             resp = self._do_retrain(a.get("model_id", ""), a.get("path", self._extract_path(message)), a)
+        elif t in ('improve_model', 'finetune_model', 'fine_tune', 'fine_tune_model', 'improve'):
+            resp = self._do_improve_model(a.get("model_id", ""), a.get("path", self._extract_path(message)), a)
         elif t in ('find_best_model', 'best_model', 'find_best'):
             resp = self._do_find_best(a.get("task", "binary_classification"))
         elif t in ('list_models', 'list', 'show_models'):
@@ -827,8 +858,8 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
         )
 
     def _validate_path(self, p: str) -> bool:
-        rp = os.path.realpath(p)
-        return any(rp.startswith(os.path.realpath(d)) for d in self.ALLOWED_DIRS)
+        from app.core.paths import is_allowed_path     # the folder itself or BELOW it; the old startswith also accepted "./datasets_backup"
+        return is_allowed_path(p, self.ALLOWED_DIRS)
 
     def _extract_path(self, msg: str):
         for p in [r'([\w\\/:.-]+\.(?:csv|json|parquet|xlsx))']:
@@ -845,6 +876,16 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             return None
         from app.core import plans
         msg = plans.gate_message(self.db, uid, kind)
+        return AgentResponse(message=msg, success=False) if msg else None
+
+    def _start_server_job(self):
+        """None = the monthly server-job allowance (plans.py) has room and this job is now counted; otherwise the failed response.
+        Called last in the gate chain, so a job that a different gate refuses is not counted."""
+        uid = self.current_user_id
+        if not uid or uid == "anonymous":
+            return None
+        from app.core import plans
+        msg = plans.start_server_job(self.db, uid)
         return AgentResponse(message=msg, success=False) if msg else None
 
     def _do_analyze(self, fp: str) -> AgentResponse:
@@ -865,8 +906,26 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
         except Exception as e:
             return AgentResponse(message=f"Error: {e}", success=False)
 
+    def _do_train_local(self, msg: str, args: Dict = None) -> AgentResponse:
+        """Training on the USER's computer: free on every plan. Returns a command, runs nothing anywhere.
+        The platform never executes anything on a user's machine - the user copies the command into their own terminal."""
+        from app.core.local_training import local_instructions
+        a = args or {}
+        fp = a.get("path") or self._extract_path(msg) or self.current_dataset
+        target = a.get("target") or a.get("target_column")
+        budget = str(a.get("budget") or "").lower() or None
+        if not target and self.current_dataset and fp == self.current_dataset:
+            try:
+                sug = self.profiler.get_summary().get("suggested_ml_task", {})
+                if sug and not sug.get("needs_confirmation"):
+                    target = sug.get("target_column")
+            except Exception:
+                target = None
+        return AgentResponse(message=local_instructions(fp, target, budget), success=True,
+                             data={"local_training": True, "bundle_url": "/api/local-training/bundle"})
+
     def _do_train(self, msg: str, args: Dict = None) -> AgentResponse:
-        gate = self._plan_gate("model")
+        gate = self._plan_gate("server_training") or self._plan_gate("model") or self._start_server_job()
         if gate is not None:
             return gate
         # Prefer the LLM's own extracted path argument (see the train_model few-shot example
@@ -992,7 +1051,7 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
                               r"target|label|value|amount|сумм|значени)", re.IGNORECASE)
 
     def _do_forecast(self, msg: str, args: Dict = None) -> AgentResponse:
-        gate = self._plan_gate("model")
+        gate = self._plan_gate("server_training") or self._plan_gate("model") or self._start_server_job()
         if gate is not None:
             return gate
         """Forecast the future of a time series: chronological backtest, honest intervals, trust verdict."""
@@ -1151,7 +1210,7 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             print(f"[train] could not dedupe model file for {model_id}: {e}")
 
     def _do_retrain(self, model_id: str, new_dataset_path: Optional[str], args: Dict = None) -> AgentResponse:
-        gate = self._plan_gate("model")
+        gate = self._plan_gate("server_training") or self._plan_gate("model") or self._start_server_job()
         if gate is not None:
             return gate
         """Retrain an EXISTING registered model on a new/updated dataset, producing a new
@@ -1179,6 +1238,8 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             return AgentResponse(message="You don't have permission to retrain this model.", success=False)
         if not os.path.exists(new_dataset_path):
             return AgentResponse(message=f"File not found: {new_dataset_path}", success=False)
+        if not self._validate_path(new_dataset_path):     # same check train_model has; the route passes a client-supplied path
+            return AgentResponse(message="Access denied: path is outside allowed directories (datasets/, models/, static/, generated/).", success=False)
 
         task = old_record["task"]
         target = ((args or {}).get("target") or (args or {}).get("target_column")) or old_record["target"]
@@ -1224,6 +1285,64 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
         except Exception as e:
             _progress.fail(str(e))
             return AgentResponse(message=f"Retraining error: {e}", success=False)
+
+    def _do_improve_model(self, model_id: str, dataset_path: Optional[str], args: Dict = None) -> AgentResponse:
+        """Tries to improve an EXISTING registered model (continue training, bigger / regularised / class-balanced refit, other families -
+        see app/core/model_improver.py) and keeps a change only when rows no decision used confirm it. A better model is registered as a
+        new VERSION of the same family, like _do_retrain; when nothing helps, nothing is registered and the answer says so."""
+        gate = self._plan_gate("server_training") or self._plan_gate("model") or self._start_server_job()
+        if gate is not None:
+            return gate
+        args = args or {}
+        if not model_id:
+            return AgentResponse(message="Please provide the model_id of the model to improve.", success=False)
+        if not dataset_path:
+            return AgentResponse(message="Please provide the path to the data (new rows, or the same file the model was trained on).", success=False)
+        try:
+            old_record = self.registry.get_record(model_id)
+        except KeyError:
+            return AgentResponse(message=f"Model {model_id} was not found in the registry.", success=False)
+        record_author = (old_record.get("metadata") or {}).get("author")
+        if record_author and record_author != self.current_user_id:
+            return AgentResponse(message="You don't have permission to improve this model.", success=False)
+        if not os.path.exists(dataset_path):
+            return AgentResponse(message=f"File not found: {dataset_path}", success=False)
+        if not self._validate_path(dataset_path):
+            return AgentResponse(message="Access denied: path is outside allowed directories (datasets/, models/, static/, generated/).", success=False)
+
+        task, target = old_record["task"], args.get("target") or args.get("target_column") or old_record["target"]
+        from app.core import plans
+        budget, budget_note = plans.clamp_improve_budget(self.db, self.current_user_id, args.get("budget"))
+        try:
+            from app.core.model_improver import improve_model
+            self.profiler.run_full_profile(dataset_path)
+            res = improve_model(self.registry.get_model(model_id), self.profiler.df, target, task, data_is_new=bool(args.get("new_data")),
+                                budget=budget, only_if_weak=bool(args.get("only_if_weak")))
+            rep = res.report
+            tried = ", ".join(f"{t['name']} {t['validation']:.2f}" for t in rep.get("tried", []) if "validation" in t)
+            if not res.improved:
+                return AgentResponse(
+                    message=(f"The model was NOT changed: {rep.get('reason')}.\n"
+                             + (f"Tried (validation, {rep.get('metric')}): {tried}.\n" if tried else "")
+                             + (f"Diagnosis: {'; '.join(rep['diagnosis'])}." if rep.get("diagnosis") else "")
+                             + (f"\n{budget_note}" if budget_note else "")).strip(),
+                    data=_to_native({"model_id": model_id, "improved": False, "report": rep}))
+            family_id = old_record.get("family_id", old_record["model_id"])
+            # the same metric keys the trainer writes (so find_best / model cards treat this version like any other), plus where they come from
+            metrics = {**rep["metrics_test"], "improved_metric": rep["metric"], "baseline": rep["baseline"],
+                       "test_before_improvement": rep["test_before"], "improvement_p_better": rep["p_better"], "source": "model_improver"}
+            new_id = self.registry.register(
+                model=res.model, metrics=metrics, task=task, model_type=old_record["model_type"], features=old_record["features"], target=target,
+                metadata={**old_record.get("metadata", {}), "improved_from": model_id, "improve_dataset": dataset_path, "improve_report": rep},
+                family_id=family_id, parent_model_id=model_id)
+            history = self.registry.get_family_history(family_id)
+            return AgentResponse(
+                message=(f"Model improved ✅ New version v{history[0]['version']} (id: {new_id}); the previous version stays in the history.\n"
+                         f"{rep['reason']} (the rows used for this check took no part in choosing or training; better in {rep['p_better']:.0%} of resamples).\n"
+                         f"Tried (validation, {rep['metric']}): {tried}." + (f"\n{budget_note}" if budget_note else "")),
+                data=_to_native({"model_id": new_id, "family_id": family_id, "version": history[0]["version"], "improved": True, "report": rep}))
+        except Exception as e:
+            return AgentResponse(message=f"Improvement error: {e}", success=False)
 
     def _do_bot_predict(self, agent_id: Optional[str], args: Dict) -> AgentResponse:
         """Runs a real prediction using the ONE model this bot's owner linked to it (see
@@ -1561,7 +1680,7 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             return AgentResponse(message=f"Error: {e}", success=False)
 
     def _do_create_model(self, msg: str, args: Dict = None) -> AgentResponse:
-        gate = self._plan_gate("model")
+        gate = self._plan_gate("server_training") or self._plan_gate("model") or self._start_server_job()
         if gate is not None:
             return gate
         from app.core.model_builder import ModelBuilder

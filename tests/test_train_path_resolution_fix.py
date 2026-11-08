@@ -21,12 +21,16 @@ from app.core.engine.trainer import DatasetTrainer
 from app.db.database import GenesisDB
 
 
+from tests.pro_user import make_pro_user  # noqa: E402
+
+
 def _make_agent(workdir):
     registry = ModelRegistry(storage_dir=os.path.join(workdir, "registry"))
     trainer = DatasetTrainer(model_dir=os.path.join(workdir, "models"))
     db = GenesisDB(db_path=os.path.join(workdir, "test.db"))
     agent = GenesisAgent(registry=registry, trainer=trainer, db=db)
     agent.current_user_id = "test_user"
+    make_pro_user(agent.db, "test_user")
     return agent
 
 

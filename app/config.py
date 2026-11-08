@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""
     stripe_webhook_secret: str = ""
+    stripe_price_pro_monthly: str = ""
+    stripe_price_business_monthly: str = ""
+    stripe_portal_configuration_id: str = ""
     secret_key: str = "change-me"
     # Comma-separated list of allowed frontend origins in production, e.g.
     # "https://genesis-ai.app,https://www.genesis-ai.app". Empty means "reflect no origin"

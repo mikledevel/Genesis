@@ -125,25 +125,33 @@ async def upload_kb_document(agent_id: str, file: UploadFile = File(...), user_i
     if agent.get("author") != user_id:
         raise HTTPException(status_code=403, detail="You don't own this bot")
 
+    from app.core import plans
     filename = file.filename or "document.txt"
     if not filename.lower().endswith(SUPPORTED_KB_EXTENSIONS):
         raise HTTPException(status_code=400,
             detail=f"Unsupported file type. Supported: {', '.join(SUPPORTED_KB_EXTENSIONS)} "
                    f"(PDF/DOCX not yet supported - convert to plain text first)")
 
-    raw = await file.read()
+    db = GenesisDB()
+    max_bytes = plans.kb_max_upload_bytes(db, user_id)         # the plan's text cap; never read more than that into memory
+    raw = await file.read() if max_bytes is None else await file.read(max_bytes + 1)
+    if max_bytes is not None and len(raw) > max_bytes:
+        raise HTTPException(status_code=413, detail="That file is larger than the knowledge-base text limit of your plan."
+                                                    + plans._upgrade_hint(db.get_user_plan(user_id)))
     try:
         content = raw.decode("utf-8")
     except UnicodeDecodeError:
         raise HTTPException(status_code=400, detail="File must be UTF-8 text")
     if not content.strip():
         raise HTTPException(status_code=400, detail="File is empty")
+    _limit = plans.kb_gate_message(db, user_id, agent_id, len(content))
+    if _limit:
+        raise HTTPException(status_code=403, detail=_limit)
 
     chunks = chunk_text(content)
     if not chunks:
         raise HTTPException(status_code=400, detail="Could not extract any content to index")
 
-    db = GenesisDB()
     doc_id = db.add_kb_document(agent_id, user_id, filename, content, chunks)
     return {"id": doc_id, "filename": filename, "chunk_count": len(chunks)}
 
@@ -612,6 +620,10 @@ async def create_scheduled_job(data: dict, user_id: str = Depends(get_current_us
         raise HTTPException(status_code=404, detail="Skill not found, or it doesn't belong to you")
     if not skill["active"] or not skill["test_passed"]:
         raise HTTPException(status_code=400, detail="Only an active, sandbox-tested skill can be scheduled")
+    from app.core import plans
+    _limit = plans.gate_message(db, user_id, "scheduled_job")
+    if _limit:
+        raise HTTPException(status_code=403, detail=_limit)
 
     try:
         job = db.create_scheduled_job(
@@ -637,7 +649,11 @@ async def pause_scheduled_job(job_id: str, user_id: str = Depends(get_current_us
 
 @router.post("/api/scheduled-jobs/{job_id}/resume")
 async def resume_scheduled_job(job_id: str, user_id: str = Depends(get_current_user_id)):
+    from app.core import plans
     from app.db.database import GenesisDB
+    _limit = plans.gate_message(GenesisDB(), user_id, "scheduled_job")     # a paused job does not count; resuming one that goes over the limit does
+    if _limit:
+        raise HTTPException(status_code=403, detail=_limit)
     if not GenesisDB().set_scheduled_job_active(job_id, user_id, active=True):
         raise HTTPException(status_code=404, detail="Job not found, or it doesn't belong to you")
     return {"status": "resumed"}

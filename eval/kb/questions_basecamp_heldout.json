@@ -1,0 +1,368 @@
+{
+ "corpus": "https://github.com/basecamp/handbook (16 files)",
+ "note": "HELD-OUT set. Written after reading the corpus sections that the dev set (questions_basecamp.json) does not use, BEFORE running any retrieval on it, and not edited afterwards. Written by the model, not by real newcomers: natural phrasing, but treat it as a harder-than-nothing check, not as user data. Do not tune thresholds on it; if you do, it stops being held-out and needs replacing.",
+ "answerable": [
+  {
+   "q": "How much of my health insurance premium does the company cover in the US?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Medical Insurance"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "What happens to my medical coverage if I quit?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Medical Insurance"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "Does my spouse get covered by the dental plan?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Dental Insurance"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "dental open enrollment",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Dental Insurance"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "Who pays for my vision plan?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Vision Insurance"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "I live in Germany and pay for my own health insurance, can I get some of it back?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Health Insurance for Staff Outside the US"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "How large is the life insurance policy?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Life Insurance"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "What does short term disability pay and how long is the waiting period?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Disability Insurance"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "disability waiting period",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Disability Insurance"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "What is the maximum I can put into a flexible spending account?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Flexible Spending Account"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "What is the limit for the dependent care FSA if I split it with my partner?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Flexible Spending Account"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "How many days off do I get when a close relative dies?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Bereavement Leave"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "bereavement days",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Bereavement Leave"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "When do I become eligible for shares if the company is ever sold?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Employee Liquidity Pool"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "liquidity pool shares",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Employee Liquidity Pool"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "Can I get a free personal HEY account?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Personal 37signals Accounts"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "Do I have to upload receipts for purchases on the company card?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Expense Account"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "Which tool do we use to log expenses?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Expense Account"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "Can I live in a different country than my coworkers?",
+   "truth": [
+    [
+     "how-we-work.md",
+     "Remotely"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "Who do I tell when I move to another state?",
+   "truth": [
+    [
+     "how-we-work.md",
+     "Remotely"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "Am I expected to answer messages right away?",
+   "truth": [
+    [
+     "how-we-work.md",
+     "Asynchronously"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "What does it mean to be a manager of one?",
+   "truth": [
+    [
+     "how-we-work.md",
+     "With managers of one"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "How many hours a week do I work?",
+   "truth": [
+    [
+     "how-we-work.md",
+     "Balanced"
+    ],
+    [
+     "benefits-and-perks.md",
+     "Summer Hours"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "What if I have to work during an emergency outside normal hours?",
+   "truth": [
+    [
+     "how-we-work.md",
+     "Balanced"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "What should I do if a coworker behaves badly?",
+   "truth": [
+    [
+     "how-we-work.md",
+     "Cooperatively"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "Where can I find out why an email was not delivered?",
+   "truth": [
+    [
+     "our-internal-systems.md",
+     "Dash"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "Kandji",
+   "truth": [
+    [
+     "our-internal-systems.md",
+     "Kandji"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "Is Shipshape still used?",
+   "truth": [
+    [
+     "our-internal-systems.md",
+     "Shipshape"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "How often does the whole company meet in person?",
+   "truth": [
+    [
+     "our-rituals.md",
+     "Meet-ups"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "What are the career levels from L1 to L5 called?",
+   "truth": [
+    [
+     "making-a-career.md",
+     "Mastery & Titles"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "I live in California, what family leave do I get from the state?",
+   "truth": [
+    [
+     "stateFMLA.md",
+     "California Medical and Family Leave"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "What state program gives parental bonding leave in Colorado?",
+   "truth": [
+    [
+     "stateFMLA.md",
+     "Colorado Medical and Family Leave"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "What is expected of a Lead SRE?",
+   "truth": [
+    [
+     "titles-for-ops.md",
+     "Titles for Ops"
+    ]
+   ],
+   "style": "natural"
+  },
+  {
+   "q": "What does a Principal Designer do?",
+   "truth": [
+    [
+     "titles-for-designers.md",
+     "Titles for Designers"
+    ]
+   ],
+   "style": "natural"
+  }
+ ],
+ "unanswerable": [
+  "Do you reimburse tuition for university courses?",
+  "Is there a gym membership or wellness stipend?",
+  "Does the company cover therapy or counseling sessions?",
+  "Which Slack channel should I use to ask IT for help?",
+  "How much does a Basecamp subscription cost?",
+  "What is the company's stock ticker symbol?",
+  "How do I submit my timesheet at the end of the week?",
+  "Does the company pay for conference tickets?",
+  "Does the company send a gift when I get married?",
+  "Can I bring my dog to the meet-up?",
+  "Is there a union or works council I can join?",
+  "Does the company pay my home internet bill?",
+  "Can I get a company car?",
+  "What is the weather like in Barcelona in autumn?",
+  "Where is the best pizza in Chicago?",
+  "How do I change the shipping address on my Amazon orders?"
+ ]
+}

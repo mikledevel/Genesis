@@ -16,6 +16,7 @@ Implementation is a plain in-memory sliding window, deliberately simple:
     upgrade; it buys real protection today and documents its own ceiling.
 """
 import time
+import hashlib
 from collections import defaultdict, deque
 from typing import Deque, Dict, Tuple
 
@@ -35,6 +36,10 @@ class _SlidingWindowLimiter:
         cutoff = now - window_seconds
         while q and q[0] < cutoff:
             q.popleft()
+        if not q:
+            # Don't retain one empty deque forever for every client that ever visited.
+            self._hits.pop(key, None)
+            q = self._hits[key]
         if len(q) >= limit:
             retry_after = int(window_seconds - (now - q[0])) + 1
             return False, max(retry_after, 1)
@@ -71,10 +76,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def _caller_key(self, request: Request) -> str:
         auth = request.headers.get("authorization", "")
         if auth.startswith("Bearer ") and len(auth) > 12:
-            # Keyed on the token itself, not the decoded user_id - avoids importing/decoding
-            # JWTs in the middleware layer (that stays the auth dependency's job) while still
-            # giving each distinct caller their own bucket.
-            return "tok:" + auth[7:39]
+            # Hash the complete credential without decoding it. Truncating a JWT near its
+            # beginning makes unrelated users collide: every JWT has the same header segment.
+            # Hashing also keeps raw credentials out of the in-memory limiter keys.
+            digest = hashlib.sha256(auth[7:].encode("utf-8")).hexdigest()
+            return "tok:" + digest
         return "ip:" + self._client_ip(request)
 
     async def dispatch(self, request: Request, call_next):

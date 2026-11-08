@@ -10,6 +10,7 @@ import os
 import pickle
 import shutil
 import threading
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -152,7 +153,10 @@ class ModelRegistry:
             model_id уникальный идентификатор модели
         """
         # Генерация ID
-        model_id = f"{task}_{model_type}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+        # Timestamps at microsecond resolution still collide when several worker
+        # processes register the same model type concurrently. The random suffix
+        # keeps both the index key and pickle filename unique across processes.
+        model_id = f"{task}_{model_type}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
 
         # Сохранение модели
         model_filename = f"{model_id}.pkl"

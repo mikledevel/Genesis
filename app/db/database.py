@@ -103,6 +103,10 @@ class GenesisDB:
                     stripe_session_id TEXT,
                     created_at TEXT DEFAULT (datetime('now'))
                 );
+                CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+                    event_id TEXT PRIMARY KEY, event_type TEXT NOT NULL,
+                    processed_at TEXT DEFAULT (datetime('now'))
+                );
                 CREATE TABLE IF NOT EXISTS chats (
                     id TEXT PRIMARY KEY, title TEXT DEFAULT 'Untitled',
                     user_id TEXT,
@@ -144,6 +148,11 @@ class GenesisDB:
                     success INTEGER NOT NULL, error TEXT,
                     created_at TEXT DEFAULT (datetime('now'))
                 );
+                CREATE TABLE IF NOT EXISTS feature_usage (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, feature TEXT NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_feature_usage_user ON feature_usage(user_id, feature, created_at);
                 CREATE TABLE IF NOT EXISTS prompts (
                     id TEXT PRIMARY KEY, user_id TEXT NOT NULL,
                     name TEXT NOT NULL, description TEXT DEFAULT '',
@@ -251,12 +260,25 @@ class GenesisDB:
                                           # The mailbox an address really delivers to (a.b+x@gmail.com -> ab@gmail.com): one
                                           # mailbox, one account (app/core/antibot.py canonical_email).
                                           ("users", "email_canonical", "TEXT"),
+                                          ("users", "stripe_customer_id", "TEXT"),
+                                          ("users", "stripe_subscription_id", "TEXT"),
+                                          ("users", "stripe_subscription_status", "TEXT"),
+                                          ("users", "stripe_subscription_price_id", "TEXT"),
+                                          ("users", "stripe_subscription_current_period_end", "INTEGER"),
+                                          ("users", "stripe_subscription_cancel_at_period_end", "INTEGER DEFAULT 0"),
+                                          ("users", "stripe_checkout_session_id", "TEXT"),
+                                          ("users", "stripe_checkout_attempt_id", "TEXT"),
+                                          ("users", "stripe_checkout_plan_id", "TEXT"),
+                                          ("users", "stripe_checkout_created_at", "INTEGER"),
                                           ("bot_skills", "action_type", "TEXT NOT NULL DEFAULT 'read_only'")]:
                 try:
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coldef}")
                     conn.commit()
                 except sqlite3.OperationalError:
                     pass  # column already exists
+            conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_stripe_customer_id "
+                         "ON users(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL")
+            conn.commit()
             try:        # backfill rows created before email_canonical existed, then index it
                 from app.core.antibot import canonical_email
                 for _uid, _em in conn.execute("SELECT id, email FROM users WHERE email_canonical IS NULL").fetchall():
@@ -297,6 +319,156 @@ class GenesisDB:
         with self._connect() as conn:
             row = conn.execute("SELECT id, email, name, balance_cents FROM users WHERE id = ?", (user_id,)).fetchone()
             return {"id": row[0], "email": row[1], "name": row[2], "balance_cents": row[3]} if row else None
+
+    def get_billing_user(self, user_id: str) -> Optional[Dict]:
+        """Billing-only view; Stripe identifiers are never added to public auth responses."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT id,email,name,plan,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,"
+                "stripe_subscription_price_id,stripe_subscription_current_period_end,"
+                "stripe_subscription_cancel_at_period_end,stripe_checkout_session_id,stripe_checkout_attempt_id,"
+                "stripe_checkout_plan_id,stripe_checkout_created_at FROM users WHERE id=?", (user_id,)
+            ).fetchone()
+        if not row:
+            return None
+        return {"id": row[0], "email": row[1], "name": row[2], "plan": row[3], "stripe_customer_id": row[4],
+                "stripe_subscription_id": row[5], "stripe_subscription_status": row[6],
+                "stripe_subscription_price_id": row[7], "current_period_end": row[8],
+                "cancel_at_period_end": bool(row[9]), "checkout_session_id": row[10],
+                "checkout_attempt_id": row[11], "checkout_plan_id": row[12],
+                "checkout_created_at": row[13]}
+
+    def reserve_stripe_checkout(self, user_id: str, plan_id: str, attempt_id: str) -> Dict:
+        """Serialize subscription checkout creation per user to prevent duplicate subscriptions."""
+        import time
+        now = int(time.time())
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT stripe_subscription_id,stripe_subscription_status,stripe_checkout_session_id,"
+                "stripe_checkout_attempt_id,stripe_checkout_plan_id,stripe_checkout_created_at "
+                "FROM users WHERE id=?", (user_id,)
+            ).fetchone()
+            if not row:
+                conn.rollback()
+                raise ValueError("GenesisAI account was not found")
+            sub_id, sub_status, session_id, current_attempt, current_plan, created_at = row
+            if sub_id and sub_status not in ("canceled", "incomplete_expired", "unpaid", "paused"):
+                conn.rollback()
+                return {"status": "subscription_exists", "subscription_status": sub_status}
+            if current_attempt and created_at and now - int(created_at) < 3600:
+                conn.commit()
+                return {"status": "pending", "session_id": session_id, "attempt_id": current_attempt,
+                        "plan_id": current_plan}
+            conn.execute(
+                "UPDATE users SET stripe_checkout_session_id=NULL,stripe_checkout_attempt_id=?,"
+                "stripe_checkout_plan_id=?,stripe_checkout_created_at=? WHERE id=?",
+                (attempt_id, plan_id, now, user_id),
+            )
+            conn.commit()
+        return {"status": "reserved", "attempt_id": attempt_id, "plan_id": plan_id}
+
+    def save_stripe_checkout_session(self, user_id: str, attempt_id: str, session_id: str) -> bool:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "UPDATE users SET stripe_checkout_session_id=? WHERE id=? AND stripe_checkout_attempt_id=?",
+                (session_id, user_id, attempt_id),
+            )
+            conn.commit()
+        return cur.rowcount == 1
+
+    def clear_stripe_checkout(self, user_id: str, attempt_id: str) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE users SET stripe_checkout_session_id=NULL,stripe_checkout_attempt_id=NULL,"
+                "stripe_checkout_plan_id=NULL,stripe_checkout_created_at=NULL WHERE id=? AND stripe_checkout_attempt_id=?",
+                (user_id, attempt_id),
+            )
+            conn.commit()
+
+    def get_user_id_for_stripe_customer(self, customer_id: str) -> Optional[str]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT id FROM users WHERE stripe_customer_id=?", (customer_id,)).fetchone()
+        return row[0] if row else None
+
+    def save_stripe_customer(self, user_id: str, customer_id: str) -> str:
+        """Link one Stripe customer to one Genesis account; return the stored ID."""
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT stripe_customer_id FROM users WHERE id=?", (user_id,)).fetchone()
+            if not row:
+                conn.rollback()
+                raise ValueError("GenesisAI account was not found")
+            current = row[0]
+            if current and current != customer_id:
+                conn.rollback()
+                raise ValueError("This GenesisAI account is already linked to another Stripe customer")
+            try:
+                conn.execute("UPDATE users SET stripe_customer_id=? WHERE id=?", (customer_id, user_id))
+                conn.commit()
+            except sqlite3.IntegrityError as e:
+                conn.rollback()
+                raise ValueError("This Stripe customer is already linked to another account") from e
+        return current or customer_id
+
+    def apply_stripe_subscription_event(self, event_id: str, event_type: str, user_id: str, customer_id: str,
+                                       subscription_id: str, subscription_status: str, price_id: Optional[str],
+                                       period_end: Optional[int], cancel_at_period_end: bool,
+                                       target_plan: str) -> Dict:
+        """Atomically deduplicate a Stripe event and apply a snapshot of the latest subscription state."""
+        terminal = {"canceled", "incomplete_expired", "unpaid", "paused"}
+        paid = {"pro", "business"}
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            inserted = conn.execute(
+                "INSERT OR IGNORE INTO stripe_webhook_events(event_id,event_type) VALUES (?,?)",
+                (event_id, event_type),
+            )
+            if inserted.rowcount == 0:
+                conn.rollback()
+                return {"status": "already_processed"}
+
+            row = conn.execute(
+                "SELECT plan,stripe_customer_id,stripe_subscription_id,stripe_subscription_status "
+                "FROM users WHERE id=?", (user_id,)
+            ).fetchone()
+            if not row:
+                conn.rollback()
+                raise ValueError("Subscription event refers to an unknown GenesisAI account")
+            current_plan, current_customer, current_subscription, current_status = row
+            if current_customer and current_customer != customer_id:
+                conn.rollback()
+                raise ValueError("Subscription event customer does not match the linked Stripe customer")
+
+            if current_subscription and current_subscription != subscription_id:
+                # Never let a delayed event from an old subscription overwrite the user's newer one.
+                if current_status not in terminal or subscription_status in terminal:
+                    conn.commit()  # record the ignored event so Stripe doesn't retry it forever
+                    return {"status": "ignored_stale_subscription"}
+
+            if subscription_status in ("active", "trialing") and target_plan in paid:
+                effective_plan = target_plan
+            elif subscription_status == "past_due" and current_subscription == subscription_id and current_plan in paid:
+                # Keep access through Stripe's configured retry window; cancellation/unpaid later revokes it.
+                effective_plan = current_plan
+            else:
+                effective_plan = "free"
+
+            conn.execute(
+                "UPDATE users SET stripe_customer_id=?,stripe_subscription_id=?,stripe_subscription_status=?,"
+                "stripe_subscription_price_id=?,stripe_subscription_current_period_end=?,"
+                "stripe_subscription_cancel_at_period_end=?,plan=? WHERE id=?",
+                (customer_id, subscription_id, subscription_status, price_id, period_end,
+                 int(bool(cancel_at_period_end)), effective_plan, user_id),
+            )
+            conn.execute(
+                "UPDATE users SET stripe_checkout_session_id=NULL,stripe_checkout_attempt_id=NULL,"
+                "stripe_checkout_plan_id=NULL,stripe_checkout_created_at=NULL WHERE id=?",
+                (user_id,),
+            )
+            conn.commit()
+        return {"status": "updated", "user_id": user_id, "plan": effective_plan,
+                "subscription_status": subscription_status}
 
     def update_password(self, user_id: str, new_password_hash: str):
         with self._connect() as conn:
@@ -1090,6 +1262,19 @@ class GenesisDB:
                 "AND created_at >= datetime('now', 'start of month')", (user_id,)).fetchone()
             return row[0] or 0
 
+    # --- per-month counters for plan limits that are about JOBS, not stored things (server training runs, ...) ---
+    def record_feature_use(self, user_id: str, feature: str) -> None:
+        with self._connect() as conn:
+            conn.execute("INSERT INTO feature_usage (user_id, feature) VALUES (?, ?)", (user_id, feature))
+            conn.commit()
+
+    def count_feature_use_this_month(self, user_id: str, feature: str) -> int:
+        """Uses since the start of the current calendar month (UTC), the same window as get_groq_usage_this_month."""
+        with self._connect() as conn:
+            row = conn.execute("SELECT COUNT(*) FROM feature_usage WHERE user_id = ? AND feature = ? "
+                               "AND created_at >= datetime('now', 'start of month')", (user_id, feature)).fetchone()
+        return int(row[0] or 0)
+
     def get_user_groq_limit(self, user_id: str) -> Optional[int]:
         """A per-user override of the platform-default monthly token limit, if one has been
         set for this account. None means 'use the platform default' (see
@@ -1451,6 +1636,13 @@ class GenesisDB:
                 "SELECT id, filename, created_at, LENGTH(content) FROM kb_documents "
                 "WHERE agent_id = ? AND user_id = ? ORDER BY created_at DESC", (agent_id, user_id)).fetchall()
             return [{"id": r[0], "filename": r[1], "created_at": r[2], "content_length": r[3]} for r in rows]
+
+    def get_kb_usage(self, agent_id: str, user_id: str) -> Dict[str, int]:
+        """What one bot's knowledge base already holds: {documents, chars}. Ownership-checked like the other management views."""
+        with self._connect() as conn:
+            row = conn.execute("SELECT COUNT(*), COALESCE(SUM(LENGTH(content)), 0) FROM kb_documents WHERE agent_id = ? AND user_id = ?",
+                               (agent_id, user_id)).fetchone()
+        return {"documents": int(row[0] or 0), "chars": int(row[1] or 0)}
 
     def delete_kb_document(self, document_id: str, user_id: str) -> bool:
         with self._connect() as conn:

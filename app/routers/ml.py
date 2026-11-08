@@ -1,5 +1,6 @@
 """ml routes (split out of app/main.py)."""
-from fastapi import APIRouter
+from fastapi import APIRouter, File, Form, UploadFile
+from fastapi.responses import FileResponse
 from app.deps import (
     Any,
     Depends,
@@ -51,6 +52,19 @@ async def registry_retrain_model(model_id: str, data: dict, user_id: str = Depen
     agent.current_user_id = user_id
     dataset_path = data.get("dataset_path")
     resp = agent._do_retrain(model_id, dataset_path, data)
+    if not resp.success:
+        raise HTTPException(status_code=400, detail=resp.message)
+    return {"message": resp.message, "data": resp.data}
+
+@router.post("/api/registry/models/{model_id}/improve")
+async def registry_improve_model(model_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
+    """Tries to improve a weak model (continue training / bigger or class-balanced refit / other families) and registers a new VERSION only if rows
+    no decision used confirm the gain (see app/core/model_improver.py). Body: dataset_path, new_data (bool), budget (fast|balanced|thorough).
+    Always 200 with data.improved true/false when the attempt ran; 400 for a missing model/data or a plan without server training."""
+    from app.core.agent import GenesisAgent
+    agent = GenesisAgent()
+    agent.current_user_id = user_id
+    resp = agent._do_improve_model(model_id, data.get("dataset_path"), data)
     if not resp.success:
         raise HTTPException(status_code=400, detail=resp.message)
     return {"message": resp.message, "data": resp.data}
@@ -264,19 +278,34 @@ async def model_builder_suggest(data: dict, user_id: str = Depends(get_current_u
     build. Does NOT consume Groq quota via _enforce_groq_quota - unlike /generate, a failed
     or low-value suggestion costs the user nothing to ask for."""
     from app.core.dataset_advisor import suggest_model_ideas
+    from app.core.paths import is_allowed_path
     dataset_path = data.get("dataset_path", "")
     if not dataset_path or not os.path.exists(dataset_path):
         raise HTTPException(status_code=400, detail="Valid dataset_path is required - upload/select a dataset first")
+    if not is_allowed_path(dataset_path):
+        raise HTTPException(status_code=403, detail="dataset_path must be inside the datasets folder")
     groq_key = os.environ.get("GROQ_API_KEY", "") or settings.groq_api_key
     return suggest_model_ideas(dataset_path, groq_key=groq_key)
 
 @router.post("/api/model-builder/generate")
 async def model_builder_generate(data: dict, user_id: str = Depends(get_current_user_id)):
+    from app.core import plans
+    from app.db.database import GenesisDB
+    _limit = plans.gate_message(GenesisDB(), user_id, "server_training")   # server CPU: paid; local training is free
+    if _limit:
+        raise HTTPException(status_code=403, detail=_limit)
     _enforce_groq_quota(user_id)
     from app.core.model_builder import ModelBuilder
+    from app.core.paths import is_allowed_path
     dataset_path = data.get("dataset_path", "")
     if not dataset_path or not os.path.exists(dataset_path):
         raise HTTPException(status_code=400, detail="Valid dataset_path is required - upload/select a dataset first")
+    if not is_allowed_path(dataset_path):
+        raise HTTPException(status_code=403, detail="dataset_path must be inside the datasets folder")
+    # limited per month and counted when it actually starts: after the plan, the token quota and the path have said yes
+    _limit = plans.start_server_job(GenesisDB(), user_id)
+    if _limit:
+        raise HTTPException(status_code=403, detail=_limit)
 
     description, target_column = data.get("description", ""), data.get("target_column")
     auto_suggestion = None
@@ -304,29 +333,99 @@ async def model_builder_generate(data: dict, user_id: str = Depends(get_current_
     )
     if auto_suggestion:
         result["auto_suggestion_used"] = auto_suggestion
+    from app.core import build_records
+    build_id = build_records.save(user_id, result)         # the server keeps what the build produced; publish reads it back from here
+    if build_id:
+        result["build_id"] = build_id
     return result
+
+@router.get("/api/local-training/bundle")
+async def local_training_bundle():
+    """Free on every plan, no login needed: a zip with the platform's own trainer and one command-line script, to
+    train on YOUR computer (nothing is uploaded; see app/core/local_training.py). It is fixed open code, not generated."""
+    from fastapi.responses import Response
+    from app.core.local_training import build_bundle, BUNDLE_NAME
+    return Response(content=build_bundle(), media_type="application/zip",
+                    headers={"Content-Disposition": f'attachment; filename="{BUNDLE_NAME}"', "Cache-Control": "no-cache"})
+
+@router.get("/api/local-training/command")
+async def local_training_command(dataset: str = "", target: str = "", budget: str = ""):
+    """The ready command for the user's terminal (names are shell-quoted). Pure text, nothing runs anywhere."""
+    from app.core.local_training import local_command, local_instructions, BUNDLE_URL
+    return {"bundle_url": BUNDLE_URL, "command": local_command(dataset or None, target or None, budget or None),
+            "instructions": local_instructions(dataset or None, target or None, budget or None)}
+
+@router.post("/api/local-training/prepare")
+async def local_training_prepare(data: dict, user_id: str = Depends(get_current_user_id)):
+    """Step 1 of bringing a locally trained model back (app/core/local_models.py): the platform cleans an uploaded dataset, keeps a
+    hidden test set on the server and hands out only train.csv. `upload_id` is the id from POST /api/agent/upload."""
+    from app.core import local_models
+    try:
+        return local_models.prepare(user_id, str(data.get("upload_id", "")), str(data.get("target", "")))
+    except local_models.LocalModelError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+
+@router.get("/api/local-training/prepared/{prepare_id}/train.csv")
+async def local_training_train_csv(prepare_id: str, user_id: str = Depends(get_current_user_id)):
+    from app.core import local_models
+    try:
+        path = local_models.train_csv_path(user_id, prepare_id)
+    except local_models.LocalModelError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+    return FileResponse(str(path), media_type="text/csv", filename="train.csv")
+
+@router.post("/api/local-training/register")
+async def local_training_register(prepare_id: str = Form(...), model: UploadFile = File(...),
+                                  user_id: str = Depends(get_current_user_id)):
+    """Step 3: upload model.pkl. It is read with the restricted unpickler, scored by the platform on the hidden test set and
+    registered with a trust verdict. Takes no server-training plan (almost no CPU); saved-model slots still count."""
+    from app.core import local_models
+    from app.db.database import GenesisDB
+    data = await model.read(local_models.MAX_MODEL_BYTES + 1)           # one byte past the cap -> refused without reading it all
+    try:
+        return local_models.register(user_id, prepare_id, data, GenesisDB())
+    except local_models.LocalModelError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
 
 @router.post("/api/model-builder/publish")
 async def model_builder_publish(data: dict, user_id: str = Depends(get_current_user_id)):
+    """Register (and, unless price_per_call < 0, list) a model this user built. The model file, scores and trust verdict come from the
+    server's own record of the build (`build_id` from /generate; older clients may send the `saved_model_path` that /generate returned,
+    which is only accepted if it is one of THIS user's builds). `metrics` in the body is ignored. Only verified builds can be listed."""
+    from app.core import build_records
     from app.core.model_builder import ModelBuilder
-    saved_model_path = data.get("saved_model_path")
-    if not saved_model_path or not os.path.exists(saved_model_path):
+    from app.routers.marketplace import listing_args
+    rec = build_records.find(user_id, data.get("build_id"), data.get("saved_model_path"))
+    if not rec or not os.path.exists(rec["saved_model_path"]):
         raise HTTPException(status_code=400, detail="No trained model to publish - build one first")
-    model_id = ModelBuilder().register(saved_model_path, data.get("metrics", {}), author_user_id=user_id)
-    if not model_id:
-        raise HTTPException(status_code=500, detail="Could not register the model")
     price = data.get("price_per_call", 0.0)
+    try:
+        price = float(price)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="price_per_call must be a number")
+    v = rec.get("verification")
     if price >= 0:
+        if not rec.get("verified") or not v:
+            raise HTTPException(status_code=400, detail="Only a build the platform verified on a hidden test set can be listed for sale. "
+                                                        "Use price_per_call: -1 to just save it to your models.")
+        trust = (v.get("metrics") or {}).get("trust") or {}
+        if trust.get("level") == "low":
+            why = "; ".join(str(r) for r in (trust.get("reasons") or [])[:3])
+            raise HTTPException(status_code=400, detail="The platform's check rates this model as not reliable enough to sell"
+                                                        + (f": {why}" if why else "") + ".")
+    model_id = rec.get("model_id")
+    if not model_id:
+        model_id = ModelBuilder().register(rec["saved_model_path"], rec.get("metrics") or {}, author_user_id=user_id, verification=v)
+        if not model_id:
+            raise HTTPException(status_code=500, detail="Could not register the model")
+        build_records.mark_registered(user_id, rec["build_id"], model_id)
+    if price >= 0:
+        from app.core.engine.registry import ModelRegistry
         from app.core.marketplace import Marketplace
-        Marketplace().publish(
-            author=user_id, model_id=model_id,
-            title=data.get("title", "Untitled Model"), description=data.get("description", ""),
-            task=data.get("metrics", {}).get("task", "binary_classification"),
-            model_type=data.get("metrics", {}).get("model_type", "unknown"),
-            metrics={k: v for k, v in data.get("metrics", {}).items() if isinstance(v, (int, float))},
-            price_per_call=price,
-        )
-    return {"status": "published", "model_id": model_id}
+        kw = listing_args(ModelRegistry().get_record(model_id), user_id)
+        Marketplace().publish(author=user_id, model_id=model_id, title=data.get("title", "Untitled Model"),
+                              description=data.get("description", ""), price_per_call=price, **kw)
+    return {"status": "published" if price >= 0 else "saved", "model_id": model_id}
 
 
 # ---- Custom Blocks ----
@@ -363,6 +462,10 @@ async def create_prompt(data: dict, user_id: str = Depends(get_current_user_id))
     content = (data.get("content") or "").strip()
     if not name or not content:
         raise HTTPException(status_code=400, detail="name and content are required")
+    from app.core import plans
+    _limit = plans.gate_message(GenesisDB(), user_id, "prompt")
+    if _limit:
+        raise HTTPException(status_code=403, detail=_limit)
     return GenesisDB().create_prompt(user_id, name, content, data.get("description", ""), data.get("tags"))
 
 @router.get("/api/prompts")
@@ -418,6 +521,16 @@ async def create_ab_test(data: dict, user_id: str = Depends(get_current_user_id)
     for v in variants:
         if not (v.get("label") and (v.get("system_prompt") or "").strip()):
             raise HTTPException(status_code=400, detail="Each variant needs a label and non-empty system_prompt")
+    from app.core import plans
+    from app.core.agent_store import AgentStore
+    bot = AgentStore().get_agent(agent_id)
+    # An A/B test replaces the bot's system prompt for whoever chats with it, so only the bot's own author may start one.
+    # 404 (not 403) for someone else's bot: do not confirm that an id exists.
+    if not bot or bot.get("author") != user_id:
+        raise HTTPException(status_code=404, detail="Bot not found, or it doesn't belong to you")
+    _limit = plans.gate_message(db, user_id, "ab_test")
+    if _limit:
+        raise HTTPException(status_code=403, detail=_limit)
     if db.get_running_ab_test_for_agent(agent_id):
         raise HTTPException(status_code=409, detail="This bot already has a running A/B test - stop it before starting a new one")
     return db.create_ab_test(user_id, agent_id, data.get("name", "Untitled test"), variants)

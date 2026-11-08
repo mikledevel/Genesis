@@ -202,7 +202,7 @@ def test_users_list_search_and_overview(client):
 # ------------------------------------------------------------------ plans and limits
 def test_public_plan_list_hides_business_and_matches_the_enforced_limits(client):
     plans = client.get("/api/plans").json()["plans"]
-    assert [p["id"] for p in plans] == ["free", "pro"]
+    assert [p["id"] for p in plans] == ["free", "pro", "business"]
     from app.core import plans as pl
     assert plans[1]["limits"] == pl.get_plan("pro")["limits"] and plans[0]["price_usd_month"] == 0
 
@@ -211,7 +211,8 @@ def test_my_plan_reports_limits_and_usage(client):
     uid, h = _register(client, "u@x.io")
     me = client.get("/api/me/plan", headers=h).json()
     assert me["plan"]["id"] == "free" and me["is_admin"] is False
-    assert me["effective_limits"]["max_bots"] == 2 and me["usage"] == {"tokens_this_month": 0, "bots": 0, "models": 0, "api_keys": 0}
+    assert me["effective_limits"]["max_bots"] == 2 and me["usage"] == {"tokens_this_month": 0, "bots": 0, "models": 0, "api_keys": 0,
+                                                                                        "scheduled_jobs": 0, "ab_tests": 0, "prompts": 0, "server_jobs_this_month": 0}
 
 
 def test_plan_token_limits_and_admin_unlimited(client):

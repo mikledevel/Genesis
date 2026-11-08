@@ -1865,6 +1865,7 @@ svg.fc{width:100%;height:auto;display:block}.fc-t{font-size:10.5px;fill:var(--tx
   <div class="settings-wrap">
     <div class="settings-nav">
       <button class="settings-nav-item active" onclick="showSettings('ss-profile',this)"><i class="ti ti-user"></i> Profile</button>
+      <button class="settings-nav-item" onclick="showSettings('ss-plan',this)"><i class="ti ti-diamond"></i> Plan &amp; usage</button>
       <button class="settings-nav-item" onclick="showSettings('ss-general',this)"><i class="ti ti-adjustments"></i> General</button>
       <button class="settings-nav-item" onclick="showSettings('ss-api',this)"><i class="ti ti-key"></i> API Keys</button>
       <button class="settings-nav-item" onclick="showSettings('ss-apikeys',this)"><i class="ti ti-api"></i> Generated Keys</button>
@@ -1981,6 +1982,16 @@ svg.fc{width:100%;height:auto;display:block}.fc-t{font-size:10.5px;fill:var(--tx
       </div>
 
       <!-- MARKETPLACE SETTINGS -->
+      <!-- PLAN & USAGE: everything here comes from /api/me/plan and /api/plans, i.e. the numbers the server enforces -->
+      <div class="settings-section" id="ss-plan">
+        <div class="settings-title">Plan &amp; usage</div>
+        <div class="settings-desc">What your plan allows, how much of it you use, and what Pro adds.</div>
+        <div class="settings-card"><div class="settings-card-title">Your plan</div><div id="plan-current">Loading...</div></div>
+        <div class="settings-card"><div class="settings-card-title">Plans</div><div id="plan-compare">Loading...</div>
+          <div id="plan-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"></div>
+          <div id="plan-billing-note" class="setting-desc" style="margin-top:10px"></div></div>
+      </div>
+
       <div class="settings-section" id="ss-marketplace">
         <div class="settings-title">Marketplace</div>
         <div class="settings-desc">Configure platform fees and publishing.</div>
@@ -2700,6 +2711,7 @@ function renderLandingExploreGrid(listings, models, activeCat) {
         <div class="mkt-card-head"><span class="mkt-icon">🤖</span><span class="mkt-price">$${(l.price_per_call || 0).toFixed(3)}/call</span></div>
         <div class="mkt-title">${escHtml(l.title)}</div>
         <div class="mkt-desc">${escHtml(l.description || '')}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">${provBadge(l)}</div>
         <div class="mkt-footer"><span><i class="ti ti-star-filled" style="color:var(--warn)"></i> ${(l.rating || 0).toFixed(1)}</span><span>${(l.total_calls || 0)} calls</span></div>
       </div>`).join('');
   } else {
@@ -2774,6 +2786,7 @@ function initApp() {
   checkHealth();
   loadBalance();
   handleTopupRedirect();
+  handleSubscriptionRedirect();
   loadDashboard();
   loadBaseModels(); // populates baseModelsData used by the Agent Store cards AND the
                      // Create Agent / Bot Settings model dropdowns (single source of truth)
@@ -2875,6 +2888,50 @@ function handleTopupRedirect() {
     const clean = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
     window.history.replaceState({}, '', clean);
   }
+}
+
+function handleSubscriptionRedirect() {
+  const params = new URLSearchParams(window.location.search);
+  const status = params.get('subscription');
+  if (status === 'success') {
+    toast('Checkout complete — confirming your plan...', 'success');
+    setTimeout(loadPlanPanel, 1500);
+  } else if (status === 'cancelled') {
+    toast('Subscription checkout cancelled', 'info');
+  } else if (status === 'returned') {
+    setTimeout(loadPlanPanel, 500);
+  }
+  if (status) {
+    params.delete('subscription');
+    params.delete('session_id');
+    const clean = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+    window.history.replaceState({}, '', clean);
+  }
+}
+
+async function startPlanCheckout(planId) {
+  const note = document.getElementById('plan-billing-note');
+  note.textContent = '';
+  try {
+    const r = await apiFetch(API + '/subscriptions/checkout', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan_id: planId })
+    });
+    const data = await r.json();
+    if (!r.ok) { note.textContent = data.detail || 'Could not start subscription checkout.'; return; }
+    window.location.href = data.url;
+  } catch { note.textContent = 'Connection error. Please try again.'; }
+}
+
+async function openBillingPortal() {
+  const note = document.getElementById('plan-billing-note');
+  note.textContent = '';
+  try {
+    const r = await apiFetch(API + '/subscriptions/portal', { method: 'POST' });
+    const data = await r.json();
+    if (!r.ok) { note.textContent = data.detail || 'Could not open billing management.'; return; }
+    window.location.href = data.url;
+  } catch { note.textContent = 'Connection error. Please try again.'; }
 }
 
 async function devCredit() {
@@ -4126,6 +4183,15 @@ async function useAutoModel() {
 const MODEL_NAMES = {"openai/gpt-oss-120b":"GPT OSS 120B","openai/gpt-oss-20b":"GPT OSS 20B","qwen/qwen3.6-27b":"Qwen 3.6 27B","qwen/qwen3-32b":"Qwen 3 32B","meta-llama/llama-4-scout-17b-16e-instruct":"Llama 4 Scout","llama-3.3-70b-versatile":"Llama 3.3 70B","local-7b":"Qwen 7B (local)"};
 const TOOL_ICONS = {"web_search":"🌐","dataset_search":"📊","code_generation":"💻","model_training":"🤖","research":"🔍"};
 const TASK_ICONS = { binary_classification: '🎯', regression: '📈', multiclass: '🔢', default: '🤖' };
+// Provenance of a listing (set by the server from its own records): who trained it and what the platform verified.
+function provBadge(m) {
+  const p = m && m.provenance;
+  if (!p) return '';
+  let h = '';
+  if (p.trained_on === 'user_machine') h += `<span class="badge badge-amber" style="font-size:9px" title="${escHtml(p.label || '')}">Trained on owner's computer</span>`;
+  if (p.verified) h += `<span class="badge badge-green" style="font-size:9px" title="Scores measured by the platform on a hidden test set">Verified score</span>`;
+  return h;
+}
 
 function renderBotCard(a) {
   const stars = "★".repeat(Math.round(a.rating||0)) + "☆".repeat(5-Math.round(a.rating||0));
@@ -4169,6 +4235,7 @@ function renderModelCard(m) {
       <span class="stars">${stars}</span>
       <span class="badge badge-purple" style="font-size:9px">${m.task.replace('_', ' ')}</span>
       <span class="badge badge-gray" style="font-size:9px">${m.model_type || ''}</span>
+      ${provBadge(m)}
     </div>
     <div class="mkt-footer">
       <span>📞 ${m.total_calls} calls</span>
@@ -4573,6 +4640,7 @@ function showMktDetail(m) {
       <div class="form-field"><div class="form-label">Task</div><div style="font-size:13px;font-weight:500">${m.task}</div></div>
     </div>
     ${metrics ? `<div class="form-field"><div class="form-label">Metrics</div><div class="data-card" style="margin-top:0">${metrics}</div></div>` : ''}
+    ${m.provenance && m.provenance.label ? `<div style="padding:10px;margin-bottom:10px;background:rgba(245,166,35,.10);border:1px solid rgba(245,166,35,.3);border-radius:8px;font-size:12px;color:var(--txt2)">⚠️ ${escHtml(m.provenance.label)}</div>` : ''}
     <div style="padding:10px;background:rgba(0,184,122,.07);border:1px solid rgba(0,184,122,.2);border-radius:8px;font-size:12px;color:var(--success)">
       💰 Author receives <strong>$${(m.price_per_call * (1 - settings.commission / 100)).toFixed(4)}</strong>/call after ${settings.commission}% platform fee
     </div>`;
@@ -5167,7 +5235,8 @@ async function publishModel() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model_id, title, description, task, model_type, metrics: {}, price_per_call })
     });
-    await r.json();
+    const out = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(out.detail || 'Could not publish model', 'error'); return; }
     closeModal('modal-publish');
     toast(price_per_call > 0 ? 'Model published to Marketplace!' : 'Model published to Agent Store!', 'success');
     loadMarketplace();
@@ -5304,6 +5373,89 @@ function showSettings(id, el) {
   document.getElementById(id)?.classList.add('active');
   el?.classList.add('active');
   if (id === 'ss-apikeys') { loadApiKeys(); loadUsageLog(); }
+  if (id === 'ss-plan') loadPlanPanel();
+}
+
+// ---- Plan & usage: rows are [label, limit key, usage key or null, kind]
+const PLAN_ROWS = [
+  ['AI messages (tokens / month)', 'monthly_tokens', 'tokens_this_month', 'num'],
+  ['Bots', 'max_bots', 'bots', 'num'],
+  ['Saved models', 'max_models', 'models', 'num'],
+  ['Server training jobs / month', 'server_jobs_per_month', 'server_jobs_this_month', 'jobs'],
+  ['Model improvement search depth', 'improve_budget', null, 'depth'],
+  ['AI-written custom code models', 'custom_code_models', null, 'bool'],
+  ['Knowledge-base documents per bot', 'kb_documents', null, 'num'],
+  ['Knowledge-base text per bot (characters)', 'kb_chars', null, 'num'],
+  ['Passages the bot reads per answer', 'kb_top_k', null, 'num'],
+  ['Active scheduled jobs', 'max_scheduled_jobs', 'scheduled_jobs', 'num'],
+  ['A/B tests', 'max_ab_tests', 'ab_tests', 'num'],
+  ['Saved prompts', 'max_prompts', 'prompts', 'num'],
+  ['API keys', 'max_api_keys', 'api_keys', 'num'],
+  ['Calls per API key', 'api_calls_per_key', null, 'num'],
+  ['Dataset upload size', 'max_dataset_mb', null, 'mb'],
+];
+function _planEsc(v) { return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function _planVal(v, kind) {
+  if (kind === 'bool') return v ? 'Yes' : 'No';
+  if (kind === 'depth') return v ? _planEsc(v) : 'Not included';
+  if (kind === 'jobs' && v === 0) return 'Not included';
+  if (v === null || v === undefined) return 'Unlimited';
+  if (kind === 'mb') return v + ' MB';
+  return Number(v).toLocaleString('en-US');
+}
+async function loadPlanPanel() {
+  const cur = document.getElementById('plan-current'), cmp = document.getElementById('plan-compare');
+  const actions = document.getElementById('plan-actions'), note = document.getElementById('plan-billing-note');
+  try {
+    const [me, pub, config] = await Promise.all([
+      apiFetch(API + '/me/plan').then(r => r.json()),
+      fetch(API + '/plans').then(r => r.json()),
+      fetch(API + '/config/public').then(r => r.json())
+    ]);
+    const lim = me.effective_limits || {}, use = me.usage || {};
+    const subscription = me.subscription || {};
+    cur.innerHTML = `<div style="font-size:18px;font-weight:700;margin-bottom:10px">${_planEsc(me.plan.name)}${me.is_admin ? ' <span style="font-size:11px;font-weight:600;color:var(--txt3)">owner account: no limits</span>' : ''}</div>`
+      + PLAN_ROWS.filter(r => r[2]).map(r => {
+          const limit = lim[r[1]], used = use[r[2]] || 0;
+          const pct = (limit === null || limit === undefined) ? 0 : (limit <= 0 ? 100 : Math.min(100, Math.round(used / limit * 100)));
+          const txt = (limit === null || limit === undefined) ? `${used.toLocaleString('en-US')} used` : `${used.toLocaleString('en-US')} / ${_planVal(limit, r[3])}`;
+          return `<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${_planEsc(r[0])}</span><span style="color:var(--txt3)">${txt}</span></div>`
+               + `<div style="height:5px;border-radius:3px;background:var(--brd);margin-top:4px"><div style="height:5px;border-radius:3px;width:${pct}%;background:var(--accent)"></div></div></div>`;
+        }).join('');
+    const publicPlans = pub.plans || [];
+    const free = publicPlans.find(p => p.id === 'free');
+    if (!free || publicPlans.length < 2) { cmp.textContent = 'Plan list is not available right now.'; return; }
+    cmp.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;color:var(--txt3)"><th style="padding:6px 4px;font-weight:600"></th>`
+      + publicPlans.map(p => `<th style="padding:6px 4px;font-weight:${p.id === me.plan.id ? 700 : 600};color:${p.id === me.plan.id ? 'var(--txt)' : 'var(--txt3)'}">${_planEsc(p.name)}${p.price_usd_month ? ` · $${_planEsc(p.price_usd_month)}/mo` : ''}</th>`).join('')
+      + `</tr></thead><tbody>`
+      + PLAN_ROWS.map(r => `<tr style="border-top:1px solid var(--brd)"><td style="padding:7px 4px">${_planEsc(r[0])}</td>`
+          + publicPlans.map(p => `<td style="padding:7px 4px;${p.id === me.plan.id ? 'font-weight:600' : 'color:var(--txt3)'}">${_planVal(p.limits[r[1]], r[3])}</td>`).join('')
+          + `</tr>`).join('')
+      + `<tr style="border-top:1px solid var(--brd)"><td style="padding:7px 4px">Training on your own computer</td>${publicPlans.map(p => `<td style="padding:7px 4px;${p.id === me.plan.id ? 'font-weight:600' : 'color:var(--txt3)'}">Free, unlimited</td>`).join('')}</tr></tbody></table>`;
+
+    actions.innerHTML = '';
+    if (config.stripe_subscriptions_enabled) {
+      if (['active', 'trialing', 'past_due', 'incomplete', 'unpaid'].includes(subscription.status)) {
+        actions.innerHTML = '<button class="btn btn-secondary" type="button" onclick="openBillingPortal()">Manage billing</button>';
+      } else {
+        actions.innerHTML = publicPlans.filter(p => p.id !== 'free').map(p =>
+          `<button class="btn btn-primary" type="button" onclick="startPlanCheckout('${_planEsc(p.id)}')">Choose ${_planEsc(p.name)} · $${_planEsc(p.price_usd_month)}/month</button>`
+        ).join('');
+        if (subscription.managed_by_stripe) actions.innerHTML += '<button class="btn btn-secondary" type="button" onclick="openBillingPortal()">Billing history</button>';
+      }
+      note.textContent = subscription.status === 'past_due'
+        ? 'A payment is overdue. Update your payment method in Manage billing to avoid losing paid access.'
+        : subscription.cancel_at_period_end
+          ? 'Your subscription is set to cancel at the end of the current billing period.'
+          : '';
+    } else {
+      note.textContent = 'Subscription checkout is not configured yet. Contact the platform owner.';
+    }
+  } catch (e) {
+    cur.textContent = 'Could not load your plan.'; cmp.textContent = '';
+    if (actions) actions.innerHTML = '';
+    if (note) note.textContent = '';
+  }
 }
 
 function loadSettingsUI() {

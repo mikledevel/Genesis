@@ -7,6 +7,7 @@ from app.deps import (
     HTTPException,
     LoginRequest,
     RegisterRequest,
+    SubscriptionCheckoutRequest,
     Request,
     create_token,
     get_current_user_id,
@@ -16,6 +17,13 @@ from app.deps import (
 )
 
 router = APIRouter()
+
+
+def _billing_return_base(request: Request) -> str:
+    base = (settings.public_base_url or "").strip().rstrip("/") or str(request.base_url).rstrip("/")
+    if not settings.debug and not base.startswith("https://"):
+        raise HTTPException(status_code=503, detail="Set PUBLIC_BASE_URL to the public HTTPS site URL to enable billing.")
+    return base
 
 # ── Auth ──
 @router.post("/api/auth/register")
@@ -68,7 +76,13 @@ async def auth_me(user_id: str = Depends(get_current_user_id)):
 async def public_config():
     """What the browser needs before login: the (public) Turnstile site key, empty when the captcha is off."""
     from app.core import antibot
-    return {"turnstile_site_key": settings.turnstile_site_key if antibot.captcha_enabled() else ""}
+    billing_ready = bool(
+        settings.stripe_secret_key and settings.stripe_webhook_secret
+        and settings.stripe_price_pro_monthly and settings.stripe_price_business_monthly
+        and (settings.debug or (settings.public_base_url or "").strip().startswith("https://"))
+    )
+    return {"turnstile_site_key": settings.turnstile_site_key if antibot.captcha_enabled() else "",
+            "stripe_subscriptions_enabled": billing_ready}
 
 @router.get("/api/plans")
 async def public_plans():
@@ -83,8 +97,13 @@ async def my_plan(user_id: str = Depends(get_current_user_id)):
     from app.core import plans
     db = GenesisDB()
     admin = db.is_admin(user_id)
+    billing = db.get_billing_user(user_id) or {}
     return {"plan": plans.get_plan(db.get_user_plan(user_id)), "is_admin": admin,
-            "effective_limits": plans.limits_for(db, user_id), "usage": plans.usage_for(db, user_id)}
+            "effective_limits": plans.limits_for(db, user_id), "usage": plans.usage_for(db, user_id),
+            "subscription": {"status": billing.get("stripe_subscription_status"),
+                             "current_period_end": billing.get("current_period_end"),
+                             "cancel_at_period_end": bool(billing.get("cancel_at_period_end")),
+                             "managed_by_stripe": bool(billing.get("stripe_customer_id"))}}
 
 @router.post("/api/auth/verify-email/resend")
 async def resend_verification_email(user_id: str = Depends(get_current_user_id)):
@@ -182,15 +201,63 @@ async def payments_checkout(req: CheckoutRequest, request: Request, user_id: str
 
 @router.post("/api/payments/webhook")
 async def payments_webhook(request: Request):
-    from app.core.payments import verify_and_parse_webhook, handle_checkout_completed
+    from app.core.payments import verify_and_parse_webhook, handle_checkout_completed, handle_subscription_event
     from app.db.database import GenesisDB
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
     event = verify_and_parse_webhook(payload, sig_header)
     if not event:
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
-    result = handle_checkout_completed(event, GenesisDB())
+    db = GenesisDB()
+    result = handle_subscription_event(event, db)
+    if result is None:
+        result = handle_checkout_completed(event, db)
     return {"received": True, "result": result}
+
+
+@router.post("/api/subscriptions/checkout")
+async def subscription_checkout(req: SubscriptionCheckoutRequest, request: Request,
+                               user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    from app.core.payments import create_subscription_checkout
+    if req.plan_id not in ("pro", "business"):
+        raise HTTPException(status_code=400, detail="Choose a paid monthly plan.")
+    db = GenesisDB()
+    if not db.is_email_verified(user_id):
+        raise HTTPException(status_code=403, detail="Verify your email before starting a subscription.")
+    if not settings.stripe_secret_key or not settings.stripe_webhook_secret:
+        raise HTTPException(status_code=503, detail="Stripe API and webhook keys must be configured before subscriptions can be started.")
+    base = _billing_return_base(request)
+    try:
+        session = create_subscription_checkout(
+            db, user_id, req.plan_id,
+            success_url=f"{base}/?subscription=success&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{base}/?subscription=cancelled",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        print(f"[subscriptions] Checkout session creation failed: {e}")
+        raise HTTPException(status_code=502, detail="Could not start Stripe Checkout. Please try again.")
+    return session
+
+
+@router.post("/api/subscriptions/portal")
+async def subscription_portal(request: Request, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    from app.core.payments import create_customer_portal_session
+    base = _billing_return_base(request)
+    try:
+        return create_customer_portal_session(GenesisDB(), user_id, f"{base}/?subscription=returned")
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        print(f"[subscriptions] Billing portal session creation failed: {e}")
+        raise HTTPException(status_code=502, detail="Could not open Stripe billing. Please try again.")
 
 @router.get("/api/payments/balance")
 async def payments_balance(user_id: str = Depends(get_current_user_id)):

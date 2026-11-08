@@ -1,0 +1,308 @@
+{
+ "corpus": "Basecamp employee handbook, https://github.com/basecamp/handbook (git clone it; not vendored here)",
+ "note": "truth = [file, part of the section heading that contains the answer]; a retrieved chunk counts as a hit if it contains text of that section. style kw = the question shares words with the document, para = a paraphrase.",
+ "answerable": [
+  {
+   "q": "How do I get a computer before my first day?",
+   "truth": [
+    [
+     "getting-started.md",
+     "Your First Few Days"
+    ],
+    [
+     "benefits-and-perks.md",
+     "Computer Policy"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "Who is my buddy and what do they do?",
+   "truth": [
+    [
+     "getting-started.md",
+     "Your First Few Days"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "A customer saw an Oops something went wrong screen, where do programmers see why?",
+   "truth": [
+    [
+     "our-internal-systems.md",
+     "Sentry"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "Where can I check if a customer is comped or refund an invoice?",
+   "truth": [
+    [
+     "our-internal-systems.md",
+     "Queenbee"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "Where are the dashboards and alerting rules for outages?",
+   "truth": [
+    [
+     "our-internal-systems.md",
+     "Grafana"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "Can I use my Android phone or Windows laptop for work?",
+   "truth": [
+    [
+     "managing-work-devices.md",
+     "Mobile devices"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "Can I keep my personal photos on the work laptop?",
+   "truth": [
+    [
+     "managing-work-devices.md",
+     "Access to code"
+    ]
+   ],
+   "style": "para"
+  },
+  {
+   "q": "Which Linux distribution does the company use?",
+   "truth": [
+    [
+     "our-internal-systems.md",
+     "Omarchy"
+    ],
+    [
+     "managing-work-devices.md",
+     "managing work devices"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "How many paid sick days do I get?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Paid Sick Time"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "Is there a sabbatical?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Sabbatical"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "What are summer hours?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Summer Hours"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "Will the company pay for a coworking space?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Coworking"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "Is there pet insurance?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Pet Insurance"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "How does profit sharing work?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Profit Sharing"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "What is a cycle and how long does it last?",
+   "truth": [
+    [
+     "how-we-work.md",
+     "Cycles"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "What is cooldown?",
+   "truth": [
+    [
+     "how-we-work.md",
+     "Cooldown"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "Am I allowed to have a side job?",
+   "truth": [
+    [
+     "moonlighting.md",
+     "OK"
+    ],
+    [
+     "moonlighting.md",
+     "Not OK"
+    ],
+    [
+     "moonlighting.md",
+     "moonlighting"
+    ],
+    [
+     "moonlighting.md",
+     "In general"
+    ]
+   ],
+   "style": "para"
+  },
+  {
+   "q": "What happens at an All Hands?",
+   "truth": [
+    [
+     "our-rituals.md",
+     "All Hands"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "What is Everyone on Support?",
+   "truth": [
+    [
+     "our-rituals.md",
+     "Everyone on Support"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "How are performance reviews done?",
+   "truth": [
+    [
+     "making-a-career.md",
+     "Performance Reviews"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "What is expected of me in my first 90 days?",
+   "truth": [
+    [
+     "making-a-career.md",
+     "Your First Year"
+    ],
+    [
+     "getting-started.md",
+     "Your First Few Days"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "How do I schedule time off?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Scheduling Time Off"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "What happens if I get laid off, is there severance?",
+   "truth": [
+    [
+     "severance.md",
+     "severance"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "How do I set up my home office?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Home Office"
+    ]
+   ],
+   "style": "kw"
+  },
+  {
+   "q": "What leave do I get when my baby is born?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Family Leave"
+    ]
+   ],
+   "style": "para"
+  },
+  {
+   "q": "How do I get a raise or promotion?",
+   "truth": [
+    [
+     "making-a-career.md",
+     "Pay & Promotions"
+    ]
+   ],
+   "style": "para"
+  },
+  {
+   "q": "Is there a retirement plan with a company match?",
+   "truth": [
+    [
+     "benefits-and-perks.md",
+     "Retirement Plan"
+    ]
+   ],
+   "style": "kw"
+  }
+ ],
+ "unanswerable": [
+  "What is the dress code in the office?",
+  "What is served in the cafeteria on Fridays?",
+  "What is the WiFi password?",
+  "Which parking spot is assigned to me?",
+  "How do I book a meeting room on the 5th floor?",
+  "Who won the football match yesterday?"
+ ]
+}

@@ -11,6 +11,9 @@ from app.core.engine.registry import ModelRegistry
 from app.core.engine.trainer import DatasetTrainer
 
 
+from tests.pro_user import make_pro_user  # noqa: E402
+
+
 def _make_dataset(path, n=100, seed=0):
     import numpy as np
     rng = np.random.RandomState(seed)
@@ -36,6 +39,7 @@ def test_full_retrain_flow_creates_new_version_with_lineage():
         trainer = DatasetTrainer(model_dir=os.path.join(workdir, "models"))
         agent = GenesisAgent(registry=registry, trainer=trainer)
         agent.current_user_id = "test_user"
+        make_pro_user(agent.db, "test_user")
 
         # 1. Initial training via the normal chat-tool path
         train_resp = agent._do_train(f"train {ds1}", {"target": "churn"})
@@ -104,6 +108,7 @@ def test_retrain_missing_dataset_file_fails_cleanly():
         trainer = DatasetTrainer(model_dir=os.path.join(workdir, "models"))
         agent = GenesisAgent(registry=registry, trainer=trainer)
         agent.current_user_id = "test_user"
+        make_pro_user(agent.db, "test_user")
         train_resp = agent._do_train("train datasets/churn.csv", {"target": "churn"})
         model_id = train_resp.data["model_id"]
 
@@ -126,6 +131,7 @@ def test_retrain_can_override_model_type():
         trainer = DatasetTrainer(model_dir=os.path.join(workdir, "models"))
         agent = GenesisAgent(registry=registry, trainer=trainer)
         agent.current_user_id = "test_user"
+        make_pro_user(agent.db, "test_user")
         train_resp = agent._do_train("train datasets/churn.csv", {"target": "churn", "model_type": "random_forest"})
         model_id = train_resp.data["model_id"]
         assert registry.get_record(model_id)["model_type"] == "random_forest"

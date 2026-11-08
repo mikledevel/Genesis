@@ -30,6 +30,9 @@ from app.db.database import GenesisDB
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
+from tests.pro_user import make_pro_user  # noqa: E402
+
+
 def _make_dataset(path, n=100, seed=0):
     rng = np.random.RandomState(seed)
     df = pd.DataFrame({"age": rng.randint(20, 65, n), "salary": rng.randint(30000, 120000, n),
@@ -43,6 +46,7 @@ def _make_agent(workdir):
     db = GenesisDB(db_path=os.path.join(workdir, "test.db"))
     agent = GenesisAgent(registry=registry, trainer=trainer, db=db)
     agent.current_user_id = "test_user"
+    make_pro_user(agent.db, "test_user")
     return agent, registry
 
 

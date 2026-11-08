@@ -12,3 +12,17 @@ chats.json
 projects.json
 .pytest_cache/
 start
+
+# Deployment runtime data and local environments
+venv/
+.env.*
+!.env.example
+*.db-shm
+*.db-wal
+agents/
+blocks/
+registry/
+marketplace/
+datasets/*
+!datasets/churn_demo.csv
+!datasets/churn_demo_large.csv

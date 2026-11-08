@@ -74,6 +74,7 @@ class Marketplace:
         model_type: str,
         metrics: Dict[str, float],
         price_per_call: float = 0.01,
+        provenance: Optional[Dict] = None,
     ) -> str:
         """
         Публикация модели на маркетплейсе.
@@ -87,6 +88,7 @@ class Marketplace:
             model_type: тип модели
             metrics: метрики качества
             price_per_call: цена за вызов
+            provenance: who trained it and what was verified (trained_on, built_via, verified, trust, label)
             
         Returns:
             listing_id
@@ -110,6 +112,8 @@ class Marketplace:
             "created_at": datetime.now().isoformat(),
             "active": True,
         }
+        if provenance:
+            self.listings[listing_id]["provenance"] = provenance
         
         self._save(self.listings, self.listings_path)
         return listing_id
