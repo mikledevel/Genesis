@@ -58,7 +58,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     Static files, docs, and non-API routes are never limited.
     """
 
-    AUTH_PATHS = ("/api/auth/login", "/api/auth/register")
+    AUTH_PATHS = ("/api/auth/login", "/api/auth/register", "/api/auth/change-password")
     AUTH_LIMIT, AUTH_WINDOW = 10, 60          # 10 attempts / minute / IP
     DEFAULT_LIMIT, DEFAULT_WINDOW = 120, 60   # 120 requests / minute / caller
 

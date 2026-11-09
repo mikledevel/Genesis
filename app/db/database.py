@@ -505,6 +505,21 @@ class GenesisDB(CryptoBillingMixin):
         return {"status": "updated", "user_id": user_id, "plan": effective_plan,
                 "subscription_status": subscription_status}
 
+    def update_display_name(self, user_id: str, name: str):
+        with self._connect() as conn:
+            conn.execute("UPDATE users SET name=? WHERE id=?", (name, user_id))
+            conn.commit()
+
+    def change_account_password(self, user_id: str, previous_hash: str, new_hash: str) -> bool:
+        # Compare-and-set prevents two sessions from overwriting a concurrent password change.
+        import time
+        with self._connect() as conn:
+            result = conn.execute(
+                "UPDATE users SET password_hash=?,sessions_valid_after=? WHERE id=? AND password_hash=?",
+                (new_hash, int(time.time() * 1000), user_id, previous_hash))
+            conn.commit()
+            return result.rowcount == 1
+
     def update_password(self, user_id: str, new_password_hash: str):
         with self._connect() as conn:
             conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_password_hash, user_id))

@@ -1,6 +1,7 @@
 """auth routes (split out of app/main.py)."""
 import os
 from typing import Optional
+from pydantic import BaseModel, ConfigDict, Field
 from fastapi import APIRouter, Header, Request
 from app.deps import (
     CheckoutRequest,
@@ -29,6 +30,45 @@ def _billing_return_base(request: Request) -> str:
 def _billing_storage_ready() -> bool:
     # Render's free filesystem is ephemeral: never sell subscriptions against it.
     return bool(settings.database_url) or not os.environ.get("RENDER_EXTERNAL_URL")
+
+class ProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=100)
+
+
+class PasswordChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    current_password: str = Field(min_length=1, max_length=1024)
+    new_password: str = Field(min_length=6, max_length=72)
+
+
+@router.patch("/api/auth/profile")
+async def update_profile(req: ProfileUpdate, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Display name cannot be empty")
+    db = GenesisDB()
+    if not db.get_user_by_id(user_id):
+        raise HTTPException(status_code=401, detail="User no longer exists")
+    db.update_display_name(user_id, name)
+    return {"user": db.get_user_by_id(user_id)}
+
+
+@router.post("/api/auth/change-password")
+async def change_account_password(req: PasswordChange, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    if len(req.new_password.encode("utf-8")) > 72:
+        raise HTTPException(status_code=400, detail="Password must be at most 72 UTF-8 bytes")
+    db = GenesisDB()
+    user = db.get_user_by_id(user_id)
+    credentials = db.get_user_by_email(user["email"]) if user else None
+    if not credentials or not verify_password(req.current_password, credentials["password_hash"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if not db.change_account_password(user_id, credentials["password_hash"], hash_password(req.new_password)):
+        raise HTTPException(status_code=409, detail="Password changed in another session. Sign in again.")
+    return {"status": "password_updated", "token": create_token(user_id)}
+
 
 # ── Auth ──
 @router.post("/api/auth/register")
