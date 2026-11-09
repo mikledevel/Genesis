@@ -99,6 +99,20 @@ class CryptoBillingMixin:
                                (now,txid,invoice_id,user_id,now-10))
         return cur.rowcount == 1
 
+    def begin_crypto_scan(self, invoice_id, user_id):
+        now = int(time.time())
+        with self._connect() as conn:
+            cur = conn.execute('UPDATE crypto_invoices SET last_check_at=? WHERE id=? AND user_id=? AND paid_at IS NULL AND last_check_at<=?',
+                               (now,invoice_id,user_id,now-10))
+        return cur.rowcount == 1
+
+    def pending_crypto_invoices(self):
+        now = int(time.time())
+        with self._connect() as conn:
+            rows = conn.execute('SELECT * FROM crypto_invoices WHERE paid_at IS NULL AND created_at>=? AND last_check_at<=? ORDER BY last_check_at ASC,created_at ASC LIMIT 20',
+                                (now-7*86400,now-30)).fetchall()
+        return [self._crypto_invoice_row(row) for row in rows]
+
     def apply_crypto_payment(self, invoice_id, user_id, proof):
         now = int(time.time())
         with self._connect() as conn:

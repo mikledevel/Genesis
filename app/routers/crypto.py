@@ -1,9 +1,9 @@
 """Authenticated invoice creation and on-chain confirmation."""
 from typing import Literal
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 from app.core.auth import get_current_user_id
-from app.core.crypto_payments import crypto_ready, check_node, verify_transfer
+from app.core.crypto_payments import crypto_ready, check_node, verify_transfer, check_invoice_automatically
 from app.config import settings
 from app.db.database import GenesisDB
 from app.core import plans
@@ -68,3 +68,30 @@ def confirm_invoice(invoice_id: str, body: ConfirmationRequest, user_id: str = D
         raise HTTPException(503,str(e)) from None
     except db._integrity_errors:
         raise HTTPException(409,'This transaction has already been assigned to another invoice') from None
+
+
+@router.get('/invoices/{invoice_id}/qr')
+def invoice_qr(invoice_id: str, user_id: str = Depends(get_current_user_id)):
+    invoice = GenesisDB().get_crypto_invoice(invoice_id,user_id)
+    if not invoice:
+        raise HTTPException(404,'Invoice was not found')
+    import qrcode
+    from qrcode.image.svg import SvgPathImage
+    image = qrcode.make(invoice['recipient'],image_factory=SvgPathImage,box_size=6,border=4)
+    return Response(image.to_string(),media_type='image/svg+xml',headers={'Cache-Control':'no-store'})
+
+
+@router.post('/invoices/{invoice_id}/check')
+def automatic_invoice_check(invoice_id: str, user_id: str = Depends(get_current_user_id)):
+    db = GenesisDB()
+    invoice = db.get_crypto_invoice(invoice_id,user_id)
+    if not invoice:
+        raise HTTPException(404,'Invoice was not found')
+    try:
+        return check_invoice_automatically(db,invoice)
+    except RuntimeError as error:
+        raise HTTPException(503,str(error)) from None
+    except ValueError as error:
+        raise HTTPException(409,str(error)) from None
+    except db._integrity_errors:
+        raise HTTPException(409,'Payment needs review; contact support with your invoice ID') from None

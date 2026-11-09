@@ -10,9 +10,12 @@ withdrawal fees. Invoice amounts are never reused for the same receiving address
 
 1. Register and verify your email, then open Settings → Plan.
 2. Choose Pro or Business. Reopening an unpaid invoice returns the same invoice.
-3. Copy the exact amount and receiving address. Send USDT on TRON (TRC20) once.
-4. Paste the transaction ID and click **Check payment**. If it is still confirming,
-   retry with the same TXID; do not send a second payment.
+3. Scan the receiving-address QR code or copy the address. Select USDT on TRON
+   (TRC20) in your wallet, enter the exact invoice amount, and send once. The QR
+   contains the address only; it does not prefill the token or amount.
+4. Leave the payment window open. The server detects the transfer and activates
+   access automatically after blockchain confirmation. No TXID entry is required.
+   An optional TXID field is available under Advanced for recovery.
 5. A verified transfer grants 30 days. Renewing the same plan adds 30 days to the
    current access end time. Renewals are manual, and switching plans waits until
    the current paid period ends.
@@ -59,3 +62,24 @@ throttled to one attempt per invoice per ten seconds. Recent history shows ten i
 
 Sources: [Tether contract](https://tether.to/en/supported-protocols/),
 [TRON confirmation semantics](https://developers.tron.network/reference/gettransactioninfobyid-1).
+
+## Automatic detection
+
+A separate lightweight monitor scans unpaid invoices every 30 seconds while the
+application runs. The payment window also checks every 20 seconds while visible.
+Both paths share atomic database throttling and cached TRON history lookups.
+Discovery uses confirmed, incoming USDT index records with complete bounded
+pagination; each candidate is independently verified using its solidified receipt.
+Index metadata alone cannot grant access. No private keys or third-party checkout
+accounts are needed. A customer still authorizes the transfer in their own wallet.
+
+The monitor revisits invoices from the last seven days. Older invoices can still be
+checked from the payment window or with the optional transaction-ID recovery flow.
+The service generates QR SVGs locally and exposes them only to the invoice owner.
+No invoice/address is sent to an external QR image service.
+
+Render Free can sleep when idle. Monitoring resumes when the application wakes;
+PostgreSQL keeps unpaid invoices and payments intact. Opening the payment window
+triggers automatic recovery, so the owner does not manually approve transfers.
+
+History API: https://developers.tron.network/reference/get-trc20-transaction-info-by-account-address

@@ -31,6 +31,13 @@ async def _start_background_scheduler():
     GenesisDB()  # Fail startup if the configured persistent database is unreachable.
     from app.core.scheduler import start_scheduler
     start_scheduler()
+    from app.core.crypto_monitor import start_crypto_monitor
+    start_crypto_monitor()
+
+@app.on_event("shutdown")
+async def _stop_crypto_monitor():
+    from app.core.crypto_monitor import stop_crypto_monitor
+    stop_crypto_monitor()
 
 # Route groups (order = order of first appearance in the old single-file main.py).
 app.include_router(auth.router)

@@ -163,3 +163,19 @@ def test_crypto_invoices_and_grants_are_atomic_in_postgres(pg):
     until=pg.get_crypto_access(ids[0])['access_until']
     assert int(time.time())+29*86400 < until <= int(time.time())+30*86400+1
     assert GenesisDB(database_url=pg.database_url).get_crypto_invoice(i['id'],ids[0])['status']=='paid'
+
+
+def test_automatic_check_is_single_use_across_concurrent_workers(pg,monkeypatch):
+    from app.core import crypto_payments as crypto
+    uid=user(pg);address='TLjsykFxDXnM4DH1cBT8nYo6MzY81MYPmT'
+    invoice=pg.create_crypto_invoice(uid,'pro',19,address)
+    calls=[]
+    def discover(i):
+        calls.append(i['id'])
+        return {'txid':'e'*64,'recipient':address,'amount_units':i['amount_units'],
+                'timestamp_ms':(i['created_at']+1)*1000,'block_number':87800000}
+    monkeypatch.setattr(crypto,'discover_transfer',discover)
+    with ThreadPoolExecutor(max_workers=4) as workers:
+        list(workers.map(lambda _:crypto.check_invoice_automatically(pg,invoice),range(8)))
+    assert len(calls)==1 and pg.get_user_plan(uid)=='pro'
+    assert pg.pending_crypto_invoices()==[]

@@ -110,3 +110,103 @@ def verify_transfer(invoice, txid):
         return {'txid':txid,'recipient':invoice['recipient'],'amount_units':int(amount,16),
                 'block_number':height,'timestamp_ms':timestamp}
     raise ValueError('No USDT TRC20 transfer matches this invoice address and exact amount. Do not send another payment; check the transaction details first.')
+
+# Discovery is an index lookup only. Every candidate is rechecked against the
+# solidified receipt above before any access grant is committed.
+_DISCOVERY_LOCK = threading.Lock()
+_DISCOVERY_CACHE = {}
+
+
+def _transfer_page(address, params):
+    headers = {'TRON-PRO-API-KEY': settings.trongrid_api_key} if settings.trongrid_api_key else {}
+    try:
+        response = httpx.get(f'{TRONGRID}/v1/accounts/{address}/transactions/trc20',
+                             params=params, headers=headers, timeout=httpx.Timeout(12, connect=5))
+        response.raise_for_status()
+        data = response.json()
+        if not isinstance(data, dict) or data.get('success') is not True or not isinstance(data.get('data'), list):
+            raise RuntimeError()
+        return data
+    except (httpx.HTTPError, ValueError, RuntimeError):
+        raise RuntimeError('Automatic payment lookup is temporarily unavailable. Keep this invoice and retry later; do not pay again.') from None
+
+
+def _incoming_transfers(invoice):
+    # Invoices last one hour. Two aligned hours cover every invoice in this cohort,
+    # so all clients share one cached, bounded lookup rather than hammering the node.
+    start = invoice['created_at'] // 3600 * 3600 * 1000
+    end = start + 2 * 3600 * 1000
+    key = (invoice['recipient'], start, end)
+    with _DISCOVERY_LOCK:
+        now = time.monotonic()
+        cached = _DISCOVERY_CACHE.get(key)
+        if cached and cached[0] > now:
+            return cached[1]
+        params = {'only_confirmed':'true','only_to':'true','contract_address':USDT_CONTRACT,
+                  'min_timestamp':start,'max_timestamp':end,'limit':200,'order_by':'block_timestamp,asc'}
+        rows, seen = [], set()
+        for _ in range(5):
+            page = _transfer_page(invoice['recipient'], params)
+            rows.extend(page['data'])
+            fingerprint = page.get('meta', {}).get('fingerprint')
+            if not fingerprint:
+                # Cache only complete histories. Never silently treat a truncated
+                # or failed pagination response as proof that no payment exists.
+                for old_key, value in list(_DISCOVERY_CACHE.items()):
+                    if value[0] <= now:
+                        del _DISCOVERY_CACHE[old_key]
+                if len(_DISCOVERY_CACHE) >= 128:
+                    _DISCOVERY_CACHE.pop(next(iter(_DISCOVERY_CACHE)))
+                _DISCOVERY_CACHE[key] = (time.monotonic()+20, rows)
+                return rows
+            if not isinstance(fingerprint,str) or len(fingerprint)>1024 or fingerprint in seen:
+                break
+            seen.add(fingerprint)
+            params['fingerprint'] = fingerprint
+        raise RuntimeError('Payment history is too busy for automatic lookup. Retry later or use the optional TXID field.')
+
+
+def discover_transfer(invoice):
+    tron_address_hex(invoice['recipient'])
+    for transfer in _incoming_transfers(invoice):
+        if not isinstance(transfer,dict):
+            continue
+        info = transfer.get('token_info') or {}
+        txid = str(transfer.get('transaction_id','')).lower()
+        value = str(transfer.get('value',''))
+        timestamp = transfer.get('block_timestamp')
+        if (transfer.get('to') != invoice['recipient'] or transfer.get('type') != 'Transfer'
+                or info.get('address') != USDT_CONTRACT or str(info.get('decimals')) != '6'
+                or not HEX64.fullmatch(txid) or not value.isdecimal() or len(value)>30
+                or int(value) != invoice['amount_units'] or type(timestamp) is not int
+                or not invoice['created_at']*1000 <= timestamp <= invoice['expires_at']*1000):
+            continue
+        try:
+            proof = verify_transfer(invoice,txid)
+        except ValueError:
+            continue  # Index metadata is never sufficient proof of execution.
+        if proof:
+            return proof
+    return None
+
+
+def check_invoice_automatically(db, invoice):
+    if not invoice['paid_at'] and db.begin_crypto_scan(invoice['id'],invoice['user_id']):
+        proof = discover_transfer(invoice)
+        if proof:
+            db.apply_crypto_payment(invoice['id'],invoice['user_id'],proof)
+    fresh = db.get_crypto_invoice(invoice['id'],invoice['user_id'])
+    return {'status':fresh['status'],'invoice':fresh,'access':db.get_crypto_access(invoice['user_id'])}
+
+
+def scan_pending_payments(db):
+    if not crypto_ready():
+        return
+    for invoice in db.pending_crypto_invoices():
+        try:
+            check_invoice_automatically(db,invoice)
+        except RuntimeError as error:
+            print(f'[crypto] Automatic lookup paused: {error}')
+            break  # Provider outage: avoid retrying every invoice in the same tick.
+        except (ValueError,) + db._integrity_errors as error:
+            print(f"[crypto] Invoice {invoice['id']} requires review: {error}")

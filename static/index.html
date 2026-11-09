@@ -2235,11 +2235,13 @@ svg.fc{width:100%;height:auto;display:block}.fc-t{font-size:10.5px;fill:var(--tx
     <div class="modal-head"><span class="modal-title">Pay with USDT · TRON (TRC20)</span><button class="modal-close" aria-label="Close crypto payment" onclick="closeModal('modal-crypto')"><i class="ti ti-x"></i></button></div>
     <div class="modal-body">
       <div id="crypto-invoice-details"></div>
-      <div class="form-field" style="margin-top:16px"><label class="form-label" for="crypto-txid">Transaction ID (TXID)</label><input class="form-input" id="crypto-txid" maxlength="64" autocomplete="off" placeholder="Paste the 64-character ID after sending payment"></div>
+      <div id="crypto-qr-wrap" style="display:none;text-align:center;margin:16px 0"><img id="crypto-invoice-qr" alt="Receiving address QR code for USDT on TRON" width="168" height="168" style="background:white;padding:8px;border-radius:8px"><p class="form-hint">Scan the address in your wallet, select USDT on TRON (TRC20), and enter the exact amount above.</p></div>
+      <details style="margin-top:14px"><summary style="cursor:pointer;font-size:12px;color:var(--txt3)">Optional: check a specific transaction ID</summary><div class="form-field" style="margin-top:16px"><label class="form-label" for="crypto-txid">Transaction ID (TXID)</label><input class="form-input" id="crypto-txid" maxlength="64" autocomplete="off" placeholder="Paste the 64-character ID after sending payment"></div>
+      <button class="btn btn-secondary" type="button" id="crypto-check-btn" onclick="confirmCryptoPayment()">Check this TXID</button></details>
       <p class="form-hint">Send USDT only on TRON (TRC20). The invoice amount must reach the receiving address in full; your wallet or exchange may charge a separate network fee. Confirmation can take several minutes. Access lasts 30 days, with manual renewal.</p>
       <div id="crypto-payment-status" role="status" style="font-size:13px;line-height:1.6;margin-top:12px"></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-crypto')">Close</button><button class="btn btn-primary" id="crypto-check-btn" onclick="confirmCryptoPayment()">Check payment</button></div>
+    <div class="modal-footer"><span style="font-size:12px;color:var(--txt3)">Payment is detected automatically</span><button class="btn btn-ghost" onclick="closeModal('modal-crypto')">Close</button></div>
   </div>
 </div>
 
@@ -2923,7 +2925,59 @@ function handleSubscriptionRedirect() {
 }
 
 let cryptoCurrentInvoice = null;
+let cryptoPollTimer = null, cryptoPollEpoch = 0, cryptoQrUrl = null;
+function stopCryptoPolling() {
+  cryptoPollEpoch++;
+  if (cryptoPollTimer) clearTimeout(cryptoPollTimer);
+  cryptoPollTimer = null;
+  if (cryptoQrUrl) URL.revokeObjectURL(cryptoQrUrl);
+  cryptoQrUrl = null;
+}
+async function loadCryptoQr(invoice, epoch) {
+  try {
+    const r = await apiFetch(API + '/crypto/invoices/' + encodeURIComponent(invoice.id) + '/qr');
+    if (!r.ok) return;
+    const image = await r.blob();
+    if (epoch !== cryptoPollEpoch || cryptoCurrentInvoice?.status === 'paid' || Date.now() > invoice.expires_at * 1000) return;
+    cryptoQrUrl = URL.createObjectURL(image);
+    document.getElementById('crypto-invoice-qr').src = cryptoQrUrl;
+    document.getElementById('crypto-qr-wrap').style.display = '';
+  } catch { /* Copy address/amount remain available if the image request fails. */ }
+}
+async function pollCryptoInvoice(epoch) {
+  if (epoch !== cryptoPollEpoch || !cryptoCurrentInvoice || cryptoCurrentInvoice.status === 'paid' || cryptoCurrentInvoice.user_id !== currentUser?.id) return;
+  if (document.hidden) { cryptoPollTimer = setTimeout(() => pollCryptoInvoice(epoch), 20000); return; }
+  try {
+    const r = await apiFetch(API + '/crypto/invoices/' + encodeURIComponent(cryptoCurrentInvoice.id) + '/check', {method:'POST'});
+    const d = await r.json();
+    if (epoch !== cryptoPollEpoch) return;
+    const status = document.getElementById('crypto-payment-status');
+    if (!r.ok) {
+      status.textContent = d.detail || 'Automatic verification is temporarily unavailable. We will retry; do not pay again.';
+    } else if (d.status === 'paid') {
+      cryptoCurrentInvoice.status = 'paid';
+      document.getElementById('crypto-txid').disabled = true;
+      document.getElementById('crypto-check-btn').disabled = true;
+      document.getElementById('crypto-qr-wrap').style.display = 'none';
+      status.textContent = 'Payment confirmed automatically. Access is active until ' + new Date(d.access.access_until * 1000).toLocaleString() + '.';
+      await loadPlanPanel();
+      toast('Paid access activated', 'success');
+    } else if (d.status === 'expired') {
+      cryptoCurrentInvoice.status = 'expired';
+      document.getElementById('crypto-invoice-details').querySelectorAll('button').forEach(button => button.disabled = true);
+      document.getElementById('crypto-qr-wrap').style.display = 'none';
+      status.textContent = 'Payment window ended. Do not send a new transfer. We are still checking payments made before expiry.';
+    } else status.textContent = 'Waiting for your USDT transfer. Payment will be detected automatically after network confirmation; no TXID is required.';
+  } catch {
+    if (epoch === cryptoPollEpoch) document.getElementById('crypto-payment-status').textContent = 'Connection interrupted. We will retry automatically; do not pay again.';
+  } finally {
+    if (epoch === cryptoPollEpoch && cryptoCurrentInvoice?.status !== 'paid') {
+      cryptoPollTimer = setTimeout(() => pollCryptoInvoice(epoch), 20000);
+    }
+  }
+}
 function renderCryptoInvoice(invoice) {
+  stopCryptoPolling();
   cryptoCurrentInvoice = invoice;
   const expired = invoice.status === 'expired', paid = invoice.status === 'paid';
   document.getElementById('crypto-invoice-details').innerHTML =
@@ -2938,8 +2992,11 @@ function renderCryptoInvoice(invoice) {
   document.getElementById('crypto-check-btn').disabled = paid;
   document.getElementById('crypto-payment-status').textContent = paid ? 'Payment confirmed. Your paid access is active.'
     : expired ? 'This invoice has expired. Do not send a new transfer to it. If you paid before expiry, enter the TXID to confirm that payment.'
-    : 'Send the exact amount once, then paste its TXID and click Check payment. Keep the TXID until access is activated.';
+    : 'Send the exact amount once. We will detect the payment automatically after network confirmation; no TXID is required.';
+  document.getElementById('crypto-qr-wrap').style.display = 'none';
   openModal('modal-crypto');
+  if (!expired && !paid) loadCryptoQr(invoice, cryptoPollEpoch);
+  if (!paid) pollCryptoInvoice(cryptoPollEpoch);
 }
 function copyCryptoValue(field) {
   if (!cryptoCurrentInvoice || !['amount','recipient'].includes(field)) return;
@@ -2979,6 +3036,7 @@ async function confirmCryptoPayment() {
     if (!r.ok) { status.textContent = d.detail || 'Could not verify payment. Keep your TXID and retry later.'; return; }
     if (d.status === 'paid') {
       cryptoCurrentInvoice.status = 'paid';
+      document.getElementById('crypto-qr-wrap').style.display = 'none';
       status.textContent = 'Payment confirmed. Access is active until ' + new Date(d.access.access_until * 1000).toLocaleString() + '.';
       document.getElementById('crypto-txid').disabled = true;
       await loadPlanPanel();
@@ -5620,6 +5678,7 @@ function openModal(id) {
   if (el) { el.style.display = 'flex'; }
 }
 function closeModal(id) {
+  if (id === 'modal-crypto') stopCryptoPolling();
   const el = document.getElementById(id);
   if (el) el.style.display = 'none';
 }
