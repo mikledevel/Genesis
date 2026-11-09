@@ -119,6 +119,7 @@ def test_subscription_checkout_completion_never_credits_topup_balance():
 
 
 def test_subscription_checkout_route_requires_a_verified_user_and_returns_hosted_url(tmp_path, monkeypatch, billing_settings):
+    from app.main import app
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(settings, "debug", True)
     monkeypatch.setattr(settings, "stripe_webhook_secret", "whsec_test")
@@ -136,3 +137,26 @@ def test_subscription_checkout_route_requires_a_verified_user_and_returns_hosted
                                     headers={"Authorization": "Bearer " + create_token(user["id"])})
     assert response.status_code == 200, response.text
     assert response.json()["url"] == "https://checkout.test/session"
+
+
+
+def test_render_refuses_checkout_without_persistent_database(tmp_path, monkeypatch, billing_settings):
+    from app.main import app
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv('RENDER_EXTERNAL_URL', 'https://genesis.example.test')
+    monkeypatch.setattr(settings, 'database_url', '')
+    monkeypatch.setattr(settings, 'stripe_webhook_secret', 'whsec_test')
+    from app.main import app
+    from app.core.auth import create_token
+    db = GenesisDB()
+    user = db.create_user('ephemeral@example.test', 'hash', 'Ephemeral user')
+    db.mark_email_verified(user['id'])
+    def unexpected_checkout(*args, **kwargs):
+        raise AssertionError('must not accept payment with ephemeral billing storage')
+    monkeypatch.setattr(payments, 'create_subscription_checkout', unexpected_checkout)
+    client = TestClient(app)
+    response = client.post('/api/subscriptions/checkout', json={'plan_id': 'pro'},
+                           headers={'Authorization': 'Bearer ' + create_token(user['id'])})
+    assert response.status_code == 503
+    assert 'storage' in response.json()['detail']
+    assert client.get('/api/config/public').json()['stripe_subscriptions_enabled'] is False

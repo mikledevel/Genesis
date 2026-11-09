@@ -1,13 +1,26 @@
-"""Database layer - SQLite storage with API keys support."""
+"""Database layer with local SQLite and persistent PostgreSQL storage."""
 
 import sqlite3, uuid, os, json
 from typing import Dict, List, Any, Optional
 
 
 class GenesisDB:
-    def __init__(self, db_path: str = "genesis.db"):
-        self.db_path = db_path
-        self._init_db()
+    def __init__(self, db_path: Optional[str] = None, *, database_url: Optional[str] = None):
+        from app.config import settings
+        self.database_url = database_url or (settings.database_url if db_path is None else "")
+        self.is_postgres = bool(self.database_url)
+        self.db_path = db_path or "genesis.db"
+        self._integrity_errors = (sqlite3.IntegrityError,)
+        if self.is_postgres:
+            if not self.database_url.startswith(("postgresql://", "postgres://")):
+                raise ValueError("DATABASE_URL must be a PostgreSQL connection URL")
+            from app.db.postgres import psycopg, schema_initialization
+            self._integrity_errors += (psycopg.IntegrityError,)
+            with schema_initialization(self.database_url) as initialize:
+                if initialize:
+                    self._init_db()
+        else:
+            self._init_db()
 
     def _connect(self) -> sqlite3.Connection:
         """Every new sqlite3 connection starts with foreign_keys OFF by default -
@@ -29,6 +42,9 @@ class GenesisDB:
         (settings.database_url already exists for this - see CHANGES.md for the migration
         plan), not to tune these settings further.
         """
+        if self.is_postgres:
+            from app.db.postgres import Connection
+            return Connection(self.database_url)
         conn = sqlite3.connect(self.db_path, timeout=5.0)
         conn.execute("PRAGMA foreign_keys = ON")
         conn.execute("PRAGMA journal_mode = WAL")
@@ -288,6 +304,13 @@ class GenesisDB:
             except sqlite3.OperationalError:
                 pass
 
+            if self.is_postgres:
+                tables = conn.execute("SELECT quote_ident(tablename) FROM pg_catalog.pg_tables "
+                                      "WHERE schemaname='genesis'").fetchall()
+                for (table,) in tables:
+                    conn.execute(f"ALTER TABLE genesis.{table} ENABLE ROW LEVEL SECURITY")
+                conn.commit()
+
     # --- Users ---
     def create_user(self, email: str, password_hash: str, name: str = "") -> Dict:
         from app.core.antibot import canonical_email
@@ -343,7 +366,9 @@ class GenesisDB:
         import time
         now = int(time.time())
         with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE")
+            conn.execute("BEGIN" if self.is_postgres else "BEGIN IMMEDIATE")
+            if self.is_postgres:
+                conn.execute("SELECT id FROM users WHERE id=? FOR UPDATE", (user_id,))
             row = conn.execute(
                 "SELECT stripe_subscription_id,stripe_subscription_status,stripe_checkout_session_id,"
                 "stripe_checkout_attempt_id,stripe_checkout_plan_id,stripe_checkout_created_at "
@@ -394,7 +419,9 @@ class GenesisDB:
     def save_stripe_customer(self, user_id: str, customer_id: str) -> str:
         """Link one Stripe customer to one Genesis account; return the stored ID."""
         with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE")
+            conn.execute("BEGIN" if self.is_postgres else "BEGIN IMMEDIATE")
+            if self.is_postgres:
+                conn.execute("SELECT id FROM users WHERE id=? FOR UPDATE", (user_id,))
             row = conn.execute("SELECT stripe_customer_id FROM users WHERE id=?", (user_id,)).fetchone()
             if not row:
                 conn.rollback()
@@ -406,7 +433,7 @@ class GenesisDB:
             try:
                 conn.execute("UPDATE users SET stripe_customer_id=? WHERE id=?", (customer_id, user_id))
                 conn.commit()
-            except sqlite3.IntegrityError as e:
+            except self._integrity_errors as e:
                 conn.rollback()
                 raise ValueError("This Stripe customer is already linked to another account") from e
         return current or customer_id
@@ -419,9 +446,11 @@ class GenesisDB:
         terminal = {"canceled", "incomplete_expired", "unpaid", "paused"}
         paid = {"pro", "business"}
         with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE")
+            conn.execute("BEGIN" if self.is_postgres else "BEGIN IMMEDIATE")
+            if self.is_postgres:
+                conn.execute("SELECT id FROM users WHERE id=? FOR UPDATE", (user_id,))
             inserted = conn.execute(
-                "INSERT OR IGNORE INTO stripe_webhook_events(event_id,event_type) VALUES (?,?)",
+                "INSERT INTO stripe_webhook_events(event_id,event_type) VALUES (?,?) ON CONFLICT DO NOTHING",
                 (event_id, event_type),
             )
             if inserted.rowcount == 0:
@@ -909,7 +938,7 @@ class GenesisDB:
     # --- Chats ---
     def create_chat(self, chat_id: str, title: str = "Untitled", user_id: str = None) -> Dict:
         with self._connect() as conn:
-            conn.execute("INSERT OR IGNORE INTO chats (id, title, user_id) VALUES (?, ?, ?)", (chat_id, title, user_id))
+            conn.execute("INSERT INTO chats (id, title, user_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING", (chat_id, title, user_id))
             conn.commit()
         return {"id": chat_id, "title": title}
 
@@ -953,10 +982,11 @@ class GenesisDB:
     def add_message(self, chat_id: str, role: str, content: str, data: dict = None) -> int:
         data_json = json.dumps(data, ensure_ascii=False) if data else None
         with self._connect() as conn:
-            cur = conn.execute("INSERT INTO messages (chat_id, role, content, data) VALUES (?, ?, ?, ?)", (chat_id, role, content, data_json))
+            cur = conn.execute("INSERT INTO messages (chat_id, role, content, data) VALUES (?, ?, ?, ?) RETURNING id", (chat_id, role, content, data_json))
+            message_id = cur.fetchone()[0]
             conn.execute("UPDATE chats SET updated_at = datetime('now') WHERE id = ?", (chat_id,))
             conn.commit()
-            return cur.lastrowid
+            return message_id
 
     def get_messages(self, chat_id: str) -> List[Dict]:
         with self._connect() as conn:
@@ -992,7 +1022,6 @@ class GenesisDB:
         """Count of messages sent per day for each of the last 7 days (oldest first),
         used to draw the real Dashboard activity chart instead of mock data."""
         with self._connect() as conn:
-            conn.row_factory = sqlite3.Row
             if user_id is not None:
                 rows = conn.execute("""
                     SELECT date(m.created_at) AS day, COUNT(*) AS count
@@ -1007,7 +1036,7 @@ class GenesisDB:
                     WHERE date(created_at) >= date('now', '-6 days')
                     GROUP BY day
                 """).fetchall()
-        counts = {r["day"]: r["count"] for r in rows}
+        counts = {r[0]: r[1] for r in rows}
         from datetime import date, timedelta
         today = date.today()
         return [
@@ -1552,7 +1581,7 @@ class GenesisDB:
                 conn.execute("INSERT INTO ab_assignments (test_id, variant_id, conversation_id) VALUES (?, ?, ?)",
                             (test_id, chosen["id"], conversation_id))
                 conn.commit()
-            except sqlite3.IntegrityError:
+            except self._integrity_errors:
                 # Race: another call assigned this conversation between our SELECT and INSERT -
                 # re-read the now-existing assignment rather than double-count it.
                 conn.rollback()

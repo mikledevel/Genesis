@@ -1,4 +1,5 @@
 """auth routes (split out of app/main.py)."""
+import os
 from typing import Optional
 from fastapi import APIRouter, Header, Request
 from app.deps import (
@@ -24,6 +25,10 @@ def _billing_return_base(request: Request) -> str:
     if not settings.debug and not base.startswith("https://"):
         raise HTTPException(status_code=503, detail="Set PUBLIC_BASE_URL to the public HTTPS site URL to enable billing.")
     return base
+
+def _billing_storage_ready() -> bool:
+    # Render's free filesystem is ephemeral: never sell subscriptions against it.
+    return bool(settings.database_url) or not os.environ.get("RENDER_EXTERNAL_URL")
 
 # ── Auth ──
 @router.post("/api/auth/register")
@@ -77,7 +82,7 @@ async def public_config():
     """What the browser needs before login: the (public) Turnstile site key, empty when the captcha is off."""
     from app.core import antibot
     billing_ready = bool(
-        settings.stripe_secret_key and settings.stripe_webhook_secret
+        settings.stripe_secret_key and settings.stripe_webhook_secret and _billing_storage_ready()
         and settings.stripe_price_pro_monthly and settings.stripe_price_business_monthly
         and (settings.debug or (settings.public_base_url or "").strip().startswith("https://"))
     )
@@ -227,6 +232,8 @@ async def subscription_checkout(req: SubscriptionCheckoutRequest, request: Reque
         raise HTTPException(status_code=403, detail="Verify your email before starting a subscription.")
     if not settings.stripe_secret_key or not settings.stripe_webhook_secret:
         raise HTTPException(status_code=503, detail="Stripe API and webhook keys must be configured before subscriptions can be started.")
+    if not _billing_storage_ready():
+        raise HTTPException(status_code=503, detail="Persistent subscription storage must be configured before starting payments.")
     base = _billing_return_base(request)
     try:
         session = create_subscription_checkout(

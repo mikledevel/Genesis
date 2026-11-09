@@ -27,6 +27,8 @@ async def _start_background_scheduler():
     # that fire on a timer rather than in response to a chat message. Safe to start
     # unconditionally: with zero scheduled_jobs rows, the poll loop just wakes up every 30s,
     # finds nothing due, and goes back to sleep.
+    from app.db.database import GenesisDB
+    GenesisDB()  # Fail startup if the configured persistent database is unreachable.
     from app.core.scheduler import start_scheduler
     start_scheduler()
 
