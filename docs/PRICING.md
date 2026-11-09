@@ -33,7 +33,8 @@ carries the same trainer the server uses, and the data and the model never leave
 trains on train.csv, uploads model.pkl, and the platform scores it itself before registering it (free on every plan, saved-model slots count). Such a model can be listed on the marketplace by its author; the listing shows the platform-measured
 scores and the label "trained on the owner's own computer, not by the platform".
 
-Business is shown on the public list and can be purchased through Stripe Checkout.
+Business is shown on the public list. Hosted checkout and direct USDT TRC20 invoices are supported.
+The current deployment uses USDT payments for 30-day access with manual renewal; Stripe remains disabled pending account activation. See `docs/CRYPTO_PAYMENTS.md`.
 Owner accounts (verified e-mail in `ADMIN_EMAILS`) have no token or count limits. A per-user token override set in the
 admin panel beats the plan (0 = unlimited, empty = plan default).
 

@@ -8,7 +8,7 @@ from app.deps import (
     StaticFiles,
     _allowed_origins
 )
-from app.routers import auth, pages, chat_agent, marketplace, ml, bots, admin
+from app.routers import auth, pages, chat_agent, marketplace, ml, bots, admin, crypto
 
 app = FastAPI(title="Genesis AI", version="1.0.0")
 # Order matters: Starlette applies the LAST-added middleware outermost, so it must be added
@@ -34,6 +34,7 @@ async def _start_background_scheduler():
 
 # Route groups (order = order of first appearance in the old single-file main.py).
 app.include_router(auth.router)
+app.include_router(crypto.router)
 app.include_router(pages.router)
 app.include_router(chat_agent.router)
 app.include_router(marketplace.router)

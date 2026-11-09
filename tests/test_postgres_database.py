@@ -144,3 +144,22 @@ def test_sqlite_import_refuses_to_overwrite_existing_target(pg, tmp_path):
         import_database(path, pg.database_url)
     assert pg.get_user_by_id(uid) is not None
     assert pg.admin_overview()['users'] == 1
+
+
+def test_crypto_invoices_and_grants_are_atomic_in_postgres(pg):
+    import time
+    address='TLjsykFxDXnM4DH1cBT8nYo6MzY81MYPmT'
+    ids=[user(pg) for _ in range(6)]
+    with ThreadPoolExecutor(max_workers=4) as workers:
+        invoices=list(workers.map(lambda uid:pg.create_crypto_invoice(uid,'pro',19,address),ids))
+    assert len({i['amount_units'] for i in invoices})==6
+    i=invoices[0]
+    proof={'txid':'c'*64,'recipient':address,'amount_units':i['amount_units'],
+           'timestamp_ms':(i['created_at']+1)*1000,'block_number':87800000}
+    with ThreadPoolExecutor(max_workers=4) as workers:
+        result=list(workers.map(lambda _:pg.apply_crypto_payment(i['id'],ids[0],proof),range(8)))
+    assert sum(not r['already_processed'] for r in result)==1
+    assert pg.get_user_plan(ids[0])=='pro'
+    until=pg.get_crypto_access(ids[0])['access_until']
+    assert int(time.time())+29*86400 < until <= int(time.time())+30*86400+1
+    assert GenesisDB(database_url=pg.database_url).get_crypto_invoice(i['id'],ids[0])['status']=='paid'

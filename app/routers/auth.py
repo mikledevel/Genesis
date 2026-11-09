@@ -82,12 +82,13 @@ async def public_config():
     """What the browser needs before login: the (public) Turnstile site key, empty when the captcha is off."""
     from app.core import antibot
     billing_ready = bool(
-        settings.stripe_secret_key and settings.stripe_webhook_secret and _billing_storage_ready()
+        settings.stripe_subscriptions_enabled and settings.stripe_secret_key and settings.stripe_webhook_secret and _billing_storage_ready()
         and settings.stripe_price_pro_monthly and settings.stripe_price_business_monthly
         and (settings.debug or (settings.public_base_url or "").strip().startswith("https://"))
     )
+    from app.core.crypto_payments import crypto_ready
     return {"turnstile_site_key": settings.turnstile_site_key if antibot.captcha_enabled() else "",
-            "stripe_subscriptions_enabled": billing_ready}
+            "stripe_subscriptions_enabled": billing_ready, "crypto_payments_enabled": crypto_ready()}
 
 @router.get("/api/plans")
 async def public_plans():
@@ -104,6 +105,7 @@ async def my_plan(user_id: str = Depends(get_current_user_id)):
     admin = db.is_admin(user_id)
     billing = db.get_billing_user(user_id) or {}
     return {"plan": plans.get_plan(db.get_user_plan(user_id)), "is_admin": admin,
+            "crypto": db.get_crypto_access(user_id),
             "effective_limits": plans.limits_for(db, user_id), "usage": plans.usage_for(db, user_id),
             "subscription": {"status": billing.get("stripe_subscription_status"),
                              "current_period_end": billing.get("current_period_end"),
@@ -225,6 +227,8 @@ async def subscription_checkout(req: SubscriptionCheckoutRequest, request: Reque
                                user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     from app.core.payments import create_subscription_checkout
+    if not settings.stripe_subscriptions_enabled:
+        raise HTTPException(status_code=503, detail="Stripe subscriptions are disabled.")
     if req.plan_id not in ("pro", "business"):
         raise HTTPException(status_code=400, detail="Choose a paid monthly plan.")
     db = GenesisDB()

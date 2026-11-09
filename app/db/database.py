@@ -4,7 +4,10 @@ import sqlite3, uuid, os, json
 from typing import Dict, List, Any, Optional
 
 
-class GenesisDB:
+from app.db.crypto_billing import CryptoBillingMixin, SCHEMA as CRYPTO_SCHEMA
+
+
+class GenesisDB(CryptoBillingMixin):
     def __init__(self, db_path: Optional[str] = None, *, database_url: Optional[str] = None):
         from app.config import settings
         self.database_url = database_url or (settings.database_url if db_path is None else "")
@@ -247,6 +250,7 @@ class GenesisDB:
                 );
                 PRAGMA journal_mode=WAL;
             """)
+            conn.executescript(CRYPTO_SCHEMA)
             conn.commit()
             # Idempotent migration: databases created before user accounts existed won't have
             # these columns yet. ALTER TABLE ADD COLUMN is safe to retry - ignore if already there.
@@ -276,6 +280,8 @@ class GenesisDB:
                                           # The mailbox an address really delivers to (a.b+x@gmail.com -> ab@gmail.com): one
                                           # mailbox, one account (app/core/antibot.py canonical_email).
                                           ("users", "email_canonical", "TEXT"),
+                                          ("users", "crypto_plan_id", "TEXT"),
+                                          ("users", "crypto_access_until", "INTEGER DEFAULT 0"),
                                           ("users", "stripe_customer_id", "TEXT"),
                                           ("users", "stripe_subscription_id", "TEXT"),
                                           ("users", "stripe_subscription_status", "TEXT"),
@@ -1323,8 +1329,12 @@ class GenesisDB:
     def get_user_plan(self, user_id: str) -> str:
         from app.core import plans
         with self._connect() as conn:
-            row = conn.execute("SELECT plan FROM users WHERE id = ?", (user_id,)).fetchone()
-        return plans.normalize_plan(row[0] if row else None)
+            row = conn.execute("SELECT plan,crypto_plan_id,crypto_access_until FROM users WHERE id = ?", (user_id,)).fetchone()
+        import time
+        base = plans.normalize_plan(row[0] if row else None)
+        if row and row[1] in ('pro','business') and (row[2] or 0) > int(time.time()):
+            return 'business' if 'business' in (base,row[1]) else 'pro'
+        return base
 
     def set_user_plan(self, user_id: str, plan: str):
         with self._connect() as conn:

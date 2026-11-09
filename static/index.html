@@ -2230,6 +2230,19 @@ svg.fc{width:100%;height:auto;display:block}.fc-t{font-size:10.5px;fill:var(--tx
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-crypto" style="display:none" onclick="overlayClose(event,'modal-crypto')">
+  <div class="modal" style="width:540px;max-width:94vw" onclick="event.stopPropagation()">
+    <div class="modal-head"><span class="modal-title">Pay with USDT · TRON (TRC20)</span><button class="modal-close" aria-label="Close crypto payment" onclick="closeModal('modal-crypto')"><i class="ti ti-x"></i></button></div>
+    <div class="modal-body">
+      <div id="crypto-invoice-details"></div>
+      <div class="form-field" style="margin-top:16px"><label class="form-label" for="crypto-txid">Transaction ID (TXID)</label><input class="form-input" id="crypto-txid" maxlength="64" autocomplete="off" placeholder="Paste the 64-character ID after sending payment"></div>
+      <p class="form-hint">Send USDT only on TRON (TRC20). The invoice amount must reach the receiving address in full; your wallet or exchange may charge a separate network fee. Confirmation can take several minutes. Access lasts 30 days, with manual renewal.</p>
+      <div id="crypto-payment-status" role="status" style="font-size:13px;line-height:1.6;margin-top:12px"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-crypto')">Close</button><button class="btn btn-primary" id="crypto-check-btn" onclick="confirmCryptoPayment()">Check payment</button></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -2907,6 +2920,72 @@ function handleSubscriptionRedirect() {
     const clean = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
     window.history.replaceState({}, '', clean);
   }
+}
+
+let cryptoCurrentInvoice = null;
+function renderCryptoInvoice(invoice) {
+  cryptoCurrentInvoice = invoice;
+  const expired = invoice.status === 'expired', paid = invoice.status === 'paid';
+  document.getElementById('crypto-invoice-details').innerHTML =
+    `<div style="font-size:15px;font-weight:600;margin-bottom:14px">${escHtml(invoice.plan_id === 'business' ? 'Business' : 'Pro')} · 30 days</div>`
+    + `<div class="form-label">Exact amount</div><div style="font-size:25px;font-weight:700;overflow-wrap:anywhere">${escHtml(invoice.amount)} USDT</div>`
+    + `<div class="form-hint" style="margin:6px 0 16px">A small invoice discount identifies your payment. Send this exact amount; do not round it.</div>`
+    + `<div class="form-label">Receiving address · TRON (TRC20)</div><div style="overflow-wrap:anywhere;font-family:monospace">${escHtml(invoice.recipient)}</div>`
+    + (!expired && !paid ? `<div style="display:flex;gap:8px;margin:12px 0"><button class="btn btn-secondary" onclick="copyCryptoValue('amount')">Copy amount</button><button class="btn btn-secondary" onclick="copyCryptoValue('recipient')">Copy address</button></div>` : '')
+    + `<div class="form-hint" style="margin-top:10px">Payment window ends: ${escHtml(new Date(invoice.expires_at * 1000).toLocaleString())}</div>`;
+  document.getElementById('crypto-txid').value = invoice.txid || invoice.submitted_txid || '';
+  document.getElementById('crypto-txid').disabled = paid;
+  document.getElementById('crypto-check-btn').disabled = paid;
+  document.getElementById('crypto-payment-status').textContent = paid ? 'Payment confirmed. Your paid access is active.'
+    : expired ? 'This invoice has expired. Do not send a new transfer to it. If you paid before expiry, enter the TXID to confirm that payment.'
+    : 'Send the exact amount once, then paste its TXID and click Check payment. Keep the TXID until access is activated.';
+  openModal('modal-crypto');
+}
+function copyCryptoValue(field) {
+  if (!cryptoCurrentInvoice || !['amount','recipient'].includes(field)) return;
+  navigator.clipboard.writeText(cryptoCurrentInvoice[field]).then(() => toast('Copied', 'success')).catch(() => toast('Could not copy', 'error'));
+}
+async function startCryptoCheckout(planId) {
+  const note = document.getElementById('plan-billing-note');
+  note.textContent = 'Preparing payment invoice…';
+  try {
+    const r = await apiFetch(API + '/crypto/invoices', {method:'POST', headers:{'Content-Type':'application/json'},body:JSON.stringify({plan_id:planId})});
+    const d = await r.json();
+    if (!r.ok) { note.textContent = d.detail || 'Could not create invoice.'; return; }
+    note.textContent = '';
+    renderCryptoInvoice(d.invoice);
+  } catch { note.textContent = 'Connection error. Please try again.'; }
+}
+async function openCryptoHistory() {
+  const note = document.getElementById('plan-billing-note');
+  try {
+    const r = await apiFetch(API + '/crypto/invoices');
+    const d = await r.json();
+    if (!r.ok) { note.textContent = d.detail || 'Could not load payment history.'; return; }
+    if (!d.invoices?.length) { note.textContent = 'No crypto invoices yet.'; return; }
+    note.innerHTML = d.invoices.map((i,n) => `<button class="btn btn-secondary" style="margin:4px" type="button" data-invoice-index="${n}">${escHtml(i.plan_id)} · ${escHtml(i.amount)} USDT · ${escHtml(i.status)}</button>`).join('');
+    note.querySelectorAll('[data-invoice-index]').forEach(button => button.addEventListener('click', () => renderCryptoInvoice(d.invoices[Number(button.dataset.invoiceIndex)])));
+  } catch { note.textContent = 'Could not load payment history.'; }
+}
+async function confirmCryptoPayment() {
+  if (!cryptoCurrentInvoice) return;
+  const txid = document.getElementById('crypto-txid').value.trim();
+  const status = document.getElementById('crypto-payment-status'), btn = document.getElementById('crypto-check-btn');
+  if (!/^[0-9a-fA-F]{64}$/.test(txid)) { status.textContent = 'Enter the 64-character TRON transaction ID.'; return; }
+  btn.disabled = true; status.textContent = 'Checking the confirmed blockchain receipt…';
+  try {
+    const r = await apiFetch(API + '/crypto/invoices/' + encodeURIComponent(cryptoCurrentInvoice.id) + '/confirm', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({txid})});
+    const d = await r.json();
+    if (!r.ok) { status.textContent = d.detail || 'Could not verify payment. Keep your TXID and retry later.'; return; }
+    if (d.status === 'paid') {
+      cryptoCurrentInvoice.status = 'paid';
+      status.textContent = 'Payment confirmed. Access is active until ' + new Date(d.access.access_until * 1000).toLocaleString() + '.';
+      document.getElementById('crypto-txid').disabled = true;
+      await loadPlanPanel();
+      toast('Paid access activated', 'success');
+    } else status.textContent = d.message || 'Waiting for confirmation. Check again shortly; do not pay again.';
+  } catch { status.textContent = 'Connection error. Keep your TXID and retry later; do not pay again.'; }
+  finally { btn.disabled = cryptoCurrentInvoice?.status === 'paid'; }
 }
 
 async function startPlanCheckout(planId) {
@@ -5426,7 +5505,7 @@ async function loadPlanPanel() {
     const free = publicPlans.find(p => p.id === 'free');
     if (!free || publicPlans.length < 2) { cmp.textContent = 'Plan list is not available right now.'; return; }
     cmp.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;color:var(--txt3)"><th style="padding:6px 4px;font-weight:600"></th>`
-      + publicPlans.map(p => `<th style="padding:6px 4px;font-weight:${p.id === me.plan.id ? 700 : 600};color:${p.id === me.plan.id ? 'var(--txt)' : 'var(--txt3)'}">${_planEsc(p.name)}${p.price_usd_month ? ` · $${_planEsc(p.price_usd_month)}/mo` : ''}</th>`).join('')
+      + publicPlans.map(p => `<th style="padding:6px 4px;font-weight:${p.id === me.plan.id ? 700 : 600};color:${p.id === me.plan.id ? 'var(--txt)' : 'var(--txt3)'}">${_planEsc(p.name)}${p.price_usd_month ? (config.crypto_payments_enabled ? ` · ${_planEsc(p.price_usd_month)} USDT / 30 days` : ` · $${_planEsc(p.price_usd_month)}/mo`) : ''}</th>`).join('')
       + `</tr></thead><tbody>`
       + PLAN_ROWS.map(r => `<tr style="border-top:1px solid var(--brd)"><td style="padding:7px 4px">${_planEsc(r[0])}</td>`
           + publicPlans.map(p => `<td style="padding:7px 4px;${p.id === me.plan.id ? 'font-weight:600' : 'color:var(--txt3)'}">${_planVal(p.limits[r[1]], r[3])}</td>`).join('')
@@ -5434,7 +5513,15 @@ async function loadPlanPanel() {
       + `<tr style="border-top:1px solid var(--brd)"><td style="padding:7px 4px">Training on your own computer</td>${publicPlans.map(p => `<td style="padding:7px 4px;${p.id === me.plan.id ? 'font-weight:600' : 'color:var(--txt3)'}">Free, unlimited</td>`).join('')}</tr></tbody></table>`;
 
     actions.innerHTML = '';
-    if (config.stripe_subscriptions_enabled) {
+    if (config.crypto_payments_enabled) {
+      const crypto = me.crypto || {};
+      actions.innerHTML = publicPlans.filter(p => p.id !== 'free' && (!crypto.active || crypto.plan_id === p.id)).map(p =>
+        `<button class="btn btn-primary" type="button" onclick="startCryptoCheckout('${_planEsc(p.id)}')">${crypto.active ? 'Renew' : 'Choose'} ${_planEsc(p.name)} · ${_planEsc(p.price_usd_month)} USDT / 30 days</button>`
+      ).join('') + '<button class="btn btn-secondary" type="button" onclick="openCryptoHistory()">Crypto payment history</button>';
+      note.textContent = crypto.active
+        ? 'USDT access ends ' + new Date(crypto.access_until * 1000).toLocaleString() + '. Renew manually before expiry to keep access.'
+        : 'Pay USDT on TRON (TRC20) for 30 days of access. Renewals are manual. Each invoice shows its exact discounted amount.';
+    } else if (config.stripe_subscriptions_enabled) {
       if (['active', 'trialing', 'past_due', 'incomplete', 'unpaid'].includes(subscription.status)) {
         actions.innerHTML = '<button class="btn btn-secondary" type="button" onclick="openBillingPortal()">Manage billing</button>';
       } else {
