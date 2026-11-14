@@ -22,7 +22,7 @@ python eval/kb/real_corpus_eval.py --corpus /tmp/genesis-handbook --output artif
 
 ## Staging и пилот
 
-`render.staging.yaml` описывает отдельный Free web service, использующий уже созданную `genesis-ai-staging-db`. Production-сервис не входит в Blueprint. Startup создаёт частную схему только при явном `GENESIS_BOOTSTRAP_SCHEMA=true`, затем выполняет миграцию. На первом успешном deploy создаётся пилотная учётная запись Pro. Повторный hook не меняет существующий пароль. В режиме пилота публичная регистрация закрыта, платежи выключены.
+`render.staging.yaml` описывает отдельный Free web service, использующий уже созданную `genesis-ai-staging-db`. Production-сервис не входит в Blueprint. Startup создаёт частную схему только при явном `GENESIS_BOOTSTRAP_SCHEMA=true`, затем выполняет миграцию. В startup после миграции идемпотентно создаётся пилотная учётная запись Pro. Повторный hook не меняет существующий пароль. В режиме пилота публичная регистрация закрыта, платежи выключены.
 
 Ветка `codex/pilot-readiness` готовится в отдельном чистом checkout подтверждённого репозитория. Локальный исходный каталог с untracked-файлами не превращается в общий baseline-коммит. Данные пользователя не копируются.
 
@@ -46,3 +46,13 @@ python scripts/staging_smoke.py --base-url https://STAGING_HOST \
 Checkpoint содержит API-ключ, сохраняется с правами 0600 и не входит в Git. Автоматические smoke-операции нужно исключать из результатов человеческого пилота.
 
 Итоговая локальная приёмка: 1123 passed, 1 skipped, 8 subtests passed (158,49 с); PostgreSQL, Docker и внешний корпус включены. Единственный skip — jsdom в изолированной Python-копии, UI проверен отдельно через Node. Live forecast routing: 3/3, медиана 602 мс, p95 717 мс, известная оценка стоимости $0,0014331. Эквивалентность 2 недель и 14 дней учитывается явно и проверена отдельным тестом.
+
+## Развёрнутый staging
+
+Сервис: https://genesis-ai-staging-2qpu.onrender.com. Отдельная PostgreSQL используется по частной сети. Основной HTTP smoke прошёл на Render: login, upload, built-in logistic training, idempotency, отмена, registry, predict.
+
+Внешние подключения к БД закрыты. Для небольшого staging доступен `GET /api/pilot/backup`: только при `GENESIS_PILOT_ENABLED=true`, заданном `PILOT_EMAIL` и с токеном подтверждённого владельца. Ответ `application/gzip`, `Cache-Control: no-store`; все таблицы читаются в одном read-only repeatable-read transaction. Лимиты: 5000 строк на таблицу, 16 MB бинарных артефактов, 32 MB JSON. Этот ограниченный экспорт предназначен для пилота и не заменяет production PITR/pg_dump.
+
+Серверный snapshot скачан и восстановлен в отдельную loopback-БД через `scripts/restore_pilot_snapshot.py`. В пустом каталоге подтверждены аккаунт, терминальные статусы задач, модель из бинарного артефакта и тот же прогноз. Restore-скрипт отклоняет внешний адрес БД и непустую цель. Файлы snapshot и credentials находятся только в `artifacts/pilot/` с правами 0600.
+
+Дополнительная проверка настоящего Groq на Render: 4/4 — уточнение income, прогноз с версией/метриками/ограничениями, ответ по загруженному документу с валидным источником, отказ назвать неизвестный сертификат. Это автоматическая техническая приёмка, не человеческий пилот. Дополнительные тесты startup, доступа к backup и PostgreSQL snapshot: 28 passed.

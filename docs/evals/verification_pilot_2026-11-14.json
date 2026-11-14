@@ -1,6 +1,6 @@
 {
   "date": "2026-11-14",
-  "staging_status": "awaiting_blueprint_plan",
+  "staging_status": "live_under_acceptance",
   "human_pilot_status": "not_started",
   "checks": {
     "full_suite_before_docker_integration": {
@@ -33,10 +33,19 @@
       "real_docker": true,
       "public_handbook_corpus": true
     },
-    "remaining_skip": "jsdom unavailable in isolated Python copy; workspace/admin/antibot passed separately with Node"
+    "remaining_skip": "jsdom unavailable in isolated Python copy; workspace/admin/antibot passed separately with Node",
+    "staging_http_smoke": "passed: readiness, login, CSV upload, durable training, idempotency, cancellation, registry and model prediction",
+    "hosted_backup_restore": "passed: authenticated repeatable-read snapshot from Render private network restored into a separate loopback database; account, terminal jobs, binary model and same prediction verified in an empty directory",
+    "snapshot_and_owner_access_tests": {
+      "passed": 28
+    },
+    "hosted_agent_bot_rag": "4/4 automated cases passed with real Groq: missing input clarification, model prediction with provenance, cited document answer, refusal for unknown certificate"
   },
   "limitations": [
-    "Render live deployment, hosted restart and hosted backup/restore have not been verified.",
+    "Hosted redeploy persistence verification is in progress.",
     "The human participant has not yet completed the pilot or supplied feedback."
-  ]
+  ],
+  "staging_url": "https://genesis-ai-staging-2qpu.onrender.com",
+  "service_id": "srv-dbs0pv6i0phs73bqehp0",
+  "deployed_commit": "9ebf894af10428b04217051dd2b319a78775bb24"
 }

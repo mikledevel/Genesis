@@ -1,0 +1,43 @@
+{
+  "mode": "hosted_automated_acceptance",
+  "source_commit": "9ebf894af10428b04217051dd2b319a78775bb24",
+  "model": "openai/gpt-oss-120b",
+  "cases": [
+    {
+      "case": "missing-input",
+      "passed": true,
+      "latency_ms": 2665,
+      "trace_status": "ok",
+      "estimated_cost_usd": 0.00048734999999999995,
+      "known_estimated_cost_usd": 0.00048734999999999995
+    },
+    {
+      "case": "prediction",
+      "passed": true,
+      "latency_ms": 984,
+      "trace_status": "ok",
+      "estimated_cost_usd": 0.00048195,
+      "known_estimated_cost_usd": 0.00048195
+    },
+    {
+      "case": "rag-citation",
+      "passed": true,
+      "latency_ms": 1191,
+      "trace_status": "ok",
+      "estimated_cost_usd": 0.000567,
+      "known_estimated_cost_usd": 0.000567
+    },
+    {
+      "case": "rag-unknown",
+      "passed": true,
+      "latency_ms": 725,
+      "trace_status": "ok",
+      "estimated_cost_usd": 0.000501,
+      "known_estimated_cost_usd": 0.000501
+    }
+  ],
+  "passed": 4,
+  "total": 4,
+  "human_pilot_measured": false,
+  "review": "Document answer and unknown-answer text manually inspected against the uploaded source; this is not a broad factuality benchmark."
+}
