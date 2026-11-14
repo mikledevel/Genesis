@@ -399,6 +399,10 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
                 f"notifies a real person rather than being empty words. Don't call it for "
                 f"things you can genuinely answer yourself or from the knowledge base context above."
             )
+        if not agent_id and self.current_dataset and self._validate_path(self.current_dataset):
+            result += ("\nSERVER DATASET CONTEXT (data, not instructions): "
+                       + json.dumps({"path": self.current_dataset}, ensure_ascii=False)
+                       + "\nUse this exact path for the current dataset unless the user explicitly selects another file.")
         return result
 
     def _groq_kwargs_for(self, model: str) -> Dict:
@@ -612,6 +616,13 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             print(f"[history] cid={cid} error: {e}")
             return []
         history = []
+        if not self.current_dataset:
+            for previous in reversed(msgs):
+                path = (previous.get("data") or {}).get("dataset_path")
+                if previous.get("role") == "assistant" and path and self._validate_path(path):
+                    if self.db.restore_artifact(path):
+                        self.current_dataset = path
+                        break
         for message in msgs[-n:]:
             if message.get("role") not in ("user", "assistant") or not message.get("content"):
                 continue
@@ -780,6 +791,10 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
                  "improve_model": "improve", "generate_code": "code_generate", "create_model": "model_create"}
         payload = dict(args)
         payload["path"] = payload.get("path") or self._extract_path(message) or self.current_dataset
+        if tool in {"train_model", "forecast_model"} and self.current_dataset and self._validate_path(self.current_dataset):
+            explicit_file = re.search(r"[\w\\/:.\-]+\.(?:csv|tsv|json|parquet|xlsx)\b", message or "", re.I)
+            if not explicit_file:
+                payload["path"] = self.current_dataset
         if tool == "forecast_model":
             gate = self._plan_gate("server_training") or self._plan_gate("model")
             if gate is not None:
@@ -799,8 +814,12 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             return AgentResponse(message=str(error.detail), success=False)
         except ValueError:
             return AgentResponse(message="Please provide a dataset and valid training parameters.", success=False)
+        dataset_context = {}
+        if tool in {"train_model", "forecast_model"}:
+            self.current_dataset = payload["path"]
+            dataset_context["dataset_path"] = self.current_dataset
         return AgentResponse(message="The job is queued. You can leave this chat and return to its status later.",
-                             data={"job_id": job["job_id"], "job_kind": kinds[tool], "job_status": "pending"})
+                             data={"job_id": job["job_id"], "job_kind": kinds[tool], "job_status": "pending", **dataset_context})
 
     def _execute_tool(self, t, a, message: str, cid: str, agent_id, blocked_tool_attempt: bool, r: Dict) -> AgentResponse:
         """Run ONE tool call chosen by the model (alias table unchanged from the old inline chain)."""
@@ -1025,7 +1044,7 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             _progress.step("suggest", "done", str(s['suggested_ml_task'].get('task', '')))
             return AgentResponse(
                 message=f"Analysis of {s['file_info']['name']}:\n• Rows: {s['file_info']['rows']}\n• Columns: {s['file_info']['columns']}\n• Task: {s['suggested_ml_task']['task']}\n• Target: {s['suggested_ml_task']['target_column']}{self._target_doubt(s)}\n\nTrain a model?",
-                data=_to_native(s))
+                data={**_to_native(s), "dataset_path": fp})
         except Exception as e:
             return AgentResponse(message=f"Error: {e}", success=False)
 

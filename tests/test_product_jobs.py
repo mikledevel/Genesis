@@ -186,3 +186,32 @@ def test_training_accepts_owned_upload_id_and_rejects_foreign_id(account):
     with pytest.raises(HTTPException) as error:
         create_job(request, 'other-user', None)
     assert error.value.status_code == 404
+
+
+def test_followup_training_uses_server_selected_dataset_not_guessed_path(account):
+    from app.core.agent import GenesisAgent
+    db, user, path = account
+    agent = GenesisAgent(db=db)
+    agent.current_user_id = user
+    assert agent._do_analyze(str(path)).success
+    response = agent._queue_tool('train_model', {'path': 'datasets/hallucinated.csv', 'target_column': 'churn'}, 'Train on this file')
+    assert response.success, response.message
+    assert db.claim_job()['payload']['path'] == str(path)
+    rejected = agent._queue_tool('train_model', {'path': 'datasets/missing.csv'}, 'Train datasets/missing.csv')
+    assert not rejected.success
+
+
+def test_analyzed_dataset_context_survives_new_agent(account):
+    from app.core.agent import GenesisAgent
+    db, user, path = account
+    agent = GenesisAgent(db=db)
+    agent.current_user_id = user
+    result = agent._do_analyze(str(path))
+    db.create_chat('restore-dataset', user_id=user)
+    db.add_message('restore-dataset', 'assistant', result.message, result.data)
+    db.add_message('restore-dataset', 'user', 'Train this file')
+    fresh = GenesisAgent(db=db)
+    fresh.current_user_id = user
+    fresh._recent_history('restore-dataset')
+    assert fresh.current_dataset == str(path)
+    assert str(path) in fresh._get_effective_system_prompt('Train this file')

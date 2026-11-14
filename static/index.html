@@ -1668,7 +1668,7 @@ svg.fc{width:100%;height:auto;display:block}.fc-t{font-size:10.5px;fill:var(--tx
 </div>
 
 
-<div class="modal-overlay" id="modal-create-agent" style="display:none" onclick="overlayClose(event,'modal-create-agent')">
+<div class="modal-overlay" id="modal-create-agent" role="dialog" aria-modal="true" aria-label="Create AI Agent" style="display:none" onclick="overlayClose(event,'modal-create-agent')">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-head">
       <span class="modal-title"><i class="ti ti-robot" aria-hidden="true"></i> Create AI Agent</span>
@@ -1875,7 +1875,7 @@ svg.fc{width:100%;height:auto;display:block}.fc-t{font-size:10.5px;fill:var(--tx
           <div>
             <div class="profile-info-name" id="p-display-name">User</div>
             <div class="profile-info-email" id="p-display-email">—</div>
-            <div class="profile-info-badge">Free plan</div>
+            <div class="profile-info-badge" id="profile-plan-badge">Loading plan…</div>
           </div>
         </div>
         <div class="settings-card">
@@ -2847,7 +2847,7 @@ function show(id) {
   if (id === 'promptlab') loadPromptLab();
   if (id === 'projects') renderProjects();
   if (id === 'builder') { /* Pipeline builder is already rendered */ }
-  if (id === 'settings') { loadApiKeys(); loadUsageLog(); }
+  if (id === 'settings') { loadProfilePlan(); loadApiKeys(); loadUsageLog(); }
 }
 
 // ── TOAST ──
@@ -3565,7 +3565,7 @@ function fillAiMsg(el, text, data, o = {}) {
   } else if (data && typeof data === 'object' && data.metrics && typeof data.metrics === 'object') {
     extra = modelCardHtml(data);
   } else if (data && typeof data === 'object' && Object.keys(data).length && !data.builder_link) {
-    const rows = Object.entries(data).filter(([k, v]) => !['code', 'log', 'trace_id', 'job_id', 'job_kind', 'job_status', 'grounding'].includes(k) && v !== null && typeof v !== 'object').slice(0, 8)
+    const rows = Object.entries(data).filter(([k, v]) => !['code', 'log', 'trace_id', 'job_id', 'job_kind', 'job_status', 'grounding', 'dataset_path'].includes(k) && v !== null && typeof v !== 'object').slice(0, 8)
       .map(([k, v]) => `<div class="dc-row"><span>${escHtml(String(k))}</span><span class="dc-val">${typeof v === 'number' ? v.toFixed(4) : escHtml(String(v))}</span></div>`).join('');
     if (rows) extra = `<div class="data-card"><div class="dc-title">Result data</div>${rows}</div>`;
   }
@@ -3900,8 +3900,8 @@ function renderMyBots() {
         <div style="font-size:13px;font-weight:600">${escHtml(a.name)} ${a.published ? '<span class="badge badge-green" style="font-size:8px">published</span>' : '<span class="badge" style="font-size:8px">draft</span>'}</div>
         <div style="font-size:11px;color:var(--txt3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(a.description || '')}</div>
       </div>
-      <button class="btn btn-secondary" style="height:26px;font-size:11px" onclick="useAgent('${a.id}')"><i class="ti ti-message-chatbot" aria-hidden="true"></i></button>
-      <button class="btn btn-secondary" style="height:26px;font-size:11px" onclick="openBotSettings('${a.id}')"><i class="ti ti-settings" aria-hidden="true"></i></button>
+      <button class="btn btn-secondary" style="height:26px;font-size:11px" aria-label="Chat with bot" title="Chat with bot" onclick="useAgent('${a.id}')"><i class="ti ti-message-chatbot" aria-hidden="true"></i></button>
+      <button class="btn btn-secondary" style="height:26px;font-size:11px" aria-label="Bot settings" title="Bot settings" onclick="openBotSettings('${a.id}')"><i class="ti ti-settings" aria-hidden="true"></i></button>
     </div>`).join('');
 }
 
@@ -4478,7 +4478,7 @@ function filterStore(q) {
 }
 
 async function useAgent(agentId) {
-  const agent = storeData.find(a => a.id === agentId);
+  const agent = myBotsData.find(a => a.id === agentId) || storeData.find(a => a.id === agentId);
   if (!agent) return;
   let r;
   try {
@@ -5561,6 +5561,15 @@ function _planVal(v, kind) {
   if (v === null || v === undefined) return 'Unlimited';
   if (kind === 'mb') return v + ' MB';
   return Number(v).toLocaleString('en-US');
+}
+async function loadProfilePlan() {
+  const badge = document.getElementById('profile-plan-badge');
+  try {
+    const response = await apiFetch(API + '/me/plan');
+    if (!response.ok) throw new Error('Plan unavailable');
+    const data = await response.json();
+    badge.textContent = data.plan?.name ? String(data.plan.name) + ' plan' : 'Plan unavailable';
+  } catch { badge.textContent = 'Plan unavailable'; }
 }
 async function loadPlanPanel() {
   const cur = document.getElementById('plan-current'), cmp = document.getElementById('plan-compare');

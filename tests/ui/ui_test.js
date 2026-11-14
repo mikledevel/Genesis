@@ -391,6 +391,22 @@ function sse(events) {
   ok(pd === 0, 'modifier / layout-switch keys (Shift, Alt, Ctrl, Meta, CapsLock, Space) are never prevented');
   inp2.value = '';
 
+  w.eval('myBotsData = [{id:"draft-private",name:"Private draft",model:"openai/gpt-oss-120b",system_prompt:"Help",price_per_call:0}]; storeData = []');
+  let selectedDraft = null;
+  w.fetch = async (url, options = {}) => {
+    if (String(url).includes('select-model')) selectedDraft = JSON.parse(options.body);
+    return {ok:true,json:async()=>({})};
+  };
+  await w.useAgent('draft-private');
+  ok(selectedDraft?.agent_id === 'draft-private', 'own unpublished bot can be selected from My Bots');
+
+  w.fetch = async () => ({ ok: true, json: async () => ({plan:{name:'Pro'}}) });
+  await w.loadProfilePlan();
+  ok($('profile-plan-badge').textContent === 'Pro plan', 'profile shows server plan instead of a hardcoded Free badge');
+  w.fetch = async () => ({ok:false});
+  await w.loadProfilePlan();
+  ok($('profile-plan-badge').textContent === 'Plan unavailable', 'plan lookup failure does not claim the account is Free');
+
   console.log(failures ? `\n${failures} FAILED` : '\nALL UI CHECKS PASSED');
   process.exit(failures ? 1 : 0);
 })().catch(e => { console.error('CRASH', e); process.exit(2); });
