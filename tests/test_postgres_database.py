@@ -307,3 +307,21 @@ def test_backup_restores_accounts_chats_and_artifacts(pg,tmp_path,monkeypatch):
             if pool: pool.close()
             _READY.discard(restore_url)
             admin.execute(sql.SQL('DROP DATABASE {} WITH (FORCE)').format(sql.Identifier(database_name)))
+
+
+def test_pilot_snapshot_includes_accounts_and_binary_artifacts(pg, tmp_path, monkeypatch):
+    import base64
+    import json
+    from app.core.pilot_snapshot import snapshot_bytes
+    uid = user(pg)
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / 'datasets' / 'example.csv'
+    path.parent.mkdir()
+    path.write_bytes(b'x,y\n1,2\n')
+    pg.persist_artifact(path, uid)
+    snapshot = json.loads(snapshot_bytes(pg))
+    users = snapshot['tables']['users']
+    assert any(row[users['columns'].index('id')] == uid for row in users['rows'])
+    artifacts = snapshot['tables']['artifact_files']
+    blob = artifacts['rows'][0][artifacts['columns'].index('content')]
+    assert base64.b64decode(blob['$bytes']) == path.read_bytes()

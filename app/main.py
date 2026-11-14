@@ -8,7 +8,7 @@ from app.deps import (
     StaticFiles,
     _allowed_origins
 )
-from app.routers import auth, pages, chat_agent, marketplace, ml, bots, admin, crypto, jobs
+from app.routers import auth, pages, chat_agent, marketplace, ml, bots, admin, crypto, jobs, pilot
 
 import asyncio
 from contextlib import asynccontextmanager
@@ -60,6 +60,7 @@ app.include_router(ml.router)
 app.include_router(bots.router)
 app.include_router(admin.router)
 app.include_router(jobs.router)
+app.include_router(pilot.router)
 
 if __name__ == "__main__":
     import uvicorn

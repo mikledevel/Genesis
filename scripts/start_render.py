@@ -22,6 +22,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable,"scripts/migrate.py"],check=True,
                    env=dict(os.environ,DATABASE_AUTO_MIGRATE="true"))
     os.environ["DATABASE_AUTO_MIGRATE"] = "false"
+    if os.environ.get("GENESIS_PILOT_ENABLED") == "true":
+        subprocess.run([sys.executable, "scripts/seed_pilot.py"], check=True)
     os.execv(sys.executable, [
         sys.executable, "-m", "uvicorn", "app.main:app",
         "--host", "0.0.0.0", "--port", os.environ.get("PORT", "10000"),

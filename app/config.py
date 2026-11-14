@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     integration_encryption_key: str = ""
     training_memory_mb: int = 512
     genesis_pilot_enabled: bool = False
+    pilot_email: str = ""
     agent_tool_protocol: Literal["auto", "json", "native"] = "json"
     kb_retrieval_mode: Literal["lexical", "hybrid"] = "lexical"  # hybrid требует requirements-retrieval.txt и локальную ONNX-модель
     kb_relevance_gate: float = Field(default=0.16, ge=0, le=1)
