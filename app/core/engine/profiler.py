@@ -48,7 +48,7 @@ class DatasetProfiler:
             s = self.df[c]
             info = {"dtype":str(s.dtype),"total":len(s),"missing":int(s.isna().sum()),"missing_pct":round(s.isna().mean()*100,2),"unique":int(s.nunique()),"unique_pct":round(s.nunique()/len(s)*100,2)}
             if self._is_numeric(s):
-                info.update({"mean":round(s.mean(),4) if not s.isna().all() else None,"std":round(s.std(),4) if not s.isna().all() else None,"min":round(s.min(),4) if not s.isna().all() else None,"max":round(s.max(),4) if not s.isna().all() else None})
+                info.update({"mean":round(float(s.mean()),4) if not s.isna().all() else None,"std":round(float(s.std()),4) if not s.isna().all() else None,"min":round(float(s.min()),4) if not s.isna().all() else None,"max":round(float(s.max()),4) if not s.isna().all() else None})
                 info["suggested_type"] = "binary" if info["unique"]==2 else ("categorical_numeric" if info["unique_pct"]<self.UNIQUE_THRESHOLD_CATEGORICAL*100 else "continuous")
             else:
                 info["suggested_type"] = "categorical"

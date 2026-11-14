@@ -1,0 +1,328 @@
+{
+  "source": "https://github.com/basecamp/handbook",
+  "commit": "c9536061f26d0b5bd9f2f900d63e27e9f4deb4ed",
+  "corpus_sha256": {
+    "README.md": "42db6f898fbee62bfd06f92907c3cbbbe4fac21664209669451622d24d6671b6",
+    "benefits-and-perks.md": "9cdac8d92933ab074910a8b11d2bf7ddfa0d90d7d60254d7a9fbc016425ac22a",
+    "getting-started.md": "85c289c06720331588ccb25df3be74a827f88d9135a8036fc19c5df8dac7ac53",
+    "how-we-work.md": "f2210e454b3cc2078edcbb93af3a442da11ba54bddea099f7011faf4d8083625",
+    "making-a-career.md": "c10f902253fe1a795a514c789078f76582ae91957c6526598e3baac7e55c4f51",
+    "managing-work-devices.md": "9d8c6d61069aafd094df14bc78f99a679c013fdee59104fb13f01474bd68a882",
+    "moonlighting.md": "75c5ed2e01415d75a3b18501806b131c5a7736a2c14f8c5c7cc54638b607b972",
+    "our-internal-systems.md": "d08913b68b9743b87269becccecd635b1e5583c5a6a1b0df691e4ebf484f0f4e",
+    "our-rituals.md": "983ee127c83cb309b7c70bb89b606ad4a186078a058fd08162637a83494ed3d1",
+    "severance.md": "4186bbcccf9f96dfce9fb493663dd5abb85d9fcc4d7f9042c1218c6f12347800",
+    "stateFMLA.md": "507af0055b6b3fe29865501a8fe1737b75a28515ff3f6de5a14a65f21b52ed13",
+    "titles-for-QA.md": "57f04606ff63b25dedad5073be8983f31a802279d29369d5d433f8a75be522fe",
+    "titles-for-designers.md": "1f8e512b3fc3e099084f590529b5ef40690fe910af674f45fec824fefc1d984f",
+    "titles-for-ops.md": "047f75bfafec8be3f11b83ec9f316691478a307de9ac0e8e4b19e682809eff3f",
+    "titles-for-programmers.md": "c78fe35efc42f3539695edce83250f81ffd1fe4895a7745f9c7bf17c8d8296d0",
+    "titles-for-support.md": "3ef13dbc3e42138683d6a05b893e26e2373288c369449f668f4fd2ddb295f1a9"
+  },
+  "selection_rule": "Maximize dev abstentions while retaining at least 90% of baseline dev top3 hits; tie-break by recall, then lower gate.",
+  "selected_gate": 0.18,
+  "default_gate_unchanged": 0.16,
+  "dev_candidates": [
+    {
+      "gate": 0.16,
+      "metrics": {
+        "chunks": 167,
+        "n": 27,
+        "top1": 23,
+        "top3": 24,
+        "misses": [
+          [
+            "What is a cycle and how long does it last?",
+            []
+          ],
+          [
+            "Am I allowed to have a side job?",
+            []
+          ],
+          [
+            "What leave do I get when my baby is born?",
+            [
+              "stateFMLA.md",
+              "stateFMLA.md",
+              "stateFMLA.md"
+            ]
+          ]
+        ],
+        "answerable_empty": 2,
+        "unanswerable": 6,
+        "unanswerable_dropped": 5
+      }
+    },
+    {
+      "gate": 0.18,
+      "metrics": {
+        "chunks": 167,
+        "n": 27,
+        "top1": 22,
+        "top3": 22,
+        "misses": [
+          [
+            "Can I use my Android phone or Windows laptop for work?",
+            []
+          ],
+          [
+            "Can I keep my personal photos on the work laptop?",
+            []
+          ],
+          [
+            "What is a cycle and how long does it last?",
+            []
+          ],
+          [
+            "Am I allowed to have a side job?",
+            []
+          ],
+          [
+            "What leave do I get when my baby is born?",
+            [
+              "stateFMLA.md",
+              "stateFMLA.md",
+              "stateFMLA.md"
+            ]
+          ]
+        ],
+        "answerable_empty": 4,
+        "unanswerable": 6,
+        "unanswerable_dropped": 6
+      }
+    },
+    {
+      "gate": 0.2,
+      "metrics": {
+        "chunks": 167,
+        "n": 27,
+        "top1": 19,
+        "top3": 19,
+        "misses": [
+          [
+            "Can I use my Android phone or Windows laptop for work?",
+            []
+          ],
+          [
+            "Can I keep my personal photos on the work laptop?",
+            []
+          ],
+          [
+            "Which Linux distribution does the company use?",
+            []
+          ],
+          [
+            "What is a cycle and how long does it last?",
+            []
+          ],
+          [
+            "Am I allowed to have a side job?",
+            []
+          ],
+          [
+            "What happens if I get laid off, is there severance?",
+            []
+          ],
+          [
+            "What leave do I get when my baby is born?",
+            []
+          ],
+          [
+            "How do I get a raise or promotion?",
+            []
+          ]
+        ],
+        "answerable_empty": 8,
+        "unanswerable": 6,
+        "unanswerable_dropped": 6
+      }
+    },
+    {
+      "gate": 0.24,
+      "metrics": {
+        "chunks": 167,
+        "n": 27,
+        "top1": 19,
+        "top3": 19,
+        "misses": [
+          [
+            "Can I use my Android phone or Windows laptop for work?",
+            []
+          ],
+          [
+            "Can I keep my personal photos on the work laptop?",
+            []
+          ],
+          [
+            "Which Linux distribution does the company use?",
+            []
+          ],
+          [
+            "What is a cycle and how long does it last?",
+            []
+          ],
+          [
+            "Am I allowed to have a side job?",
+            []
+          ],
+          [
+            "What happens if I get laid off, is there severance?",
+            []
+          ],
+          [
+            "What leave do I get when my baby is born?",
+            []
+          ],
+          [
+            "How do I get a raise or promotion?",
+            []
+          ]
+        ],
+        "answerable_empty": 8,
+        "unanswerable": 6,
+        "unanswerable_dropped": 6
+      }
+    }
+  ],
+  "heldout": {
+    "baseline": {
+      "chunks": 167,
+      "n": 34,
+      "top1": 27,
+      "top3": 29,
+      "misses": [
+        [
+          "How many days off do I get when a close relative dies?",
+          []
+        ],
+        [
+          "Can I live in a different country than my coworkers?",
+          [
+            "making-a-career.md",
+            "our-internal-systems.md",
+            "benefits-and-perks.md"
+          ]
+        ],
+        [
+          "Who do I tell when I move to another state?",
+          []
+        ],
+        [
+          "What does it mean to be a manager of one?",
+          []
+        ],
+        [
+          "What should I do if a coworker behaves badly?",
+          []
+        ]
+      ],
+      "answerable_empty": 4,
+      "unanswerable": 16,
+      "unanswerable_dropped": 12
+    },
+    "selected": {
+      "chunks": 167,
+      "n": 34,
+      "top1": 26,
+      "top3": 28,
+      "misses": [
+        [
+          "How many days off do I get when a close relative dies?",
+          []
+        ],
+        [
+          "Can I live in a different country than my coworkers?",
+          []
+        ],
+        [
+          "Who do I tell when I move to another state?",
+          []
+        ],
+        [
+          "What does it mean to be a manager of one?",
+          []
+        ],
+        [
+          "What should I do if a coworker behaves badly?",
+          []
+        ],
+        [
+          "Where can I find out why an email was not delivered?",
+          []
+        ]
+      ],
+      "answerable_empty": 6,
+      "unanswerable": 16,
+      "unanswerable_dropped": 14
+    }
+  },
+  "genesis_docs": {
+    "0.16": {
+      "chunks": 40,
+      "n": 8,
+      "top1": 2,
+      "top3": 4,
+      "misses": [
+        [
+          "Как включить гибридный поиск и установить FastEmbed?",
+          []
+        ],
+        [
+          "Какие API endpoints позволяют посмотреть собственные traces?",
+          [
+            "LLM_IMPROVEMENTS.md"
+          ]
+        ],
+        [
+          "Как поставить train в очередь и получить статус задания?",
+          []
+        ],
+        [
+          "How can I cancel a background job using the API?",
+          []
+        ]
+      ],
+      "answerable_empty": 3,
+      "unanswerable": 4,
+      "unanswerable_dropped": 4
+    },
+    "0.18": {
+      "chunks": 40,
+      "n": 8,
+      "top1": 2,
+      "top3": 3,
+      "misses": [
+        [
+          "Как включить гибридный поиск и установить FastEmbed?",
+          []
+        ],
+        [
+          "Какие API endpoints позволяют посмотреть собственные traces?",
+          [
+            "LLM_IMPROVEMENTS.md"
+          ]
+        ],
+        [
+          "Как поставить train в очередь и получить статус задания?",
+          []
+        ],
+        [
+          "Какая настройка включает native function calling?",
+          []
+        ],
+        [
+          "How can I cancel a background job using the API?",
+          []
+        ]
+      ],
+      "answerable_empty": 4,
+      "unanswerable": 4,
+      "unanswerable_dropped": 4
+    }
+  },
+  "genesis_docs_sha256": {
+    "LLM_IMPROVEMENTS.md": "a13e1365a7837844ecdab976131c345e616b6b90f8468e3e78b878d58de13979",
+    "RENDER_DEPLOYMENT.md": "37faa483a291692ea2182c22c047cce9daeb0da7dca2d1f92b6475a2896084fd",
+    "BACKEND_HARDENING.md": "017274c170ae6cd9f37a9d8e8c8bcd1432c94c02406652fbd9710a29781f4635"
+  }
+}

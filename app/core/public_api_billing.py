@@ -60,7 +60,7 @@ def estimate_worst_case_cost_cents(messages: list, max_tokens: int) -> int:
     estimate above, plus completion cost as if max_tokens were used in full (the actual
     worst case - a completion can't cost more than that, by construction, since the
     provider is asked to stop generating at max_tokens)."""
-    return compute_cost_cents(estimate_prompt_tokens(messages), max_tokens)
+    return compute_cost_cents(prompt_token_upper_bound(messages), max_tokens)
 
 
 def reconcile_charge(db, user_id: str, api_key: str, pre_charged_cents: int,
@@ -96,3 +96,7 @@ def reconcile_charge(db, user_id: str, api_key: str, pre_charged_cents: int,
                                       f"Additional usage beyond the pre-charge estimate ({api_key})")
         return pre_charged_cents + (shortfall if result["ok"] else 0)
     return real_cost_cents
+
+
+def prompt_token_upper_bound(messages):
+    return max(1, 256 + sum(len(str(m.get("content", "")).encode("utf-8")) + 256 for m in messages))

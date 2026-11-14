@@ -125,25 +125,29 @@ Every billed call has a **1-cent minimum**, even if the token-based cost would r
 most short chat messages will land on this minimum rather than a fraction of a cent.
 
 **How you're actually charged:** before generating a response, we place a hold equal to the
-worst-case cost of your request (your prompt's estimated size, plus `max_tokens` as if fully
-used). Once the real response is generated, we true that up to the *real* cost based on actual
-token usage and refund the difference - so setting a generous `max_tokens` "just in case"
-doesn't cost you extra; you only ever pay for tokens actually used. `genesis_billing.charged_cents`
-in every response is the final, real amount for that call.
+worst-case cost of your request (a conservative UTF-8 byte bound plus message framing,
+and `max_tokens` as if fully used). When the provider returns valid usage, we settle
+the actual cost and refund the unused hold. If usage is absent, the reserved upper
+bound is charged. `genesis_billing.charged_cents` is the final amount for that call.
+Send an `Idempotency-Key` to safely replay a completed request; reuse the same payload.
+Reusing a key with a different payload returns 409.
 
 **Examples at default pricing:**
 
 | Request | Approx. cost |
 |---|---|
 | Short chat message (~50 in, ~100 out tokens) | 1¢ (minimum) |
-| Medium request (~2,000 in, ~1,000 out tokens) | ~3¢ |
-| Long document analysis (~20,000 in, ~2,000 out tokens) | ~14¢ |
+| Medium request (~2,000 in, ~1,000 out tokens) | 1¢ (minimum) |
+| Long document analysis (~20,000 in, ~2,000 out tokens) | 2¢ |
 
 ## Errors
 
 | Status | Meaning |
 |---|---|
-| 400 | Malformed request (empty `messages`, unsupported `model`, invalid `max_tokens`) |
+| 400 | Unsupported model or request option |
+| 422 | Invalid fields, roles, messages or token bounds |
+| 409 | Idempotency conflict or an operation still in progress |
+| 429 | API-key or account quota exhausted |
 | 401 | Missing or invalid API key |
 | 402 | Insufficient balance for this call's worst-case cost - top up and retry |
 | 451 | Request blocked for export-control/sanctions reasons (see below) |

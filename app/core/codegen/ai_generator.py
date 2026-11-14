@@ -269,49 +269,37 @@ that wasn't the cause of the error unchanged - fix only what the traceback/valid
             return metrics_info, "METRICS_JSON's 'features' field is missing or not a list."
 
         model_path = os.path.join(workdir, "models", "best_model.pkl")
+        if not os.path.realpath(model_path).startswith(os.path.realpath(workdir) + os.sep) or os.path.islink(model_path):
+            return metrics_info, "The sandbox returned an unsafe model path"
         if not os.path.exists(model_path):
             return metrics_info, "models/best_model.pkl was not found - the script must save the trained model there."
 
-        try:
-            import numpy as np
-            from app.core.safe_pickle import safe_load, UnsafePickleError
-            # best_model.pkl was written by LLM-generated code in the sandbox: UNTRUSTED. It must
-            # never be fed to a plain pickle.load on the host (that would run attacker code
-            # outside the sandbox) - use the restricted loader.
-            with open(model_path, "rb") as f:
-                model = safe_load(f)
-            if verification is None:
-                model.predict(np.zeros((1, len(features))))      # legacy shape check (no hidden test set available)
-        except UnsafePickleError as e:
-            return metrics_info, (
-                f"The saved model file was rejected as unsafe to load: {e} Save only a standard "
-                f"scikit-learn / xgboost / lightgbm estimator or Pipeline with pickle - no custom "
-                f"classes, lambdas or other code objects inside it.")
-        except Exception as e:
-            return metrics_info, (
-                f"The saved model does not accept input shaped to the declared 'features' list "
-                f"(length {len(features)}): {e}. 'features' in METRICS_JSON must exactly match, "
-                f"in order, the columns the model was actually trained on - compute it as "
-                f"list(X_train.columns) rather than typing it by hand."
-            )
+        from app.config import settings
+        from app.core.model_isolation import evaluate_model_file
         if verification is not None:
-            from app.core.engine.verification import evaluate_holdout, assess
-            target = metrics_info.get("target")
-            verified, err, contract = evaluate_holdout(model, verification, target, features)
-            if err:
-                return metrics_info, (f"Platform check of the saved model failed on the hidden test set. The 'features' "
-                                      f"in METRICS_JSON must be the columns the model was trained on. {err}")
-            self_reported = {k: v for k, v in metrics_info.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
-            verified["trust"] = assess(verified, verification, self_reported)
-            verified["self_reported"] = self_reported
-            verified["contract"] = contract
-            if verification.checks:
-                verified["data_checks"] = verification.checks
-            num = [c for c in features if c in verification.train.columns and pd_is_numeric(verification.train[c])]
-            self._last_verification = {
-                "metrics": verified, "contract": contract, "features": list(features), "target": target,
-                "task": verified["task"], "model_type": metrics_info.get("model_type", "custom"),
-                "input_schema": {"numeric": num, "categorical": [c for c in features if c not in num], "datetime": [], "text": []}}
+            try:
+                checked = evaluate_model_file(model_path, verification, features, metrics_info.get("model_type","custom"), metrics_info.get("target"))
+                from app.core.engine.verification import assess
+                measured = checked["metrics"]
+                self_reported = {k:v for k,v in metrics_info.items() if isinstance(v,(int,float)) and not isinstance(v,bool)}
+                measured["trust"] = assess(measured,verification,self_reported)
+                measured["self_reported"] = self_reported
+                measured["contract"] = checked["contract"]
+                measured["data_checks"] = verification.checks
+                self._last_verification = checked
+            except Exception as error:
+                return metrics_info, "Platform check of declared features failed: " + str(error)
+        elif not settings.debug:
+            return metrics_info, "A hidden test set is required before an external model can be accepted"
+        else:
+            try:
+                import numpy as np
+                from app.core.safe_pickle import safe_load
+                with open(model_path,"rb") as handle:
+                    model = safe_load(handle)
+                model.predict(np.zeros((1,len(features))))
+            except Exception as error:
+                return metrics_info, "The saved model was rejected as unsafe or incompatible: " + str(error)
         return metrics_info, None
 
     def build(self, description: str, dataset_path: Optional[str] = None, target_column: Optional[str] = None,
@@ -384,15 +372,19 @@ that wasn't the cause of the error unchanged - fix only what the traceback/valid
             saved_model_path = None
             if success:
                 os.makedirs("generated", exist_ok=True)
-                saved_path = f"generated/pipeline_{datetime.now().strftime('%Y%m%d_%H%M%S')}.py"
+                saved_path = f"generated/user_{self.user_id}_pipeline_{__import__('uuid').uuid4().hex}.py"
                 with open(saved_path, "w", encoding="utf-8") as f:
                     f.write(code)
                 # bring any trained model file along so it's not lost with the temp dir
                 models_dir = os.path.join(workdir, "models")
                 if os.path.isdir(models_dir) and os.listdir(models_dir):
-                    os.makedirs("models", exist_ok=True)
+                    model_destination = os.path.join("models", str(self.user_id or "system"), __import__("uuid").uuid4().hex)
+                    os.makedirs(model_destination, exist_ok=True)
                     for fn in os.listdir(models_dir):
-                        dest = os.path.join("models", fn)
+                        source = os.path.join(models_dir,fn)
+                        if os.path.islink(source) or not os.path.realpath(source).startswith(os.path.realpath(workdir)+os.sep) or not os.path.isfile(source):
+                            raise ValueError("The sandbox returned an unsafe output path")
+                        dest = os.path.join(model_destination, fn)
                         shutil.copy2(os.path.join(models_dir, fn), dest)
                         if fn == "best_model.pkl":
                             saved_model_path = dest

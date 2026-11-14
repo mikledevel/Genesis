@@ -538,6 +538,8 @@ Keep everything else unchanged unless the feedback implies otherwise."""
         actually clicks Publish (see publish() below), which is what persists any skill that
         passed its test here, tied to the newly-created bot's real id."""
         max_iterations = self.MAX_FIX_ITERATIONS if max_iterations is None else max_iterations
+        if isinstance(max_iterations, bool) or not isinstance(max_iterations, int) or not 0 <= max_iterations <= self.MAX_FIX_ITERATIONS:
+            raise ValueError("max_iterations must be between 0 and 3")
         st = on_stage or (lambda *a, **k: None)   # on_stage(step_id, status, detail) - see app/core/progress.py
         st("spec", "active", "writing the system prompt, greeting and test questions")
         spec = self.generate_spec(description, model)

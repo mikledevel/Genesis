@@ -1,10 +1,22 @@
 ﻿from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Literal
+from pydantic import Field
 
 class Settings(BaseSettings):
     app_name: str = "Genesis AI"
     debug: bool = False
     database_url: str = ""
+    database_auto_migrate: bool = True
     redis_url: str = ""
+    trusted_proxy_cidrs: str = "127.0.0.1/32,::1/128"
+    integration_encryption_key: str = ""
+    training_memory_mb: int = 512
+    genesis_pilot_enabled: bool = False
+    agent_tool_protocol: Literal["auto", "json", "native"] = "json"
+    kb_retrieval_mode: Literal["lexical", "hybrid"] = "lexical"  # hybrid требует requirements-retrieval.txt и локальную ONNX-модель
+    kb_relevance_gate: float = Field(default=0.16, ge=0, le=1)
+    kb_semantic_threshold: float = Field(default=0.6, ge=0, le=1)
+    kb_semantic_margin: float = Field(default=0.05, ge=0, le=1)
     # Both currently unused - no code path reads either of these (verified: no
     # `.llm_api_key` or `.deepseek_api_key` reference anywhere in app/). Harmless to leave
     # set to "", but setting them does nothing today; see OPENROUTER_API_KEY below for the
@@ -12,9 +24,16 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     groq_api_key: str = ""
     deepseek_api_key: str = ""
+    stripe_subscriptions_enabled: bool = True
+    crypto_payments_enabled: bool = False
+    crypto_usdt_tron_address: str = ""
+    trongrid_api_key: str = ""
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""
     stripe_webhook_secret: str = ""
+    stripe_price_pro_monthly: str = ""
+    stripe_price_business_monthly: str = ""
+    stripe_portal_configuration_id: str = ""
     secret_key: str = "change-me"
     # Comma-separated list of allowed frontend origins in production, e.g.
     # "https://genesis-ai.app,https://www.genesis-ai.app". Empty means "reflect no origin"

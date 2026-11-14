@@ -5,6 +5,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from app.core.engine.registry import ModelRegistry
 
 
+from tests.pro_user import make_pro_user  # noqa: E402
+
+
 def _register_many(storage, n, tag):
     reg = ModelRegistry(storage_dir=storage)
     for i in range(n):
@@ -54,6 +57,7 @@ def test_agent_train_leaves_exactly_one_pkl(tmp_path, monkeypatch):
                          registry=ModelRegistry(storage_dir=str(tmp_path / "reg")),
                          db=GenesisDB(db_path=str(tmp_path / "t.db")))
     agent.current_user_id = "u1"
+    make_pro_user(agent.db, "u1")
     r = agent._do_train("train", {"path": "datasets/d.csv", "target_column": "y", "model_type": "logistic"})
     assert r.success, r.message
     assert list(tdir.glob("*.pkl")) == []                              # trainer's temp copy removed

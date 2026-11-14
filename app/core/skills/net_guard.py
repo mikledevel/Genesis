@@ -118,15 +118,12 @@ class SafeFetcher:
             data=body.encode("utf-8") if body else None,
             headers={**(headers or {}), "User-Agent": "GenesisAI-Skill/1.0"})
         try:
-            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SECONDS) as resp:
-                raw = resp.read(MAX_RESPONSE_BYTES + 1)
-                if len(raw) > MAX_RESPONSE_BYTES:
-                    raise SkillNetworkError(f"Response exceeded the {MAX_RESPONSE_BYTES} byte limit")
-                return {
-                    "status": resp.status,
-                    "text": raw.decode("utf-8", errors="replace"),
-                    "headers": dict(resp.headers),
-                }
+            from app.core.public_http import request_public
+            result = request_public(url, method=method, headers=dict(req.header_items()),
+                                    body=body.encode("utf-8") if body else None,
+                                    timeout=REQUEST_TIMEOUT_SECONDS, max_bytes=MAX_RESPONSE_BYTES, ips=resolved_ips)
+            return {"status": result["status"], "text": result["body"].decode("utf-8", errors="replace"),
+                    "headers": result["headers"]}
         except urllib.error.HTTPError as e:
             # A real HTTP error response (404, 500, etc.) is useful information for a skill
             # (e.g. "this listing was removed") - return it rather than raising, matching how
@@ -134,3 +131,5 @@ class SafeFetcher:
             return {"status": e.code, "text": e.read(MAX_RESPONSE_BYTES).decode("utf-8", errors="replace"), "headers": dict(e.headers or {})}
         except (urllib.error.URLError, TimeoutError, socket.timeout) as e:
             raise SkillNetworkError(f"Request failed: {e}")
+        except (ValueError, OSError) as e:
+            raise SkillNetworkError(f"Request refused: {e}") from e

@@ -80,8 +80,8 @@ class TestRestLayerQuotaGate:
 
     def test_bot_builder_generate_blocked_over_quota(self):
         import app.main as main_module
-        from app.core.auth import get_current_user_id_optional
-        main_module.app.dependency_overrides[get_current_user_id_optional] = lambda: "user_over_quota"
+        from app.core.auth import get_current_user_id
+        main_module.app.dependency_overrides[get_current_user_id] = lambda: "user_over_quota"
         client = TestClient(main_module.app)
         try:
             with patch("app.db.database.GenesisDB.__init__", return_value=None), \
@@ -103,7 +103,8 @@ class TestRestLayerQuotaGate:
             with patch("app.db.database.GenesisDB.__init__", return_value=None), \
                  patch("app.db.database.GenesisDB.get_groq_usage_this_month", return_value=5_000_000), \
                  patch("app.db.database.GenesisDB.get_user_groq_limit", return_value=None), \
-                 patch("app.config.settings.default_monthly_groq_token_limit", 2_000_000):
+                 patch("app.core.plans.gate_message", return_value=None), \
+                 patch("app.config.settings.default_monthly_groq_token_limit", 2_000_000):   # this test is about the token cap, not the plan
                 r = client.post("/api/model-builder/generate", json={"description": "x", "dataset_path": "datasets/x.csv"})
             assert r.status_code == 429
         finally:
@@ -112,8 +113,8 @@ class TestRestLayerQuotaGate:
     def test_bot_builder_generate_not_blocked_under_quota(self):
         """Regression guard: the gate must not block legitimate under-quota requests."""
         import app.main as main_module
-        from app.core.auth import get_current_user_id_optional
-        main_module.app.dependency_overrides[get_current_user_id_optional] = lambda: "user_under_quota"
+        from app.core.auth import get_current_user_id
+        main_module.app.dependency_overrides[get_current_user_id] = lambda: "user_under_quota"
         client = TestClient(main_module.app)
         try:
             with patch("app.db.database.GenesisDB.__init__", return_value=None), \

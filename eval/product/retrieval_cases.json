@@ -1,0 +1,40 @@
+{
+  "documents": [
+    {"filename":"delivery_ru.md","content":"# Доставка\nКурьерская доставка занимает от двух до пяти рабочих дней после оплаты. Самовывоз доступен на следующий рабочий день. Ускоренная доставка не предусмотрена."},
+    {"filename":"returns_ru.md","content":"# Возврат и обмен\nПокупатель может вернуть неиспользованный товар в течение четырнадцати календарных дней после получения. Обмен размера возможен в течение тридцати дней. Товар со следами использования возврату не подлежит."},
+    {"filename":"security_ru.md","content":"# Восстановление доступа\nЧтобы восстановить пароль, запросите письмо на адрес электронной почты аккаунта. Ссылка из письма действует пятнадцать минут. Поддержка никогда не просит назвать пароль или код подтверждения."},
+    {"filename":"vacation_en.md","content":"# Vacation\nEmployees receive twenty paid business days of vacation each year. Up to five unused vacation days can be carried into the next year. Request time off from your manager at least two weeks in advance."},
+    {"filename":"sidework_en.md","content":"# Outside employment\nEmployees may accept freelance assignments outside working hours. Paid work for a direct competitor requires written permission from the manager. Company equipment must never be used for freelance projects."},
+    {"filename":"billing_en.md","content":"# Subscription billing\nAnnual subscriptions renew automatically on their anniversary. Cancel renewal in account settings before the renewal date. Subscription refunds are available within seven days of the initial payment. Cancellation keeps access until the paid period ends."},
+    {"filename":"sickleave_ru.md","content":"# Больничный\nПри болезни сотрудник сообщает руководителю до начала рабочего дня. Для отсутствия более трёх рабочих дней требуется медицинская справка. Во время больничного сотрудник освобождается от рабочих звонков."},
+    {"filename":"retention_en.md","content":"# Data retention\nDeleted accounts enter a thirty day recovery period. After that period, personal data is permanently erased. Database backups expire after ninety days. Download your files before deleting your account."}
+  ],
+  "cases": [
+    {"id":"dev-ru-1","split":"dev","language":"ru","q":"Сколько дней занимает доставка курьером?","expected":"delivery_ru.md"},
+    {"id":"dev-ru-2","split":"dev","language":"ru","q":"Забыл пароль, как снова войти?","expected":"security_ru.md"},
+    {"id":"dev-en-1","split":"dev","language":"en","q":"Can I carry over unused vacation?","expected":"vacation_en.md"},
+    {"id":"dev-en-2","split":"dev","language":"en","q":"What is the subscription refund window?","expected":"billing_en.md"},
+    {"id":"dev-none-1","split":"dev","language":"ru","q":"Какой у магазина номер телефона?","expected":null},
+    {"id":"dev-none-2","split":"dev","language":"en","q":"What is the office street address?","expected":null},
+    {"id":"ru-1","split":"heldout","language":"ru","q":"За какое время привезут заказ?","expected":"delivery_ru.md"},
+    {"id":"ru-2","split":"heldout","language":"ru","q":"Можно ли отдать покупку обратно, если она не подошла?","expected":"returns_ru.md"},
+    {"id":"ru-3","split":"heldout","language":"ru","q":"Сколько живёт ссылка для сброса пароля?","expected":"security_ru.md"},
+    {"id":"ru-4","split":"heldout","language":"ru","q":"Нужна ли справка от врача при долгом отсутствии из-за болезни?","expected":"sickleave_ru.md"},
+    {"id":"ru-5","split":"heldout","language":"ru","q":"Когда можно забрать товар самостоятельно?","expected":"delivery_ru.md"},
+    {"id":"ru-6","split":"heldout","language":"ru","q":"Обмен размера возможен сколько дней?","expected":"returns_ru.md"},
+    {"id":"ru-7","split":"heldout","language":"ru","q":"Мне обязательно отвечать на рабочие звонки во время больничного?","expected":"sickleave_ru.md"},
+    {"id":"en-1","split":"heldout","language":"en","q":"How much paid time off do staff get annually?","expected":"vacation_en.md"},
+    {"id":"en-2","split":"heldout","language":"en","q":"Am I allowed to moonlight for a rival business?","expected":"sidework_en.md"},
+    {"id":"en-3","split":"heldout","language":"en","q":"How do I stop my plan from charging me again?","expected":"billing_en.md"},
+    {"id":"en-4","split":"heldout","language":"en","q":"When do you permanently erase information after account deletion?","expected":"retention_en.md"},
+    {"id":"en-5","split":"heldout","language":"en","q":"May I use my work laptop for freelance projects?","expected":"sidework_en.md"},
+    {"id":"follow-ru","split":"heldout","language":"ru","q":"А сколько она действует?","history":[{"role":"user","content":"Мне нужна ссылка для восстановления пароля."}],"expected":"security_ru.md"},
+    {"id":"follow-en","split":"heldout","language":"en","q":"How long do they last?","history":[{"role":"user","content":"Tell me about database backups."}],"expected":"retention_en.md"},
+    {"id":"none-ru-1","split":"heldout","language":"ru","q":"Как зовут директора магазина?","expected":null},
+    {"id":"none-ru-2","split":"heldout","language":"ru","q":"Какой размер скидки для студентов?","expected":null},
+    {"id":"none-ru-3","split":"heldout","language":"ru","q":"Можно ли оплатить товар биткоином?","expected":null},
+    {"id":"none-en-1","split":"heldout","language":"en","q":"What is the monthly subscription price?","expected":null},
+    {"id":"none-en-2","split":"heldout","language":"en","q":"How many sick days are paid each year?","expected":null},
+    {"id":"none-en-3","split":"heldout","language":"en","q":"Which courier company delivers parcels?","expected":null}
+  ]
+}

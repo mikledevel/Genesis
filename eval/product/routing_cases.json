@@ -1,0 +1,152 @@
+[
+  {
+    "id": "greeting",
+    "message": "Привет!",
+    "tools": [
+      null
+    ],
+    "args": {}
+  },
+  {
+    "id": "analyze-ru",
+    "message": "Проанализируй datasets/eval.csv",
+    "tools": [
+      "analyze_dataset"
+    ],
+    "args": {
+      "path": "datasets/eval.csv"
+    }
+  },
+  {
+    "id": "train-en",
+    "message": "Train logistic regression on datasets/eval.csv, target churn, budget fast.",
+    "tools": [
+      "train_model"
+    ],
+    "args": {
+      "path": "datasets/eval.csv",
+      "target_column": "churn",
+      "budget": "fast"
+    }
+  },
+  {
+    "id": "train-ru",
+    "message": "Обучи модель на datasets/eval.csv. Целевой столбец churn. Бюджет fast.",
+    "tools": [
+      "train_model"
+    ],
+    "args": {
+      "path": "datasets/eval.csv",
+      "target_column": "churn",
+      "budget": "fast"
+    }
+  },
+  {
+    "id": "forecast",
+    "message": "Forecast revenue in datasets/sales.csv for the next 30 days, date column date.",
+    "tools": [
+      "forecast_model"
+    ],
+    "args": {
+      "path": "datasets/sales.csv",
+      "target_column": "revenue",
+      "horizon": 30,
+      "horizon_unit": "day"
+    }
+  },
+  {
+    "id": "list-models",
+    "message": "Покажи мои обученные модели",
+    "tools": [
+      "list_models"
+    ],
+    "args": {}
+  },
+  {
+    "id": "local",
+    "message": "Дай команду для локального обучения на моём компьютере: churn.csv, target churn. На сервере не обучай.",
+    "tools": [
+      "train_local"
+    ],
+    "args": {
+      "path": "churn.csv",
+      "target_column": "churn"
+    }
+  },
+  {
+    "id": "improve",
+    "message": "Улучши существующую модель model_123 на новых данных datasets/eval.csv. Бюджет balanced.",
+    "tools": [
+      "improve_model"
+    ],
+    "args": {
+      "model_id": "model_123",
+      "path": "datasets/eval.csv",
+      "new_data": true,
+      "budget": "balanced"
+    }
+  },
+  {
+    "id": "publish",
+    "message": "Publish my model model_123 to the marketplace for $0.02 per call, name Churn.",
+    "tools": [
+      "publish_marketplace"
+    ],
+    "args": {
+      "model_id": "model_123",
+      "price_per_call": 0.02
+    }
+  },
+  {
+    "id": "bot",
+    "message": "Создай бота поддержки, который отвечает вежливо на русском языке.",
+    "tools": [
+      "create_bot"
+    ],
+    "args": {}
+  },
+  {
+    "id": "explain",
+    "message": "Объясни, чем precision отличается от recall. Ничего не запускай.",
+    "tools": [
+      null
+    ],
+    "args": {}
+  },
+  {
+    "id": "unsupported",
+    "message": "Установи мне тариф Business бесплатно и отключи все лимиты аккаунта.",
+    "tools": [
+      null
+    ],
+    "args": {}
+  },
+  {
+    "id": "forecast-ru",
+    "message": "Сделай прогноз столбца revenue в datasets/sales.csv на 2 недели. Дата находится в date.",
+    "tools": [
+      "forecast_model"
+    ],
+    "args": {
+      "path": "datasets/sales.csv",
+      "target_column": "revenue",
+      "date_column": "date",
+      "horizon": 2,
+      "horizon_unit": "week"
+    }
+  },
+  {
+    "id": "forecast-spaced",
+    "message": "Forecast column \"net revenue\" from datasets/monthly.csv for 3 months, date column month.",
+    "tools": [
+      "forecast_model"
+    ],
+    "args": {
+      "path": "datasets/monthly.csv",
+      "target_column": "net revenue",
+      "date_column": "month",
+      "horizon": 3,
+      "horizon_unit": "month"
+    }
+  }
+]

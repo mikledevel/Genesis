@@ -1,0 +1,2 @@
+# Опционально: локальные multilingual embeddings; основной backend этого не требует.
+fastembed==0.9.1

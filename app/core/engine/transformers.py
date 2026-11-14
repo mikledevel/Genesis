@@ -71,7 +71,7 @@ class DateFeatures(BaseEstimator, TransformerMixin):
         cols = []
         for c in X.columns:
             d = _parse(X[c], self.dayfirst_.get(str(c), False))
-            cols += [d.dt.year, d.dt.month, d.dt.day, d.dt.dayofweek, (d.dt.dayofweek >= 5).astype(float).where(d.notna()),
+            cols += [d.dt.year, d.dt.month, d.dt.day, d.dt.day_of_week, (d.dt.day_of_week >= 5).astype(float).where(d.notna()),
                      (d - pd.Timestamp("1970-01-01")).dt.total_seconds() / 86400.0]
             if self.use_hour_.get(str(c)):
                 cols.append(d.dt.hour)

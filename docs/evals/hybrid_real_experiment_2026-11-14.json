@@ -1,0 +1,738 @@
+{
+  "source": "https://github.com/basecamp/handbook",
+  "commit": "c9536061f26d0b5bd9f2f900d63e27e9f4deb4ed",
+  "splits": {
+    "dev": [
+      {
+        "q": "How do I get a computer before my first day?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.4640856385231018
+      },
+      {
+        "q": "Who is my buddy and what do they do?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.2659813463687897
+      },
+      {
+        "q": "A customer saw an Oops something went wrong screen, where do programmers see why?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.574042022228241
+      },
+      {
+        "q": "Where can I check if a customer is comped or refund an invoice?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.36888885498046875
+      },
+      {
+        "q": "Where are the dashboards and alerting rules for outages?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.5085859298706055
+      },
+      {
+        "q": "Can I use my Android phone or Windows laptop for work?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.4777650535106659
+      },
+      {
+        "q": "Can I keep my personal photos on the work laptop?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.39812156558036804
+      },
+      {
+        "q": "Which Linux distribution does the company use?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.4049796462059021
+      },
+      {
+        "q": "How many paid sick days do I get?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.6293628811836243
+      },
+      {
+        "q": "Is there a sabbatical?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.5687302947044373
+      },
+      {
+        "q": "What are summer hours?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.6059508919715881
+      },
+      {
+        "q": "Will the company pay for a coworking space?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.6250700950622559
+      },
+      {
+        "q": "Is there pet insurance?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.6182856559753418
+      },
+      {
+        "q": "How does profit sharing work?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.449198454618454
+      },
+      {
+        "q": "What is a cycle and how long does it last?",
+        "answerable": true,
+        "lexical_hit": false,
+        "hybrid_hit": false,
+        "hybrid_empty": true,
+        "dense_max": 0.5570529699325562
+      },
+      {
+        "q": "What is cooldown?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.46092814207077026
+      },
+      {
+        "q": "Am I allowed to have a side job?",
+        "answerable": true,
+        "lexical_hit": false,
+        "hybrid_hit": false,
+        "hybrid_empty": true,
+        "dense_max": 0.4110506474971771
+      },
+      {
+        "q": "What happens at an All Hands?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.25226882100105286
+      },
+      {
+        "q": "What is Everyone on Support?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.3336954414844513
+      },
+      {
+        "q": "How are performance reviews done?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.6326919794082642
+      },
+      {
+        "q": "What is expected of me in my first 90 days?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.339680016040802
+      },
+      {
+        "q": "How do I schedule time off?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.7132139205932617
+      },
+      {
+        "q": "What happens if I get laid off, is there severance?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.42455849051475525
+      },
+      {
+        "q": "How do I set up my home office?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.3407657742500305
+      },
+      {
+        "q": "What leave do I get when my baby is born?",
+        "answerable": true,
+        "lexical_hit": false,
+        "hybrid_hit": false,
+        "hybrid_empty": false,
+        "dense_max": 0.4934994876384735
+      },
+      {
+        "q": "How do I get a raise or promotion?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.5432589054107666
+      },
+      {
+        "q": "Is there a retirement plan with a company match?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.5083556175231934
+      },
+      {
+        "q": "What is the dress code in the office?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.381131649017334
+      },
+      {
+        "q": "What is served in the cafeteria on Fridays?",
+        "answerable": false,
+        "lexical_hit": false,
+        "hybrid_hit": false,
+        "hybrid_empty": false,
+        "dense_max": 0.37476563453674316
+      },
+      {
+        "q": "What is the WiFi password?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.30974850058555603
+      },
+      {
+        "q": "Which parking spot is assigned to me?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.30477359890937805
+      },
+      {
+        "q": "How do I book a meeting room on the 5th floor?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.383476585149765
+      },
+      {
+        "q": "Who won the football match yesterday?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.23189777135849
+      }
+    ],
+    "heldout": [
+      {
+        "q": "How much of my health insurance premium does the company cover in the US?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.6989941596984863
+      },
+      {
+        "q": "What happens to my medical coverage if I quit?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.4911857545375824
+      },
+      {
+        "q": "Does my spouse get covered by the dental plan?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.35650938749313354
+      },
+      {
+        "q": "dental open enrollment",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.2531289756298065
+      },
+      {
+        "q": "Who pays for my vision plan?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.43812862038612366
+      },
+      {
+        "q": "I live in Germany and pay for my own health insurance, can I get some of it back?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.4723220467567444
+      },
+      {
+        "q": "How large is the life insurance policy?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.5487369298934937
+      },
+      {
+        "q": "What does short term disability pay and how long is the waiting period?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.7363786697387695
+      },
+      {
+        "q": "disability waiting period",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.6031494140625
+      },
+      {
+        "q": "What is the maximum I can put into a flexible spending account?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.5829843282699585
+      },
+      {
+        "q": "What is the limit for the dependent care FSA if I split it with my partner?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.49734216928482056
+      },
+      {
+        "q": "How many days off do I get when a close relative dies?",
+        "answerable": true,
+        "lexical_hit": false,
+        "hybrid_hit": false,
+        "hybrid_empty": true,
+        "dense_max": 0.5260281562805176
+      },
+      {
+        "q": "bereavement days",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.4396587312221527
+      },
+      {
+        "q": "When do I become eligible for shares if the company is ever sold?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.5528632402420044
+      },
+      {
+        "q": "liquidity pool shares",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.5650181174278259
+      },
+      {
+        "q": "Can I get a free personal HEY account?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.5954561233520508
+      },
+      {
+        "q": "Do I have to upload receipts for purchases on the company card?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.47512710094451904
+      },
+      {
+        "q": "Which tool do we use to log expenses?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.5491644144058228
+      },
+      {
+        "q": "Can I live in a different country than my coworkers?",
+        "answerable": true,
+        "lexical_hit": false,
+        "hybrid_hit": false,
+        "hybrid_empty": false,
+        "dense_max": 0.3454442322254181
+      },
+      {
+        "q": "Who do I tell when I move to another state?",
+        "answerable": true,
+        "lexical_hit": false,
+        "hybrid_hit": false,
+        "hybrid_empty": true,
+        "dense_max": 0.3967162072658539
+      },
+      {
+        "q": "Am I expected to answer messages right away?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.4193117022514343
+      },
+      {
+        "q": "What does it mean to be a manager of one?",
+        "answerable": true,
+        "lexical_hit": false,
+        "hybrid_hit": false,
+        "hybrid_empty": true,
+        "dense_max": 0.5654581785202026
+      },
+      {
+        "q": "How many hours a week do I work?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.6536040306091309
+      },
+      {
+        "q": "What if I have to work during an emergency outside normal hours?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.5922664403915405
+      },
+      {
+        "q": "What should I do if a coworker behaves badly?",
+        "answerable": true,
+        "lexical_hit": false,
+        "hybrid_hit": false,
+        "hybrid_empty": true,
+        "dense_max": 0.49669739603996277
+      },
+      {
+        "q": "Where can I find out why an email was not delivered?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.3406192362308502
+      },
+      {
+        "q": "Kandji",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.5583412051200867
+      },
+      {
+        "q": "Is Shipshape still used?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.38637274503707886
+      },
+      {
+        "q": "How often does the whole company meet in person?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.6471076011657715
+      },
+      {
+        "q": "What are the career levels from L1 to L5 called?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.6115630269050598
+      },
+      {
+        "q": "I live in California, what family leave do I get from the state?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.6504437923431396
+      },
+      {
+        "q": "What state program gives parental bonding leave in Colorado?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.6986945867538452
+      },
+      {
+        "q": "What is expected of a Lead SRE?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.42017731070518494
+      },
+      {
+        "q": "What does a Principal Designer do?",
+        "answerable": true,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": false,
+        "dense_max": 0.5506013631820679
+      },
+      {
+        "q": "Do you reimburse tuition for university courses?",
+        "answerable": false,
+        "lexical_hit": false,
+        "hybrid_hit": false,
+        "hybrid_empty": false,
+        "dense_max": 0.35675233602523804
+      },
+      {
+        "q": "Is there a gym membership or wellness stipend?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.40324991941452026
+      },
+      {
+        "q": "Does the company cover therapy or counseling sessions?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.46979591250419617
+      },
+      {
+        "q": "Which Slack channel should I use to ask IT for help?",
+        "answerable": false,
+        "lexical_hit": false,
+        "hybrid_hit": false,
+        "hybrid_empty": false,
+        "dense_max": 0.297487735748291
+      },
+      {
+        "q": "How much does a Basecamp subscription cost?",
+        "answerable": false,
+        "lexical_hit": false,
+        "hybrid_hit": false,
+        "hybrid_empty": false,
+        "dense_max": 0.6417430639266968
+      },
+      {
+        "q": "What is the company's stock ticker symbol?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.24361634254455566
+      },
+      {
+        "q": "How do I submit my timesheet at the end of the week?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.46918168663978577
+      },
+      {
+        "q": "Does the company pay for conference tickets?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.4647219479084015
+      },
+      {
+        "q": "Does the company send a gift when I get married?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.3679001033306122
+      },
+      {
+        "q": "Can I bring my dog to the meet-up?",
+        "answerable": false,
+        "lexical_hit": false,
+        "hybrid_hit": false,
+        "hybrid_empty": false,
+        "dense_max": 0.4787783622741699
+      },
+      {
+        "q": "Is there a union or works council I can join?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.4080873727798462
+      },
+      {
+        "q": "Does the company pay my home internet bill?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.34611251950263977
+      },
+      {
+        "q": "Can I get a company car?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.27942895889282227
+      },
+      {
+        "q": "What is the weather like in Barcelona in autumn?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.29804620146751404
+      },
+      {
+        "q": "Where is the best pizza in Chicago?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.18530629575252533
+      },
+      {
+        "q": "How do I change the shipping address on my Amazon orders?",
+        "answerable": false,
+        "lexical_hit": true,
+        "hybrid_hit": true,
+        "hybrid_empty": true,
+        "dense_max": 0.15916188061237335
+      }
+    ]
+  },
+  "embedding_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+  "fastembed": "0.9.1",
+  "genesis_docs": [
+    {
+      "q": "Как включить гибридный поиск и установить FastEmbed?",
+      "answerable": true,
+      "hit": false
+    },
+    {
+      "q": "Какие API endpoints позволяют посмотреть собственные traces?",
+      "answerable": true,
+      "hit": false
+    },
+    {
+      "q": "Как поставить train в очередь и получить статус задания?",
+      "answerable": true,
+      "hit": false
+    },
+    {
+      "q": "Какая настройка включает native function calling?",
+      "answerable": true,
+      "hit": true
+    },
+    {
+      "q": "How can I cancel a background job using the API?",
+      "answerable": true,
+      "hit": false
+    },
+    {
+      "q": "Какие команды запускают offline workflow eval и live routing eval?",
+      "answerable": true,
+      "hit": true
+    },
+    {
+      "q": "Does the Render Free filesystem preserve uploaded datasets on restart?",
+      "answerable": true,
+      "hit": true
+    },
+    {
+      "q": "Which secrets must be configured for email verification on Render?",
+      "answerable": true,
+      "hit": true
+    },
+    {
+      "q": "Каков гарантированный SLA GenesisAI 99.99% и размер компенсации за простой?",
+      "answerable": false,
+      "hit": true
+    },
+    {
+      "q": "What is GenesisAI's audited SOC 2 certificate number?",
+      "answerable": false,
+      "hit": true
+    },
+    {
+      "q": "В каком банке открыт расчётный счёт GenesisAI?",
+      "answerable": false,
+      "hit": true
+    },
+    {
+      "q": "How many paying customers did GenesisAI have in October 2026?",
+      "answerable": false,
+      "hit": true
+    }
+  ]
+}

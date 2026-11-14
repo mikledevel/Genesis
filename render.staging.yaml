@@ -1,0 +1,53 @@
+# Отдельный staging; существующий production не входит в Blueprint.
+services:
+  - type: web
+    name: genesis-ai-staging
+    runtime: python
+    branch: codex/pilot-readiness
+    region: frankfurt
+    plan: free
+    buildCommand: pip install -r requirements.render.txt
+    startCommand: python scripts/start_render.py
+    initialDeployHook: python scripts/seed_pilot.py
+    healthCheckPath: /ready
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.15
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: genesis-ai-staging-db
+          property: connectionString
+      - key: GENESIS_BOOTSTRAP_SCHEMA
+        value: "true"
+      - key: GENESIS_PILOT_ENABLED
+        value: "true"
+      - key: PILOT_EMAIL
+        sync: false
+      - key: PILOT_PASSWORD
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: ADMIN_EMAILS
+        value: ""
+      - key: AGENT_BROWSER_ENABLED
+        value: "false"
+      - key: STRIPE_SUBSCRIPTIONS_ENABLED
+        value: "false"
+      - key: CRYPTO_PAYMENTS_ENABLED
+        value: "false"
+      - key: KB_RETRIEVAL_MODE
+        value: lexical
+      - key: KB_RELEVANCE_GATE
+        value: "0.16"
+      - key: TRAINING_MEMORY_MB
+        value: "1024"
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"

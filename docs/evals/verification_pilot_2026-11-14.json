@@ -1,0 +1,42 @@
+{
+  "date": "2026-11-14",
+  "staging_status": "awaiting_blueprint_plan",
+  "human_pilot_status": "not_started",
+  "checks": {
+    "full_suite_before_docker_integration": {
+      "passed": 1094,
+      "skipped": 25
+    },
+    "targeted_latest_jobs_pilot_eval": {
+      "passed": 19
+    },
+    "postgres": {
+      "passed": 19
+    },
+    "docker_before_extra_error_checks": {
+      "passed": 3
+    },
+    "public_corpus_tests": {
+      "passed": 34
+    },
+    "ui": "workspace/admin/antibot passed",
+    "local_render_startup": "empty database bootstrap and schema version 4 passed",
+    "http_smoke": "login/upload/async train/idempotency/cancel/saved model prediction passed",
+    "local_restart": "ephemeral model files removed; same saved prediction and terminal jobs recovered",
+    "local_backup_restore": "pg_dump custom archive restored into another database; account, jobs, model prediction verified",
+    "final_suite": {
+      "passed": 1123,
+      "skipped": 1,
+      "subtests_passed": 8,
+      "duration_seconds": 158.49,
+      "postgres": true,
+      "real_docker": true,
+      "public_handbook_corpus": true
+    },
+    "remaining_skip": "jsdom unavailable in isolated Python copy; workspace/admin/antibot passed separately with Node"
+  },
+  "limitations": [
+    "Render live deployment, hosted restart and hosted backup/restore have not been verified.",
+    "The human participant has not yet completed the pilot or supplied feedback."
+  ]
+}

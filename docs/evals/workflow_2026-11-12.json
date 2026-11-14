@@ -1,0 +1,99 @@
+{
+  "mode": "offline_workflow_replay",
+  "llm_quality_measured": false,
+  "provider_cost_usd": 0,
+  "notes": "Only provider responses are replayed; upload, contracts, training, registry, inference, publishing and KB run for real.",
+  "summary": {
+    "cases": 12,
+    "passed": 12,
+    "success_rate": 1.0,
+    "median_latency_ms": 10.239999999999998,
+    "p95_latency_ms": 212.491
+  },
+  "cases": [
+    {
+      "id": "upload-analyze",
+      "passed": true,
+      "latency_ms": 37.258,
+      "trace_status": "ok",
+      "tool": "analyze_dataset"
+    },
+    {
+      "id": "clarify-ambiguous-target",
+      "passed": true,
+      "latency_ms": 11.159,
+      "trace_status": "ok",
+      "tool": "train_model"
+    },
+    {
+      "id": "train-register",
+      "passed": true,
+      "latency_ms": 212.491,
+      "trace_status": "ok",
+      "tool": "train_model"
+    },
+    {
+      "id": "publish",
+      "passed": true,
+      "latency_ms": 69.013,
+      "trace_status": "ok",
+      "tool": "publish_marketplace"
+    },
+    {
+      "id": "ask-missing-inputs",
+      "passed": true,
+      "latency_ms": 9.931,
+      "trace_status": "rejected",
+      "tool": "predict_with_model"
+    },
+    {
+      "id": "predict-version-metrics",
+      "passed": true,
+      "latency_ms": 10.549,
+      "trace_status": "ok",
+      "tool": "predict_with_model"
+    },
+    {
+      "id": "reject-nonfinite-input",
+      "passed": true,
+      "latency_ms": 8.195,
+      "trace_status": "rejected",
+      "tool": "predict_with_model"
+    },
+    {
+      "id": "scoped-bot-blocks-training",
+      "passed": true,
+      "latency_ms": 7.47,
+      "trace_status": "ok",
+      "tool": "train_model"
+    },
+    {
+      "id": "answer-with-source",
+      "passed": true,
+      "latency_ms": 11.694,
+      "trace_status": "ok",
+      "tool": null
+    },
+    {
+      "id": "reject-invented-source",
+      "passed": true,
+      "latency_ms": 7.663,
+      "trace_status": "rejected",
+      "tool": null
+    },
+    {
+      "id": "reject-invalid-tool-args",
+      "passed": true,
+      "latency_ms": 8.804,
+      "trace_status": "rejected",
+      "tool": "train_model"
+    },
+    {
+      "id": "reject-unknown-tool",
+      "passed": true,
+      "latency_ms": 8.828,
+      "trace_status": "rejected",
+      "tool": "shell"
+    }
+  ]
+}

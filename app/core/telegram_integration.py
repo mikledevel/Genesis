@@ -158,7 +158,7 @@ def import_bot_settings(token: str, bot_id: int) -> Dict:
     try:
         file_id = get_bot_avatar_file_id(token, bot_id)
         if file_id:
-            imported["avatar_url"] = get_file_url(token, file_id)
+            imported["avatar_file_id"] = file_id
     except TelegramAPIError:
         pass
     return imported

@@ -8,9 +8,38 @@ from app.deps import (
     StaticFiles,
     _allowed_origins
 )
-from app.routers import auth, pages, chat_agent, marketplace, ml, bots, admin
+from app.routers import auth, pages, chat_agent, marketplace, ml, bots, admin, crypto, jobs
 
-app = FastAPI(title="Genesis AI", version="1.0.0")
+import asyncio
+from contextlib import asynccontextmanager
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from app.core.observability import RequestContextMiddleware, http_error, unexpected_error, input_error
+
+
+@asynccontextmanager
+async def lifespan(app):
+    from app.db.database import GenesisDB
+    from app.core.scheduler import start_scheduler, stop_scheduler
+    from app.core.crypto_monitor import start_crypto_monitor, stop_crypto_monitor
+    from app.core.background import start_workers, stop_workers
+    db = await asyncio.to_thread(GenesisDB)
+    await asyncio.to_thread(db.recover_usage)
+    start_scheduler()
+    start_crypto_monitor()
+    start_workers()
+    try:
+        yield
+    finally:
+        stop_scheduler()
+        stop_crypto_monitor()
+        await stop_workers()
+
+
+app = FastAPI(title="Genesis AI", version="1.1.0", lifespan=lifespan)
+app.add_exception_handler(StarletteHTTPException, http_error)
+app.add_exception_handler(Exception, unexpected_error)
+app.add_exception_handler(ValueError, input_error)
+app.add_middleware(RequestContextMiddleware)
 # Order matters: Starlette applies the LAST-added middleware outermost, so it must be added
 # last to wrap everything else, including early-exit responses (like a 429 from the rate
 # limiter) that never reach the route handler. CORS goes last so those responses still carry
@@ -21,23 +50,16 @@ app.add_middleware(GeoBlockMiddleware)
 app.add_middleware(CORSMiddleware, allow_origins=_allowed_origins, allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.on_event("startup")
-async def _start_background_scheduler():
-    # Runs scheduled bot skills (see app/core/scheduler.py) - "Level 3" autonomous checks
-    # that fire on a timer rather than in response to a chat message. Safe to start
-    # unconditionally: with zero scheduled_jobs rows, the poll loop just wakes up every 30s,
-    # finds nothing due, and goes back to sleep.
-    from app.core.scheduler import start_scheduler
-    start_scheduler()
-
 # Route groups (order = order of first appearance in the old single-file main.py).
 app.include_router(auth.router)
+app.include_router(crypto.router)
 app.include_router(pages.router)
 app.include_router(chat_agent.router)
 app.include_router(marketplace.router)
 app.include_router(ml.router)
 app.include_router(bots.router)
 app.include_router(admin.router)
+app.include_router(jobs.router)
 
 if __name__ == "__main__":
     import uvicorn

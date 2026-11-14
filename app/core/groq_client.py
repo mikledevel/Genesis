@@ -217,17 +217,41 @@ def _create(client, name: str, model: str, messages, kwargs: dict, groq_only_kwa
     if name == "groq" and groq_only_kwargs:
         kw.update(groq_only_kwargs)       # reasoning_effort etc. are Groq extensions: never sent elsewhere
     try:
-        return client.chat.completions.create(model=model, messages=messages, **kw)
+        return _traced_create(client, name, model, messages, kw)
     except Exception as e:
+        body = getattr(e, "body", None)
+        detail = body.get("error", body) if isinstance(body, dict) else {}
+        if kw.get("tools") and _is_bad_request(e) and detail.get("code") == "tool_use_failed":
+            # Повторяем генерацию, но никогда не исполняем failed_generation из ошибки.
+            correction = {"role": "system", "content": "The previous function call failed name or argument validation. "
+                          "Call exactly one function from the provided tools, with valid arguments. "
+                          "Use the reply function for a normal answer or clarification. Do not invent function names."}
+            return _traced_create(client, name, model, [*messages, correction], kw)
         # Some OpenRouter free models / Gemini variants reject response_format; the prompts already
         # demand JSON, so retry once without it before declaring the provider failed.
         if name != "groq" and "response_format" in kw and _is_bad_request(e):
             kw.pop("response_format")
-            return client.chat.completions.create(model=model, messages=messages, **kw)
+            return _traced_create(client, name, model, messages, kw)
         raise
 
 
-def call_llm(api_key: str, *, model: str, messages, heavy: bool = False,
+def _traced_create(client, provider, model, messages, kwargs):
+    from app.core.tracing import span, record_usage, current_trace
+    with span("provider_attempt", provider=provider, model=model) as event:
+        try:
+            completion = client.chat.completions.create(model=model, messages=messages, **kwargs)
+        except BaseException:
+            event["usage_unknown"] = True
+            trace = current_trace.get()
+            if trace is not None:
+                trace["cost_complete"] = False
+                trace["unmetered_attempts"] += 1
+            raise
+        record_usage(event, completion, provider, model)
+        return completion
+
+
+def _call_llm(api_key: str, *, model: str, messages, heavy: bool = False,
              groq_only_kwargs: Optional[dict] = None, **kwargs):
     """Drop-in replacement for `client.chat.completions.create(...)` with automatic failover.
 
@@ -240,6 +264,10 @@ def call_llm(api_key: str, *, model: str, messages, heavy: bool = False,
 
     active = [p for p in plan if _cooling_seconds((p[0], p[1])) <= 0] or plan   # all cooling -> try anyway
     skipped = [p for p in plan if p not in active]
+    from app.core.tracing import span
+    for name, m, _ in skipped:
+        with span("provider_skipped", provider=name, model=m, reason="cooldown"):
+            pass
     errors: List[Tuple[str, str, Exception]] = []
     for name, m, client in active:
         key = (name, m)
@@ -249,7 +277,7 @@ def call_llm(api_key: str, *, model: str, messages, heavy: bool = False,
         except Exception as e:
             errors.append((name, m, e))
             _trip(key, e)
-            print(f"[LLM] {PRETTY[name]} failed for model='{m}' ({type(e).__name__}: {str(e)[:160]})"
+            print(f"[LLM] {PRETTY[name]} failed for model='{m}' ({type(e).__name__}, status={getattr(e, 'status_code', None)})"
                   f"{' - trying the next provider' if (name, m, client) != active[-1] else ''}")
             continue
         _clear(key)
@@ -272,6 +300,44 @@ def call_llm(api_key: str, *, model: str, messages, heavy: bool = False,
             if err is not None:
                 raise err
     raise errors[0][2]
+
+
+def call_llm(api_key, *, model, messages, **kwargs):
+    from app.core.quota import quota_owner
+    from app.core.tracing import trace_scope, span
+    with trace_scope("llm_call", quota_owner.get()):
+        with span("llm", requested_model=model):
+            return _metered_call(api_key, model=model, messages=messages, **kwargs)
+
+
+def _metered_call(api_key, *, model, messages, **kwargs):
+    from app.core.quota import quota_owner, check_quota
+    from app.db.database import GenesisDB
+    from app.core.public_api_billing import prompt_token_upper_bound
+    from app.db.reliability import UsageRejected
+    from fastapi import HTTPException
+    user = quota_owner.get()
+    db, reservation, reserved = None, None, 0
+    if user:
+        db = GenesisDB()
+        _, _, limit = check_quota(db,user)
+        if limit > 0:
+            reserved = prompt_token_upper_bound(messages) + int(kwargs.get("max_tokens") or 4096)
+            try:
+                reservation = db.reserve_tokens(user,reserved,limit)
+            except UsageRejected as error:
+                raise HTTPException(status_code=429,detail=str(error)) from error
+    try:
+        result = _call_llm(api_key,model=model,messages=messages,**kwargs)
+    except BaseException:
+        if reservation:
+            db.settle_tokens(reservation,0)
+        raise
+    if reservation:
+        usage = getattr(result,"usage",None)
+        total = getattr(usage,"total_tokens",None)
+        db.settle_tokens(reservation,total if isinstance(total,int) and total>=0 else reserved)
+    return result
 
 
 def status(api_key: str) -> Dict:

@@ -14,6 +14,7 @@ installed/running - this keeps local single-user development working without req
 Docker, while real deployments serving other users should always have Docker available.
 """
 import os
+import json
 import tempfile
 import shutil
 from typing import Dict
@@ -62,7 +63,10 @@ class DockerSandbox:
         import docker
         from docker.errors import ContainerError, ImageNotFound, APIError
 
-        os.makedirs(os.path.join(workdir, "models"), exist_ok=True)
+        output_directory = os.path.join(workdir,"models")
+        if os.path.islink(output_directory) or not os.path.realpath(output_directory).startswith(os.path.realpath(workdir)+os.sep):
+            return {"success":False,"stdout":"","stderr":"Unsafe sandbox output directory","returncode":None}
+        os.makedirs(output_directory, exist_ok=True)
         with open(os.path.join(workdir, "pipeline.py"), "w", encoding="utf-8") as f:
             f.write(code)
 
@@ -74,6 +78,10 @@ class DockerSandbox:
                 volumes={os.path.abspath(workdir): {"bind": "/sandbox", "mode": "rw"}},
                 working_dir="/sandbox",
                 network_mode="none",
+                user=f"{os.getuid()}:{os.getgid()}" if os.getuid() else "1000:1000",
+                pids_limit=128,
+                cap_drop=["ALL"],
+                security_opt=["no-new-privileges:true"],
                 mem_limit=self.MEMORY_LIMIT,
                 nano_cpus=self.NANO_CPUS,
                 read_only=True,
@@ -86,7 +94,7 @@ class DockerSandbox:
             logs = container.logs(stdout=True, stderr=True).decode("utf-8", errors="replace")
             returncode = result.get("StatusCode", 1)
             success = returncode == 0 and "PIPELINE_SUCCESS" in logs
-            return {"success": success, "stdout": logs[-4000:], "stderr": "" if success else logs[-4000:], "returncode": returncode}
+            return {"success": success, "stdout": logs[-65536:], "stderr": "" if success else logs[-65536:], "returncode": returncode}
         except Exception as e:
             return {"success": False, "stdout": "", "stderr": f"Sandbox execution error: {e}", "returncode": None}
         finally:
@@ -122,11 +130,7 @@ class DockerSandboxNetworked:
     execution path, however the generated code misbehaves, that reaches the network without
     going through SafeFetcher first.
 
-    NOTE ON VERIFICATION: I built and reviewed this carefully, but had no Docker daemon
-    available in my own environment to actually run it end-to-end - see docker_sandbox.py's
-    docstring / the accompanying message for what to check before trusting this in
-    production. Please run it for real (with GEOBLOCK/skills enabled in a dev environment)
-    and report back the exact error if anything doesn't work as described.
+    Контейнер и мост проверяются tests/test_docker_model_isolation.py.
     """
     TIMEOUT_SECONDS = 35  # raised from 20s - a real multi-request skill (e.g. checking several
     # sites for tenders) needs headroom beyond a single quick lookup
@@ -191,10 +195,16 @@ except Exception as e:
             client = docker.from_env()
             container = client.containers.run(
                 IMAGE_NAME,
-                command=["python", "/sandbox/skill.py"],
+                entrypoint=["python", "/sandbox/skill.py"],
                 volumes={os.path.abspath(workdir): {"bind": "/sandbox", "mode": "rw"}},
                 working_dir="/sandbox",
                 network_mode="none",
+                user=f"{os.getuid()}:{os.getgid()}" if os.getuid() else "1000:1000",
+                read_only=True,
+                tmpfs={"/tmp":"size=64m"},
+                pids_limit=128,
+                cap_drop=["ALL"],
+                security_opt=["no-new-privileges:true"],
                 mem_limit=self.MEMORY_LIMIT,
                 nano_cpus=self.NANO_CPUS,
                 detach=True,
@@ -213,7 +223,11 @@ except Exception as e:
                             continue
                         served_requests.add(fname)
                         req_id = fname[len("_req_"):-len(".json")]
-                        with open(os.path.join(workdir, fname)) as f:
+                        request_path = os.path.join(workdir,fname)
+                        if not req_id.isdigit() or int(req_id)>16 or os.path.islink(request_path) or os.path.getsize(request_path)>65536:
+                            raise ValueError("Unsafe or excessive sandbox bridge request")
+                        fd = os.open(request_path,os.O_RDONLY | getattr(os,"O_NOFOLLOW",0))
+                        with os.fdopen(fd) as f:
                             req = json.load(f)
                         try:
                             result = fetcher.fetch(req["url"], req.get("method", "GET"),
@@ -221,8 +235,10 @@ except Exception as e:
                             payload = {"result": result}
                         except Exception as e:
                             payload = {"error": str(e)}
-                        with open(os.path.join(workdir, f"_resp_{req_id}.json"), "w") as f:
+                        fd, temporary = tempfile.mkstemp(dir=workdir,prefix=".response-")
+                        with os.fdopen(fd,"w") as f:
                             json.dump(payload, f)
+                        os.replace(temporary,os.path.join(workdir,f"_resp_{req_id}.json"))
                     if container.status in ("exited", "dead"):
                         break
                     time.sleep(self.POLL_INTERVAL_SECONDS)

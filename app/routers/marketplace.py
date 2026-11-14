@@ -1,90 +1,99 @@
 """marketplace routes (split out of app/main.py)."""
-from fastapi import APIRouter
-from app.deps import (
-    ChatCompletionsRequest,
-    Depends,
-    HTTPException,
-    Optional,
-    PUBLIC_API_SUPPORTED_MODELS,
-    PublishRequest,
-    UseModelRequest,
-    get_api_key_from_request,
-    get_current_user_id,
-    os,
-    settings
-)
+from fastapi import APIRouter, Header, Query
+import os
+from app.api.contracts import ChatCompletionsRequest, PublishRequest, UseModelRequest
+from fastapi import Depends, HTTPException
+from typing import Optional
+from app.deps import PUBLIC_API_SUPPORTED_MODELS
+from app.core.auth import get_api_key_from_request, get_current_user_id
+from app.config import settings
 
 router = APIRouter()
 
 # ── Marketplace ──
 @router.get("/api/marketplace/listings")
-async def marketplace_listings(task: Optional[str] = None):
+def marketplace_listings(task: Optional[str] = None,limit: int = Query(20,ge=1,le=200),offset: int = Query(0,ge=0)):
     from app.core.marketplace import Marketplace
-    return {"listings": Marketplace().search(task=task) if task else Marketplace().search()}
+    return {"listings":Marketplace().search(task=task,limit=limit,offset=offset),"limit":limit,"offset":offset}
+
+LOCAL_LABEL = ("Trained on the owner's own computer, not by the platform. The scores below were measured by the platform on a hidden "
+               "test set; the platform cannot check which rows the model was trained on.")
+
+
+def listing_args(record: dict, user_id: str) -> dict:
+    """Everything a listing says about a model, taken from the registry record (what the platform measured). Raises HTTPException if the
+    caller is not the author or the platform rates the model as unreliable. Shared by both publish routes."""
+    meta = record.get("metadata") or {}
+    if meta.get("author") != user_id:
+        raise HTTPException(status_code=403, detail="Only the author of a model can publish it.")
+    trust = meta.get("trust") or {}
+    if trust.get("level") == "low":
+        why = "; ".join(str(r) for r in (trust.get("reasons") or [])[:3])
+        raise HTTPException(status_code=400, detail="The platform's check rates this model as not reliable enough to sell"
+                                                    + (f": {why}" if why else "") + ".")
+    provenance = {"trained_on": meta.get("trained_on", "platform"), "built_via": meta.get("built_via"),
+                  "verified": bool(meta.get("verified", False)), "trust": trust or None}
+    if meta.get("trained_on") == "user_machine":
+        provenance["label"] = LOCAL_LABEL
+    measured = {k: v for k, v in (record.get("metrics") or {}).items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
+    return {"task": record.get("task", "unknown"), "model_type": record.get("model_type", "unknown"),
+            "metrics": measured, "provenance": provenance}
+
 
 @router.post("/api/marketplace/publish")
-async def marketplace_publish(req: PublishRequest, user_id: str = Depends(get_current_user_id)):
+def marketplace_publish(req: PublishRequest, user_id: str = Depends(get_current_user_id)):
+    """Only the author can list a model. The listing's task, algorithm and scores come from the registry record (what the platform
+    measured), never from the request: `task`, `model_type` and `metrics` in the body are accepted for compatibility and ignored."""
     from app.core.marketplace import Marketplace
     from app.core.engine.registry import ModelRegistry
     try:
-        ModelRegistry().get_record(req.model_id)
+        record = ModelRegistry().get_record(req.model_id)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Model '{req.model_id}' not found in Registry - train/register it first")
-    lid = Marketplace().publish(author=user_id, model_id=req.model_id, title=req.title, description=req.description, task=req.task, model_type=req.model_type, metrics=req.metrics, price_per_call=req.price_per_call)
-    return {"listing_id": lid}
+    kw = listing_args(record, user_id)
+    lid = Marketplace().publish(author=user_id, model_id=req.model_id, title=req.title, description=req.description,
+                                price_per_call=req.price_per_call, **kw)
+    return {"listing_id": lid, "provenance": kw["provenance"]}
 
 @router.get("/api/marketplace/stats")
-async def marketplace_stats():
+def marketplace_stats():
     from app.core.marketplace import Marketplace
     return Marketplace().get_platform_stats()
 
 @router.post("/api/marketplace/{listing_id}/use")
-async def marketplace_use(listing_id: str, req: UseModelRequest, user_id: str = Depends(get_current_user_id)):
+def marketplace_use(listing_id: str, req: UseModelRequest, user_id: str = Depends(get_current_user_id),
+                    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")):
     from app.core.marketplace import Marketplace
     from app.core.engine.registry import ModelRegistry
+    from app.core.engine.predict_utils import build_model_input_from_list
+    from app.core.inference import predict_model
+    from app.core.money import price_cents
+    from app.core.usage import reserved_usage, operation_key, fingerprint
     from app.db.database import GenesisDB
-    mkt = Marketplace()
-    listing = mkt.listings.get(listing_id)
-    if not listing:
-        raise HTTPException(status_code=404, detail="Listing not found")
-    if not listing["active"]:
-        raise HTTPException(status_code=410, detail="This listing is no longer active")
-
-    price_cents = round(listing["price_per_call"] * 100)
-    db = GenesisDB()
-    if price_cents > 0:
-        result = db.charge_for_usage(
-            buyer_user_id=user_id, amount_cents=price_cents,
-            description=f"Used model: {listing['title']}",
-            author_user_id=listing["author"], platform_fee_pct=Marketplace.COMMISSION * 100,
-            related_id=listing_id,
-        )
-        if not result["ok"]:
-            raise HTTPException(status_code=402, detail=(
-                f"Insufficient balance - this costs ${listing['price_per_call']:.4f}, "
-                f"you have ${result['balance_cents']/100:.2f}. Add funds to continue."))
-
+    listing = Marketplace().listings.get(listing_id)
+    if not listing or not listing.get("active"):
+        raise HTTPException(status_code=404, detail="Active listing not found")
+    reg, db = ModelRegistry(), GenesisDB()
     try:
-        reg = ModelRegistry()
-        model = reg.get_model(listing["model_id"])
-        from app.core.engine.predict_utils import build_model_input_from_list
-        prediction = model.predict(build_model_input_from_list(reg.get_record(listing["model_id"]), req.features))
-        mkt.use_model(listing_id, user_id)  # update call count / earnings stats shown in listing
-        return {"prediction": prediction.tolist(), "charged_cents": price_cents}
-    except Exception as e:
-        # The prediction itself failed after we already charged the buyer and credited the
-        # author - reverse BOTH sides of that transaction, not just the buyer's refund,
-        # or the author keeps an earning for a call that never produced a result.
-        if price_cents > 0:
-            db.add_transaction(user_id, "usage_refund", price_cents, f"Refund: {listing['title']} (prediction error)", related_id=listing_id)
-            author_share = round(price_cents * (1 - Marketplace.COMMISSION))
-            if author_share > 0:
-                db.add_transaction(listing["author"], "usage_earning_reversal", -author_share,
-                                   f"Reversal: {listing['title']} (prediction error)", related_id=listing_id)
-        raise HTTPException(status_code=500, detail=f"Prediction failed (refunded): {e}")
+        prepared = build_model_input_from_list(reg.get_record(listing["model_id"]), req.features)
+    except (ValueError, TypeError, KeyError) as error:
+        raise HTTPException(status_code=422, detail="Invalid model features") from error
+    amount = 0 if listing["author"] == user_id else price_cents(listing["price_per_call"])
+    oid = operation_key(user_id, "listing:" + listing_id, idempotency_key)
+    with reserved_usage(db, user_id, amount, author_id=listing["author"], operation_id=oid, request_hash=fingerprint(req.model_dump()), related_id=listing_id) as operation:
+        if operation["replayed"]:
+            return operation["result"]
+        try:
+            prediction = predict_model(reg, listing["model_id"], prepared)
+            result = {"prediction": prediction.tolist(), "charged_cents": amount}
+            db.finish_usage(operation["id"], result=result)
+            return result
+        except Exception as error:
+            raise HTTPException(status_code=502, detail="Prediction failed; the reservation was refunded") from error
 
 @router.post("/api/v1/chat/completions")
-async def chat_completions_v1(req: ChatCompletionsRequest, api_key: str = Depends(get_api_key_from_request)):
+def chat_completions_v1(req: ChatCompletionsRequest, api_key: str = Depends(get_api_key_from_request),
+                        idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")):
     import time, uuid
     import groq as groq_sdk
     from app.db.database import GenesisDB
@@ -109,40 +118,43 @@ async def chat_completions_v1(req: ChatCompletionsRequest, api_key: str = Depend
 
     messages = [{"role": m.role, "content": m.content} for m in req.messages]
 
-    # PRE-CHARGE the worst case before spending anything with the provider - see
-    # public_api_billing.py's module docstring for why this has to happen before generation,
-    # not after. Nothing is sent to Groq/OpenRouter at all if this fails.
+    from app.core.usage import reserved_usage, operation_key, fingerprint
+    from app.core.public_api_billing import compute_cost_cents, prompt_token_upper_bound
+    if prompt_token_upper_bound(messages) > 120000:
+        raise HTTPException(status_code=413, detail="Prompt exceeds the supported input budget")
     pre_charge_cents = estimate_worst_case_cost_cents(messages, max_tokens)
-    charge = db.charge_for_usage(user_id, pre_charge_cents,
-                                  f"Public API call ({model}, up to {max_tokens} tokens)", related_id=api_key)
-    if not charge["ok"]:
-        raise HTTPException(status_code=402, detail=(
-            f"Insufficient balance: at current pricing this call could cost up to "
-            f"{pre_charge_cents} cent(s), but your balance is {charge['balance_cents']} cent(s). "
-            f"Top up at POST /api/payments/checkout."))
+    operation_id = operation_key(user_id, "public-chat", idempotency_key)
+    with reserved_usage(db, user_id, pre_charge_cents, operation_id=operation_id, request_hash=fingerprint(req.model_dump())) as operation:
+        if operation["replayed"]:
+            return operation["result"]
+        try:
+            completion = call_llm(os.environ.get("GROQ_API_KEY", "") or settings.groq_api_key,
+                model=model, messages=messages, temperature=req.temperature if req.temperature is not None else 0.7,
+                max_tokens=max_tokens)
+            if not completion.choices:
+                raise ValueError("No completion choices")
+            usage = getattr(completion, "usage", None)
+            prompt_tokens = getattr(usage, "prompt_tokens", None) or prompt_token_upper_bound(messages)
+            completion_tokens = getattr(usage, "completion_tokens", None)
+            if completion_tokens is None:
+                completion_tokens = max_tokens
+            final_charge_cents = compute_cost_cents(prompt_tokens, completion_tokens)
+            if final_charge_cents > pre_charge_cents:
+                raise ValueError("Provider usage exceeds the reserved budget")
+            response = _completion_response(completion, model, prompt_tokens, completion_tokens, final_charge_cents,
+                                            db.get_balance(user_id) + pre_charge_cents-final_charge_cents)
+            db.finish_usage(operation["id"], result=response, actual_cents=final_charge_cents,
+                public_usage=(api_key,getattr(completion,"model",None) or model,prompt_tokens,completion_tokens))
+            return response
+        except HTTPException:
+            raise
+        except Exception as error:
+            status_code = 504 if isinstance(error, groq_sdk.APITimeoutError) else 502
+            raise HTTPException(status_code=status_code, detail="The AI provider failed; the reservation was refunded") from error
 
-    try:
-        completion = call_llm(
-            os.environ.get("GROQ_API_KEY", "") or settings.groq_api_key,
-            model=model, messages=messages,
-            temperature=req.temperature if req.temperature is not None else 0.7,
-            max_tokens=max_tokens,
-        )
-    except Exception as e:
-        # Nothing was generated at all - refund the FULL pre-charge, not a partial amount.
-        db.add_transaction(user_id, "public_api_refund", pre_charge_cents,
-                            f"Refund: public API call failed before generating a response "
-                            f"({type(e).__name__})", related_id=api_key)
-        status_code = 504 if isinstance(e, groq_sdk.APITimeoutError) else 502
-        raise HTTPException(status_code=status_code,
-                             detail=f"The AI provider failed to generate a response: {e}")
 
-    usage = getattr(completion, "usage", None)
-    prompt_tokens = getattr(usage, "prompt_tokens", None) or estimate_prompt_tokens(messages)
-    completion_tokens = getattr(usage, "completion_tokens", None) or 0
-    final_charge_cents = reconcile_charge(db, user_id, api_key, pre_charge_cents, prompt_tokens, completion_tokens)
-    db.log_public_api_usage(api_key, user_id, model, prompt_tokens, completion_tokens, final_charge_cents)
-
+def _completion_response(completion, model, prompt_tokens, completion_tokens, final_charge_cents, balance_cents):
+    import time, uuid
     choice = completion.choices[0]
     return {
         "id": f"genesis-{uuid.uuid4().hex[:24]}",
@@ -160,11 +172,11 @@ async def chat_completions_v1(req: ChatCompletionsRequest, api_key: str = Depend
         # the fields above) - included because unlike OpenAI's own API, billing here is
         # prepaid-balance-based, so surfacing what THIS call actually cost and what's left is
         # directly useful to show a developer without a second API call.
-        "genesis_billing": {"charged_cents": final_charge_cents, "balance_cents_remaining": db.get_balance(user_id)},
+        "genesis_billing": {"charged_cents": final_charge_cents, "balance_cents_remaining": balance_cents},
     }
 
 @router.get("/api/v1/models")
-async def list_models_v1(api_key: str = Depends(get_api_key_from_request)):
+def list_models_v1(api_key: str = Depends(get_api_key_from_request)):
     """OpenAI-SDK-compatible model list (client.models.list()) - also doubles as a cheap way
     for a developer to confirm their API key works before wiring up real calls."""
     from app.db.database import GenesisDB
@@ -174,7 +186,7 @@ async def list_models_v1(api_key: str = Depends(get_api_key_from_request)):
                                         for m in sorted(PUBLIC_API_SUPPORTED_MODELS)]}
 
 @router.get("/api/v1/usage")
-async def public_api_usage_v1(user_id: str = Depends(get_current_user_id)):
+def public_api_usage_v1(user_id: str = Depends(get_current_user_id)):
     """Spend/token summary for the LOGGED-IN platform account (not per-key) - reuses the
     normal JWT session auth, since this is meant for a developer checking their own dashboard,
     not for embedding in a server-to-server integration the way chat/completions is."""

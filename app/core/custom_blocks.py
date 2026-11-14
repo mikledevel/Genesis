@@ -1,15 +1,17 @@
-﻿"""
+"""
 Custom Blocks Store - пользовательские блоки для Pipeline Builder.
 """
 
 import json, os
+import uuid
+from app.db.document_store import DatabaseDocument, legacy_document, document_mutation
 from typing import Dict, List, Optional
 from datetime import datetime
 
 
 class CustomBlock:
     def __init__(self, name: str, code: str, icon: str = "🔧", category: str = "custom"):
-        self.id = f"block_{datetime.now().strftime('%Y%m%d%H%M%S')}_{abs(hash(name)) % 10000:04d}"
+        self.id = "block_" + uuid.uuid4().hex
         self.name = name
         self.code = code
         self.icon = icon
@@ -29,18 +31,16 @@ class CustomBlock:
 
 class CustomBlockStore:
     def __init__(self):
-        os.makedirs("blocks", exist_ok=True)
         self.path = "blocks/store.json"
-        if not os.path.exists(self.path):
-            with open(self.path, "w", encoding="utf-8") as f:
-                json.dump({"blocks": []}, f, indent=2)
+        self._document = DatabaseDocument("blocks", legacy_document(self.path, {"blocks": []}))
 
     def _load(self):
-        with open(self.path, "r", encoding="utf-8") as f: return json.load(f)
+        return self._document.read()
 
     def _save(self, data):
-        with open(self.path, "w", encoding="utf-8") as f: json.dump(data, f, indent=2, ensure_ascii=False)
+        self._document.replace(data)
 
+    @document_mutation
     def create(self, name: str, code: str, icon: str = "🔧", category: str = "custom", author: str = "") -> Dict:
         block = CustomBlock(name, code, icon, category)
         block.author = author
@@ -56,6 +56,7 @@ class CustomBlockStore:
             blocks = [b for b in blocks if b["category"] == category]
         return blocks
 
+    @document_mutation
     def delete_block(self, block_id: str, owner_user_id: str) -> bool:
         """Only removes the block if owner_user_id created it. Returns False (nothing
         deleted) otherwise - previously this had no ownership check at all, so any

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Marketplace - маркетплейс ИИ-моделей.
 
 Позволяет авторам публиковать своих ИИ-агентов,
@@ -6,6 +6,7 @@ Marketplace - маркетплейс ИИ-моделей.
 а другим пользователям — покупать и запускать их.
 """
 
+from app.db.document_store import DatabaseDocument, legacy_document, document_mutation
 import json
 import os
 import shutil
@@ -51,19 +52,31 @@ class Marketplace:
         self.listings_path = self.storage_dir / "listings.json"
         self.transactions_path = self.storage_dir / "transactions.json"
         
-        self.listings: Dict[str, Dict] = self._load(self.listings_path)
-        self.transactions: List[Dict] = self._load(self.transactions_path, as_list=True)
-    
-    def _load(self, path: Path, as_list: bool = False):
-        if path.exists():
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        return [] if as_list else {}
-    
-    def _save(self, data, path: Path):
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-    
+        self._document = DatabaseDocument("marketplace:" + str(Path(storage_dir)), {
+            "listings": legacy_document(self.listings_path, {}),
+            "transactions": legacy_document(self.transactions_path, [])})
+        self._refresh_document()
+
+    def _refresh_document(self):
+        data = self._document.read()
+        self.listings = data["listings"]
+        self.transactions = data["transactions"]
+        self._ledger = {}
+        if getattr(self._document.local,"current",None) is None:
+            with self._document.db._connect() as conn:
+                rows = conn.execute("SELECT related_id,COUNT(*),SUM(amount_cents),SUM(author_cents) FROM usage_operations WHERE status='succeeded' AND related_id IS NOT NULL GROUP BY related_id").fetchall()
+            self._ledger = {r[0]:r[1:] for r in rows}
+            for listing_id,listing in self.listings.items():
+                if listing_id in self._ledger:
+                    calls,paid,earned = self._ledger[listing_id]
+                    listing["total_calls"] += calls
+                    listing["total_earnings"] += earned/100
+
+    def _save(self, data, path):
+        with self._document.transaction() as current:
+            current["listings" if path == self.listings_path else "transactions"] = data
+
+    @document_mutation
     def publish(
         self,
         author: str,
@@ -74,6 +87,7 @@ class Marketplace:
         model_type: str,
         metrics: Dict[str, float],
         price_per_call: float = 0.01,
+        provenance: Optional[Dict] = None,
     ) -> str:
         """
         Публикация модели на маркетплейсе.
@@ -87,12 +101,15 @@ class Marketplace:
             model_type: тип модели
             metrics: метрики качества
             price_per_call: цена за вызов
+            provenance: who trained it and what was verified (trained_on, built_via, verified, trust, label)
             
         Returns:
             listing_id
         """
         listing_id = f"list_{model_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         
+        from app.core.money import price_cents
+        price_cents(price_per_call)
         self.listings[listing_id] = {
             "listing_id": listing_id,
             "model_id": model_id,
@@ -110,6 +127,8 @@ class Marketplace:
             "created_at": datetime.now().isoformat(),
             "active": True,
         }
+        if provenance:
+            self.listings[listing_id]["provenance"] = provenance
         
         self._save(self.listings, self.listings_path)
         return listing_id
@@ -122,6 +141,7 @@ class Marketplace:
         max_price: Optional[float] = None,
         sort_by: str = "rating",
         limit: int = 20,
+        offset: int = 0,
     ) -> List[Dict]:
         """
         Поиск моделей на маркетплейсе.
@@ -163,8 +183,9 @@ class Marketplace:
         key = sort_keys.get(sort_by, sort_keys["rating"])
         results.sort(key=key, reverse=(sort_by != "price"))
         
-        return results[:limit]
+        return results[offset:offset+limit]
     
+    @document_mutation
     def use_model(self, listing_id: str, user: str) -> Dict:
         """
         Использование модели (платный вызов).
@@ -210,6 +231,7 @@ class Marketplace:
         
         return transaction
     
+    @document_mutation
     def add_review(self, listing_id: str, user: str, rating: float, comment: str = "") -> Dict:
         """
         Добавление отзыва о модели.
@@ -255,6 +277,10 @@ class Marketplace:
         total_calls = sum(l["total_calls"] for l in author_listings)
         total_earnings = sum(l["total_earnings"] for l in author_listings)
         active_listings = sum(1 for l in author_listings if l["active"])
+        with self._document.db._connect() as conn:
+            paid = conn.execute("SELECT COUNT(*),COALESCE(SUM(amount_cents),0) FROM transactions WHERE user_id=? AND type IN ('usage_earning','usage_earning_reversal')",(author,)).fetchone()
+        if paid[0]:
+            total_earnings = paid[1]/100
         
         return {
             "author": author,
@@ -270,9 +296,8 @@ class Marketplace:
         """
         total_calls = sum(l["total_calls"] for l in self.listings.values())
         total_author_earnings = sum(l["total_earnings"] for l in self.listings.values())
-        total_platform_fees = sum(
-            t["platform_fee"] for t in self.transactions
-        )
+        total_platform_fees = sum(t["platform_fee"] for t in self.transactions)
+        total_platform_fees += sum((values[1]-values[2])/100 for lid,values in self._ledger.items() if lid in self.listings)
         
         tasks = {}
         for l in self.listings.values():
@@ -285,10 +310,11 @@ class Marketplace:
             "total_calls": total_calls,
             "total_author_earnings": round(total_author_earnings, 2),
             "total_platform_fees": round(total_platform_fees, 2),
-            "total_transactions": len(self.transactions),
+            "total_transactions": len(self.transactions) + sum(values[0] for lid,values in self._ledger.items() if lid in self.listings),
             "by_task": tasks,
         }
     
+    @document_mutation
     def deactivate_listing(self, listing_id: str):
         """Деактивация листинга."""
         if listing_id not in self.listings:

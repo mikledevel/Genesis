@@ -35,7 +35,9 @@ def test_csv_upload_is_stored_inside_the_agents_allowed_dir_and_described(env):
     saved = list((tmp / "datasets" / "uploads" / "u1").glob(f"{j['id']}_*.csv"))
     assert len(saved) == 1
     from app.core.agent import GenesisAgent
-    assert GenesisAgent.__new__(GenesisAgent)._validate_path(os.path.relpath(saved[0]))     # tools may open it
+    agent = GenesisAgent.__new__(GenesisAgent)
+    agent.current_user_id = "u1"
+    assert agent._validate_path(os.path.relpath(saved[0]))     # tools may open it
 
 
 def test_tsv_is_converted_to_csv(env):

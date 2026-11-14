@@ -15,8 +15,8 @@ button{cursor:pointer}button:hover{border-color:var(--accent)}.danger{color:var(
 th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}th{color:var(--muted);font-weight:600;font-size:12px}
 .tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}.tag.admin{color:var(--accent);border-color:var(--accent)}.tag.off{color:var(--bad);border-color:var(--bad)}
 #msg{margin:10px 0;color:var(--bad)}.muted{color:var(--muted)}
-</style></head><body><main>
-<h1>GenesisAI admin</h1>
+</style><link rel="stylesheet" href="/static/design-tokens.css?v=20261110"><link rel="stylesheet" href="/static/admin-theme.css?v=20261110"><link rel="stylesheet" href="/static/brand.css?v=20261110-logo"><link rel="icon" href="/static/favicon.svg?v=genesis-logo" type="image/svg+xml"></head><body><main>
+<h1 class="admin-brand"><span class="brand-mark" aria-hidden="true"><img src="/static/brand/genesis-logo.png" alt="" width="1024" height="1024" decoding="async"></span><span>Genesis AI <span class="muted">/ Admin</span></span></h1>
 <div id="msg" role="alert"></div>
 <div id="app" hidden>
   <div class="cards" id="cards"></div>

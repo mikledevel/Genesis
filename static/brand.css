@@ -1,0 +1,34 @@
+/* Исходный знак не изменён: убираем поля композиционно, сохраняя острые концы. */
+.brand-mark{
+  --brand-size:32px;
+  --brand-crop:150%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:var(--brand-size);
+  height:var(--brand-size);
+  flex:0 0 var(--brand-size);
+  overflow:hidden;
+  vertical-align:middle;
+}
+.brand-mark img{
+  display:block;
+  width:var(--brand-crop);
+  height:var(--brand-crop);
+  max-width:none;
+  flex-shrink:0;
+  object-fit:contain;
+  mix-blend-mode:lighten;
+}
+.ld-logo .brand-mark{--brand-size:34px}
+.auth-logo .brand-mark{--brand-size:44px}
+#app .nav-logo{gap:10px}
+#app .nav-logo .brand-mark{--brand-size:32px}
+.builder-brand,.admin-brand{display:flex;align-items:center;gap:12px}
+.builder-brand .brand-mark{--brand-size:28px}
+.admin-brand .brand-mark{--brand-size:36px}
+@media(max-width:640px){
+  .ld-logo{gap:8px}
+  .ld-logo .brand-mark{--brand-size:30px}
+  .auth-logo .brand-mark{--brand-size:40px}
+}

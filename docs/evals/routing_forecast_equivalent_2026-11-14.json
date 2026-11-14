@@ -1,0 +1,99 @@
+{
+  "mode": "live_routing",
+  "model": "openai/gpt-oss-120b",
+  "protocol": "json",
+  "tools_executed": false,
+  "provider_order": "groq",
+  "dataset_sha256": "2bb3071c707b6d08c60232cc35f993c18859092a5f55b85af9d6355439377b25",
+  "prompt_sha256": "55fb50ba643214e7436db9f460ae92fd713ab04ba3778221b16958ed2d9d4ceb",
+  "tool_schema_sha256": "b6015161cd38c91192c3e5500513d590e65edbe47d2d26b081b7b1dfc0be116e",
+  "summary": {
+    "cases": 3,
+    "passed": 3,
+    "success_rate": 1.0,
+    "median_latency_ms": 602.252,
+    "p95_latency_ms": 717.012
+  },
+  "estimated_cost_usd": 0.0014330999999999999,
+  "known_estimated_cost_usd": 0.0014330999999999999,
+  "cases": [
+    {
+      "id": "forecast",
+      "passed": true,
+      "actual_tool": "forecast_model",
+      "actual_args": {
+        "path": "datasets/sales.csv",
+        "target_column": "revenue",
+        "date_column": "date",
+        "horizon": 30,
+        "horizon_unit": "day"
+      },
+      "latency_ms": 497.302,
+      "prompt_tokens": 3359,
+      "completion_tokens": 66,
+      "estimated_cost_usd": 0.0005533499999999999,
+      "known_estimated_cost_usd": 0.0005533499999999999,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 0,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "id": "forecast-ru",
+      "passed": true,
+      "actual_tool": "forecast_model",
+      "actual_args": {
+        "path": "datasets/sales.csv",
+        "target_column": "revenue",
+        "date_column": "date",
+        "horizon": 14,
+        "horizon_unit": "day"
+      },
+      "latency_ms": 717.012,
+      "prompt_tokens": 2597,
+      "completion_tokens": 69,
+      "estimated_cost_usd": 0.0004413,
+      "known_estimated_cost_usd": 0.0004413,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 0,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "id": "forecast-spaced",
+      "passed": true,
+      "actual_tool": "forecast_model",
+      "actual_args": {
+        "path": "datasets/monthly.csv",
+        "target_column": "net revenue",
+        "date_column": "month",
+        "horizon": 3,
+        "horizon_unit": "month"
+      },
+      "latency_ms": 602.252,
+      "prompt_tokens": 2593,
+      "completion_tokens": 66,
+      "estimated_cost_usd": 0.00043845,
+      "known_estimated_cost_usd": 0.00043845,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 0,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

@@ -108,3 +108,11 @@ class TestContextFormatting:
         confirm the instruction to NOT guess on uncovered questions is actually present."""
         block = format_context_block([{"filename": "f.txt", "content": "some fact"}])
         assert "not covered" in block.lower() or "do not guess" in block.lower()
+
+
+def test_configurable_relevance_gate_has_explicit_call_override(monkeypatch):
+    from app.config import settings
+    chunks = [{'filename': 'policy', 'content': 'Returns are accepted within fourteen days.'}]
+    monkeypatch.setattr(settings, 'kb_relevance_gate', 1.0)
+    assert retrieve_relevant_chunks('Returns', chunks) == []
+    assert retrieve_relevant_chunks('Returns', chunks, min_similarity=0.0)

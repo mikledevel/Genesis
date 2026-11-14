@@ -250,13 +250,16 @@ def _turnstile(monkeypatch, handler):
 
 
 def test_captcha_is_off_unless_both_keys_are_set(client, monkeypatch):
-    assert antibot.captcha_enabled() is False and client.get("/api/config/public").json() == {"turnstile_site_key": ""}
+    assert antibot.captcha_enabled() is False and client.get("/api/config/public").json() == {
+        "turnstile_site_key": "", "stripe_subscriptions_enabled": False, "crypto_payments_enabled": False}
     monkeypatch.setattr(settings, "turnstile_site_key", "SITEKEY")
     assert antibot.captcha_enabled() is False                                     # half-configured -> off, not a lockout
-    assert client.get("/api/config/public").json() == {"turnstile_site_key": ""}
+    assert client.get("/api/config/public").json() == {
+        "turnstile_site_key": "", "stripe_subscriptions_enabled": False, "crypto_payments_enabled": False}
     assert _reg(client, "a@shop.test").status_code == 200
     monkeypatch.setattr(settings, "turnstile_secret_key", "SECRETKEY")
-    assert client.get("/api/config/public").json() == {"turnstile_site_key": "SITEKEY"}   # the SECRET never leaves
+    assert client.get("/api/config/public").json() == {
+        "turnstile_site_key": "SITEKEY", "stripe_subscriptions_enabled": False, "crypto_payments_enabled": False}  # the SECRET never leaves
 
 
 def test_captcha_is_required_and_verified_server_side(client, monkeypatch):
@@ -268,7 +271,7 @@ def test_captcha_is_required_and_verified_server_side(client, monkeypatch):
     assert _reg(client, "a3@shop.test", captcha_token="good").status_code == 200
     c = calls[-1]
     assert c["url"] == "https://challenges.cloudflare.com/turnstile/v0/siteverify"
-    assert c["data"]["secret"] == "SECRETKEY" and c["data"]["response"] == "good" and c["data"]["remoteip"].startswith("10.8.")
+    assert c["data"]["secret"] == "SECRETKEY" and c["data"]["response"] == "good" and c["data"]["remoteip"] == "testclient"
 
 
 def test_captcha_fails_closed_when_cloudflare_is_unreachable(client, monkeypatch):

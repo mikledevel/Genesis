@@ -1,0 +1,65 @@
+{
+  "date": "2026-11-12",
+  "python": "3.12.15",
+  "requirements_lock_sha256": "8ff868602b7582ccb723e77ffee809468373d706baa768d22c983816646b36fd",
+  "pytest": {
+    "passed": 1102,
+    "skipped": 6,
+    "seconds": 183.49,
+    "postgresql_included": true
+  },
+  "docker": {
+    "passed": 3,
+    "real_daemon": true
+  },
+  "jsdom": {
+    "workspace": {
+      "passed": true,
+      "assertions": 110
+    },
+    "admin": {
+      "passed": true,
+      "assertions": 22
+    },
+    "antibot": {
+      "passed": true,
+      "assertions": 18
+    }
+  },
+  "playwright": {
+    "isolated_local_app": true,
+    "tested_widths": [
+      320,
+      768,
+      1024,
+      1440
+    ],
+    "horizontal_overflow": false,
+    "console_errors": 0,
+    "console_warnings": 0,
+    "source_keyboard_toggle": true,
+    "persisted_job_result_visible": true
+  },
+  "offline_workflow": {
+    "cases": 12,
+    "passed": 12,
+    "success_rate": 1.0,
+    "median_latency_ms": 10.239999999999998,
+    "p95_latency_ms": 212.491
+  },
+  "live_json": {
+    "cases": 12,
+    "passed": 11,
+    "success_rate": 0.9166666666666666,
+    "median_latency_ms": 629.062,
+    "p95_latency_ms": 995.338
+  },
+  "live_native": {
+    "cases": 12,
+    "passed": 8,
+    "success_rate": 0.6666666666666666,
+    "median_latency_ms": 942.615,
+    "p95_latency_ms": 16694.243
+  },
+  "deployment_performed": false
+}

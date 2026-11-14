@@ -1,0 +1,108 @@
+/* Бета-слой отключается целиком через data-glass; таблицы не размываются. */
+:root{
+  --glass-blur:24px;
+  --glass-radius:16px;
+  --glass-surface:rgba(37,40,35,.78);
+  --glass-border:rgba(235,238,220,.17);
+  --glass-reflection:inset 0 1px 0 rgba(255,255,244,.18),inset 1px 0 0 rgba(255,255,244,.05);
+  --glass-shadow:0 12px 36px rgba(8,12,7,.24);
+}
+.glass-beta-toggle{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;
+  min-height:32px;padding:6px 10px;border:1px solid var(--brd2);border-radius:var(--r);
+  background:var(--card);color:var(--txt2);font:500 11px var(--font-ui);cursor:pointer;
+}
+.glass-beta-toggle i{font-size:15px}
+.glass-beta-toggle em{font:10px var(--font-mono);font-style:normal;color:var(--txt3)}
+.glass-beta-toggle[aria-pressed=true]{color:var(--accent);border-color:#8A7C5C;background:var(--accent-dim)}
+.glass-beta-toggle:hover{border-color:var(--txt2)}
+.glass-beta-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.model-friendly-name{font:600 12px var(--font-ui);line-height:1.5}
+.model-short-id{display:block;margin-top:4px;color:var(--txt3);font:10px var(--font-mono);line-height:1.5}
+.reg-table .model-detail-link{display:block;max-width:320px;white-space:normal;overflow-wrap:anywhere}
+#d-recent-models .model-detail-link{max-width:100%;white-space:normal;text-overflow:clip;font:600 12px var(--font-ui)}
+#d-recent-models .model-row>div:nth-child(2){flex:1;min-width:0}
+#d-recent-models .metric-chip{display:flex;flex-direction:column;gap:3px;flex-shrink:0;text-align:right;background:none;border:0;padding:0}
+#d-recent-models .metric-chip small{font:10px var(--font-ui);color:var(--txt3)}
+#d-recent-models .metric-chip b{font:500 13px var(--font-mono)}
+html[data-glass=beta] body{
+  background:radial-gradient(ellipse at 90% 0%,#414234 0,transparent 46%),radial-gradient(ellipse at 0% 80%,#28352D 0,transparent 50%),var(--page);
+}
+html[data-glass=beta] #app>main{background:transparent}
+html[data-glass=beta] #app>nav{
+  margin:12px 0 12px 12px;border:1px solid var(--glass-border);border-radius:var(--glass-radius);
+  background:var(--glass-surface);box-shadow:var(--glass-reflection),var(--glass-shadow);
+}
+html[data-glass=beta] #app .topbar{
+  margin:12px 12px 0;border:1px solid var(--glass-border);border-radius:var(--glass-radius);
+  background:var(--glass-surface);box-shadow:var(--glass-reflection),var(--glass-shadow);
+}
+html[data-glass=beta] .ld-nav{
+  background:var(--glass-surface);border-bottom-color:var(--glass-border);box-shadow:var(--glass-reflection);
+}
+html[data-glass=beta] #landing-screen{background:transparent}
+html[data-glass=beta] :is(.workspace-dialog,.auth-box,.nav-user-menu,.composer-box){
+  background:var(--glass-surface);border:1px solid var(--glass-border);border-radius:var(--glass-radius);
+  box-shadow:var(--glass-reflection),var(--glass-shadow);
+}
+html[data-glass=beta] #app .nav-btn.active{
+  background:linear-gradient(115deg,rgba(215,194,144,.2),rgba(215,194,144,.08));
+  box-shadow:inset 0 1px 0 rgba(255,245,215,.12),inset 2px 0 var(--accent);
+}
+html[data-glass=beta] .workspace-search{background:rgba(15,19,15,.22)!important}
+html[data-glass=beta] .chat-messages{background:transparent!important}
+html[data-glass=beta] .workspace-dialog::backdrop{background:rgba(8,12,9,.58)}
+html[data-glass=beta] :is(.reg-table th,.reg-table td){backdrop-filter:none;-webkit-backdrop-filter:none}
+html[data-glass=beta] .reg-table th{background:var(--card)}
+html[data-glass=beta] .reg-table tbody{background:rgba(24,25,23,.92)}
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  html[data-glass=beta] :is(#app>nav,#app .topbar,.ld-nav,.workspace-dialog,.auth-box,.nav-user-menu,.composer-box){
+    -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(1.15);
+    backdrop-filter:blur(var(--glass-blur)) saturate(1.15);
+  }
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  html[data-glass=beta]{--glass-surface:#252823}
+}
+@media(min-width:641px) and (max-width:1100px){
+ html[data-glass=beta] #app .agent-sidebar{left:76px}
+}
+@media(max-width:640px){
+ #app .overview-layout .workspace-tasks{grid-row:2}
+ #app .overview-layout .workspace-recent{grid-row:3}
+ #panel-dashboard .overview-layout>.stats-grid{grid-row:4}
+ #app .overview-layout .overview-models{grid-row:5}
+ #app .overview-layout .overview-detail>.card:last-child{grid-row:6}
+ #app .overview-layout .overview-breakdown{grid-row:7}
+ #app .overview-layout .overview-actions{grid-row:8}
+ #panel-dashboard .stats-grid .stat-val{font-size:24px}
+ #panel-dashboard .topbar .glass-beta-toggle span{display:none}
+ #panel-dashboard .topbar .glass-beta-toggle{padding:6px 8px}
+ .ld-nav-actions .glass-beta-toggle{min-height:34px}
+ html[data-glass=beta] #app>nav{
+   left:8px;right:8px;bottom:8px;width:calc(100% - 16px);margin:0;
+   border-radius:var(--glass-radius);height:calc(64px + env(safe-area-inset-bottom,0px));
+ }
+ html[data-glass=beta] #app>main{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
+ html[data-glass=beta] #app .topbar{margin:8px 8px 0;padding:8px;gap:6px}
+ html[data-glass=beta] #app .agent-sidebar{left:0;top:72px}
+ html[data-glass=beta] #app .nav-btn.active{box-shadow:inset 0 2px var(--accent)}
+ html[data-glass=beta] .composer-box{-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+}
+@media(prefers-reduced-transparency:reduce){
+ html[data-glass=beta]{--glass-surface:#252823}
+ html[data-glass=beta] :is(#app>nav,#app .topbar,.ld-nav,.workspace-dialog,.auth-box,.nav-user-menu,.composer-box){
+   -webkit-backdrop-filter:none;backdrop-filter:none;
+ }
+}
+@media(prefers-reduced-motion:reduce){.glass-beta-toggle{transition:none}}
+html[data-glass=beta] body>.topbar{
+  background:var(--glass-surface);border-bottom:1px solid var(--glass-border);box-shadow:var(--glass-reflection);
+  -webkit-backdrop-filter:blur(var(--glass-blur));backdrop-filter:blur(var(--glass-blur));
+}
+html[data-glass=beta] .modal{
+  background:var(--glass-surface);border:1px solid var(--glass-border);border-radius:var(--glass-radius);
+  box-shadow:var(--glass-reflection),var(--glass-shadow);-webkit-backdrop-filter:blur(var(--glass-blur));backdrop-filter:blur(var(--glass-blur));
+}
+@media(prefers-reduced-transparency:reduce){html[data-glass=beta] :is(.modal,body>.topbar){-webkit-backdrop-filter:none;backdrop-filter:none}}
+@media(min-width:641px) and (max-width:820px){html[data-glass=beta] #app .agent-sidebar{top:68px}}

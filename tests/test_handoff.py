@@ -48,7 +48,7 @@ class TestWebhookDelivery:
         mock_resp.status = 200
         mock_resp.__enter__ = lambda self: mock_resp
         mock_resp.__exit__ = lambda *a: None
-        with patch("urllib.request.urlopen", return_value=mock_resp):
+        with patch("app.core.handoff.request_public", return_value={"status":mock_resp.status}):
             result = send_handoff_webhook("https://example.com/hook", {"a": "b"})
         assert result["delivered"] is True
         assert result["error"] is None
@@ -58,25 +58,25 @@ class TestWebhookDelivery:
         mock_resp.status = 204
         mock_resp.__enter__ = lambda self: mock_resp
         mock_resp.__exit__ = lambda *a: None
-        with patch("urllib.request.urlopen", return_value=mock_resp):
+        with patch("app.core.handoff.request_public", return_value={"status":mock_resp.status}):
             result = send_handoff_webhook("https://example.com/hook", {"a": "b"})
         assert result["delivered"] is True
 
     def test_http_error_never_raises(self):
-        with patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+        with patch("app.core.handoff.request_public", side_effect=urllib.error.HTTPError(
                 "url", 404, "Not Found", {}, None)):
             result = send_handoff_webhook("https://example.com/hook", {"a": "b"})
         assert result["delivered"] is False
         assert "404" in result["error"]
 
     def test_network_error_never_raises(self):
-        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("connection refused")):
+        with patch("app.core.handoff.request_public", side_effect=urllib.error.URLError("connection refused")):
             result = send_handoff_webhook("https://example.com/hook", {"a": "b"})
         assert result["delivered"] is False
         assert "connection refused" in result["error"]
 
     def test_unexpected_exception_never_raises(self):
-        with patch("urllib.request.urlopen", side_effect=RuntimeError("something weird")):
+        with patch("app.core.handoff.request_public", side_effect=RuntimeError("something weird")):
             result = send_handoff_webhook("https://example.com/hook", {"a": "b"})
         assert result["delivered"] is False
         assert "something weird" in result["error"]

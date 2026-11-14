@@ -3,7 +3,7 @@
 Source of truth in code: `app/core/plans.py` (change numbers there, nothing else). Public list: `GET /api/plans`.
 Everything in the table is checked by the server; nothing is promised that is not enforced.
 
-| | Free | Pro ($19/mo) | Business ($79/mo, by arrangement) |
+| | Free | Pro ($19/mo) | Business ($79/mo) |
 |---|---|---|---|
 | LLM tokens / month | 300,000 | 5,000,000 | 25,000,000 |
 | Bots | 2 | 10 | 50 |
@@ -11,9 +11,30 @@ Everything in the table is checked by the server; nothing is promised that is no
 | API keys | 1 | 5 | 20 |
 | Calls per API key (cap on a new key) | 100 | 5,000 | 50,000 |
 | Dataset upload size | 5 MB | 25 MB | 25 MB (platform cap) |
+| Knowledge-base documents per bot | 3 | 25 | 100 |
+| Knowledge-base text per bot (characters, all documents together) | 200,000 | 5,000,000 | 25,000,000 |
+| Knowledge-base passages per answer (what the bot gets to read for each question; the bot owner's plan decides) | 3 | 6 | 8 |
+| Active scheduled jobs | 1 | 10 | 50 |
+| A/B tests (stopped ones count until deleted) | 2 | 20 | 100 |
+| Saved prompts | 10 | 100 | 500 |
 | AI-written custom code models (sandbox) | no | yes | yes |
+| Server training jobs per month (train, forecast, retrain, improve, create model: each start counts; the count restarts on the 1st) | 0 (no server training) | 40 | 300 |
+| Model improvement search depth (`improve_model`) | - | balanced | thorough |
+| Training on the platform's servers (train, forecast, retrain, **improve a weak model**, create model) | no | yes | yes |
+| Training on your own computer (`scripts/train_local.py`, zip from `GET /api/local-training/bundle`) | yes | yes | yes |
 
-Business is hidden from the public list until it has something Pro does not; an admin can still assign it.
+Counts (documents, jobs, tests, prompts) are checked when something is CREATED; deleting frees the slot. A server training job counts when
+it starts, even if it later fails on bad input; training on your own computer is never counted. A knowledge-base upload is refused when it
+would take the bot over its text limit, and a file that is larger than four bytes per allowed character is refused without being read whole.
+
+Why server training is paid: it spends the platform's CPU and memory (tuning can run minutes per model), the one cost that
+grows with every model a user trains. Training on the user's own machine costs the platform nothing, so it stays free: the zip
+carries the same trainer the server uses, and the data and the model never leave the user's computer. A locally trained model can be brought back: the platform cuts the training file and keeps the test rows (`/api/local-training/prepare`), the user
+trains on train.csv, uploads model.pkl, and the platform scores it itself before registering it (free on every plan, saved-model slots count). Such a model can be listed on the marketplace by its author; the listing shows the platform-measured
+scores and the label "trained on the owner's own computer, not by the platform".
+
+Business is shown on the public list. Hosted checkout and direct USDT TRC20 invoices are supported.
+The current deployment uses USDT payments for 30-day access with manual renewal; Stripe remains disabled pending account activation. See `docs/CRYPTO_PAYMENTS.md`.
 Owner accounts (verified e-mail in `ADMIN_EMAILS`) have no token or count limits. A per-user token override set in the
 admin panel beats the plan (0 = unlimited, empty = plan default).
 
@@ -36,9 +57,12 @@ ask pilot users what they pay today for the same job (a spreadsheet freelancer, 
 that. Also test the one-off paid report ($100-300 per forecast, see `scripts/make_report.py`) next to the subscription.
 
 ## What is manual today
-- No automatic subscription checkout. Sell by invoice / payment link, then set the plan in the admin panel (`/admin`).
-  Stripe is wired only for pay-per-use balance top-ups; a subscription webhook that sets `users.plan` is the next step
-  and was NOT built or tested (no Stripe keys or network in the dev sandbox).
+- Stripe subscriptions use hosted Checkout for Pro and Business, with subscription webhooks updating `users.plan`.
+  The deployer must configure `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, both monthly price IDs, and
+  `PUBLIC_BASE_URL` with the public HTTPS origin. Register `POST {PUBLIC_BASE_URL}/api/payments/webhook` in Stripe
+  and subscribe it to `checkout.session.completed` and `customer.subscription.created`, `updated`, `deleted`,
+  `paused`, and `resumed`. Checkout stays hidden until the required keys, prices, and production HTTPS URL exist.
+  GenesisAI currently does not collect tax; Stripe Tax and automatic tax are not enabled.
 - Marketplace balance (cents) is separate money between users and authors. Plans do not touch it and admins get no free balance.
 - Before launch: the LLM provider key must be on a paid tier. One third-party pricing index lists a free-tier ceiling of
   about 200K tokens/day for gpt-oss-120b on Groq: check your own console, it would cap the whole platform.

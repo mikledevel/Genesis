@@ -172,7 +172,7 @@ class TestAgentDispatchRoutesOutboundActionsToApproval:
         assert pending[0]["params"] == {"message": "hi there"}
         assert pending[0]["status"] == "pending"
 
-    def test_read_only_skill_still_executes_directly(self, env):
+    def test_read_only_skill_still_executes_directly(self, env, monkeypatch):
         """Regression guard: adding the outbound_action gate must not accidentally route
         read_only skills through the approval flow too."""
         skill = env["db"].create_skill(
@@ -180,9 +180,15 @@ class TestAgentDispatchRoutesOutboundActionsToApproval:
             description="x", code=READ_ONLY_CODE, allowed_domains=["github.com"],
             input_schema={}, action_type="read_only")
         env["db"].update_skill_test_result(skill["id"], passed=True, log="ok")
+        calls = []
+        def execute(_self, code, params, domains):
+            calls.append((code, params, domains))
+            return {"success": True, "result": {"status": 200}}
+        monkeypatch.setattr("app.core.skills.skill_generator.SkillGenerator.run_stored_skill", execute)
 
         resp = env["agent"]._do_run_skill(env["bot_id"], {"skill_id": skill["id"], "params": {"repo": "anthropics"}})
         assert resp.success
+        assert calls == [(READ_ONLY_CODE, {"repo": "anthropics"}, ["github.com"])]
         assert "requires_approval" not in (resp.data or {})
         assert env["db"].list_pending_actions_for_owner("owner_user") == []
 
@@ -202,6 +208,9 @@ class TestSchedulerRoutesOutboundActionsToApproval:
     def test_scheduled_outbound_action_creates_pending_action_not_executed(self, env):
         from app.core.scheduler import _run_one_job
         db = env["db"]
+        with db._connect() as conn:
+            conn.execute("INSERT INTO users(id,email,password_hash) VALUES ('owner_user','owner@example.test','unused')")
+            conn.commit()
         skill = db.create_skill(agent_id="agent_x", owner_user_id="owner_user", name="contact_seller",
                                  description="x", code=OUTBOUND_CODE, allowed_domains=["example.com"],
                                  input_schema={}, action_type="outbound_action")

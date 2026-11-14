@@ -109,7 +109,11 @@ def save_upload(user_id: str, filename: str, data: bytes, max_data_bytes: Option
         except UploadError:
             path.unlink(missing_ok=True)
             raise
-        return {"id": uid, "name": shown_name, "kind": "dataset", "size": len(data),
+        from app.db.database import GenesisDB
+        db = GenesisDB()
+        dataset_id = db.register_dataset(user_id, str(path), path.stat().st_size)
+        db.persist_artifact(path, user_id)
+        return {"id": uid, "dataset_id": dataset_id, "name": shown_name, "kind": "dataset", "size": len(data),
                 "rows": info["rows"], "columns": info["columns"][:30], "n_columns": len(info["columns"])}
 
     # document -> text
@@ -124,6 +128,8 @@ def save_upload(user_id: str, filename: str, data: bytes, max_data_bytes: Option
     else:
         text = data.decode("utf-8", errors="replace")[:MAX_DOC_CHARS]
     (d / f"{uid}_{safe}{ext}.txt").write_text(text, encoding="utf-8")
+    from app.db.database import GenesisDB
+    GenesisDB().persist_artifact(d / f"{uid}_{safe}{ext}.txt", user_id)
     return {"id": uid, "name": name, "kind": "document", "size": len(data), "chars": len(text)}
 
 
@@ -131,6 +137,8 @@ def resolve(user_id: str, ids: List[str]) -> List[Dict]:
     """Upload ids -> descriptors, looking ONLY in the sender's own directory."""
     if len(ids) > MAX_FILES_PER_MESSAGE:
         raise UploadError(f"At most {MAX_FILES_PER_MESSAGE} files per message.")
+    from app.db.database import GenesisDB
+    GenesisDB().restore_owned_artifacts(user_id, "datasets/uploads/")
     d, out = user_dir(user_id), []
     for uid in ids:
         if not isinstance(uid, str) or not _ID_RE.match(uid):

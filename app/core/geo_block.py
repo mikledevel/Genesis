@@ -70,7 +70,7 @@ _geo_cache: Dict[str, Tuple[Optional[str], Optional[str], float]] = {}  # ip -> 
 # Routes that must always be reachable regardless of geography - health checks for
 # monitoring/uptime services, which themselves often run from arbitrary cloud regions and
 # would otherwise flap the app's health status based on where the monitor happens to be.
-_ALWAYS_ALLOWED_PATHS = {"/health"}
+_ALWAYS_ALLOWED_PATHS = {"/health", "/ready"}
 
 # Alternate spellings/transliterations geolocation providers use for these regions - matched
 # as a substring of the lowercased regionName, so "Donetsk Oblast", "Donetska oblast", and

@@ -21,6 +21,7 @@ import time
 import urllib.request
 import urllib.error
 from typing import Optional, Dict
+from app.core.public_http import parse_public_url, request_public
 
 TIMEOUT = 10
 
@@ -31,7 +32,11 @@ def is_plausible_webhook_url(url: str) -> bool:
     only discovering it's broken the first time a real handoff tries to fire."""
     if not url or not isinstance(url, str):
         return False
-    return url.startswith("http://") or url.startswith("https://")
+    try:
+        parse_public_url(url)
+        return True
+    except ValueError:
+        return False
 
 
 def send_handoff_webhook(webhook_url: str, payload: Dict) -> Dict:
@@ -42,11 +47,10 @@ def send_handoff_webhook(webhook_url: str, payload: Dict) -> Dict:
     req = urllib.request.Request(
         webhook_url, data=body, headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            # 2xx is success; most webhook receivers (Slack, Discord, Zapier) return 200 or 204
-            if 200 <= resp.status < 300:
-                return {"delivered": True, "error": None}
-            return {"delivered": False, "error": f"HTTP {resp.status}"}
+        result = request_public(webhook_url, method="POST", headers={"Content-Type": "application/json"},
+                                body=body, timeout=TIMEOUT, max_bytes=65536)
+        ok = 200 <= result["status"] < 300
+        return {"delivered": ok, "error": None if ok else f"HTTP {result['status']}"}
     except urllib.error.HTTPError as e:
         return {"delivered": False, "error": f"HTTP {e.code}: {e.reason}"}
     except urllib.error.URLError as e:

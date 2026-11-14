@@ -1,0 +1,18 @@
+{
+  "answerable": [
+    {"q":"Как включить гибридный поиск и установить FastEmbed?", "truth":[["LLM_IMPROVEMENTS.md", "Запуск"]]},
+    {"q":"Какие API endpoints позволяют посмотреть собственные traces?", "truth":[["LLM_IMPROVEMENTS.md", "API"]]},
+    {"q":"Как поставить train в очередь и получить статус задания?", "truth":[["LLM_IMPROVEMENTS.md", "API"]]},
+    {"q":"Какая настройка включает native function calling?", "truth":[["LLM_IMPROVEMENTS.md", "API"]]},
+    {"q":"How can I cancel a background job using the API?", "truth":[["LLM_IMPROVEMENTS.md", "API"]]},
+    {"q":"Какие команды запускают offline workflow eval и live routing eval?", "truth":[["LLM_IMPROVEMENTS.md", "Воспроизводимые проверки"]]},
+    {"q":"Does the Render Free filesystem preserve uploaded datasets on restart?", "truth":[["RENDER_DEPLOYMENT.md", "Free-tier limitations"]]},
+    {"q":"Which secrets must be configured for email verification on Render?", "truth":[["RENDER_DEPLOYMENT.md", "Required configuration"]]}
+  ],
+  "unanswerable": [
+    "Каков гарантированный SLA GenesisAI 99.99% и размер компенсации за простой?",
+    "What is GenesisAI's audited SOC 2 certificate number?",
+    "В каком банке открыт расчётный счёт GenesisAI?",
+    "How many paying customers did GenesisAI have in October 2026?"
+  ]
+}

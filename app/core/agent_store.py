@@ -1,4 +1,4 @@
-﻿"""
+"""
 Agent Config Store — хранилище конфигураций ИИ-агентов.
 
 Каждый агент = JSON-конфигурация с:
@@ -10,6 +10,8 @@ Agent Config Store — хранилище конфигураций ИИ-аген
 """
 
 import json, os, uuid
+from app.core.resource_guard import resource_guard
+from app.db.document_store import DatabaseDocument, legacy_document, document_mutation
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
@@ -92,23 +94,23 @@ class AgentStore:
         self._init_store()
     
     def _init_store(self):
-        os.makedirs("agents", exist_ok=True)
         self.store_path = "agents/store.json"
-        if not os.path.exists(self.store_path):
-            with open(self.store_path, "w", encoding="utf-8") as f:
-                json.dump({"agents": [], "featured": [], "categories": {}}, f, indent=2)
-    
+        self._document = DatabaseDocument("agents", legacy_document(self.store_path,
+            {"agents": [], "featured": [], "categories": {}}), db=self.db)
+
     def _load(self) -> Dict:
-        with open(self.store_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    
+        return self._document.read()
+
     def _save(self, data: Dict):
-        with open(self.store_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-    
+        self._document.replace(data)
+
+    @resource_guard("bot","config")
+    @document_mutation
     def create_agent(self, config: AgentConfig) -> AgentConfig:
         """Создать нового агента."""
         data = self._load()
+        from app.api.contracts import AgentSettings
+        AgentSettings.model_validate(config.to_dict())
         data["agents"].append(config.to_dict())
         self._save(data)
         return config
@@ -135,8 +137,9 @@ class AgentStore:
         """Поиск по агентам."""
         data = self._load()
         q = query.lower()
-        return [a for a in data["agents"] if q in a["name"].lower() or q in a["description"].lower()]
+        return [a for a in data["agents"] if a.get("published") and (q in a["name"].lower() or q in a["description"].lower())]
     
+    @document_mutation
     def publish_agent(self, agent_id: str, price: float = 0, owner_user_id: str = None) -> bool:
         """Опубликовать агента. Returns False if the agent doesn't exist or doesn't belong to owner_user_id."""
         data = self._load()
@@ -144,6 +147,8 @@ class AgentStore:
             if a["id"] == agent_id:
                 if owner_user_id is not None and a["author"] != owner_user_id:
                     return False
+                from app.core.money import price_cents
+                price_cents(price)
                 a["published"] = True
                 a["price_per_call"] = price
                 self._save(data)
@@ -154,6 +159,7 @@ class AgentStore:
                              "temperature", "max_tokens", "tools", "price_per_call", "published",
                              "linked_model_id", "handoff_webhook_url"}
 
+    @document_mutation
     def update_agent(self, agent_id: str, updates: Dict, owner_user_id: str) -> Optional[Dict]:
         """Update a bot's settings. Only fields in ALLOWED_UPDATE_FIELDS are applied.
         Returns the updated agent dict, or None if it doesn't exist or isn't owned by owner_user_id."""
@@ -162,6 +168,8 @@ class AgentStore:
             if a["id"] == agent_id:
                 if a["author"] != owner_user_id:
                     return None
+                from app.api.contracts import AgentSettings
+                AgentSettings.model_validate({**a,**{k:v for k,v in updates.items() if k in self.ALLOWED_UPDATE_FIELDS}})
                 for k, v in updates.items():
                     if k in self.ALLOWED_UPDATE_FIELDS:
                         a[k] = v
@@ -169,6 +177,7 @@ class AgentStore:
                 return a
         return None
 
+    @document_mutation
     def delete_agent(self, agent_id: str, owner_user_id: str) -> bool:
         """Delete a bot. Returns False if it doesn't exist or isn't owned by owner_user_id."""
         data = self._load()
@@ -182,7 +191,7 @@ class AgentStore:
     def clone_agent(self, agent_id: str, new_author: str) -> Optional[AgentConfig]:
         """Клонировать агента."""
         original = self.get_agent(agent_id)
-        if not original:
+        if not original or (original.get("author") != new_author and (not original.get("published") or original.get("price_per_call",0)>0)):
             return None
         config = AgentConfig(
             name=f"{original['name']} (copy)",
@@ -204,6 +213,7 @@ class AgentStore:
         data = self._load()
         return data.get("categories", {})
     
+    @document_mutation
     def add_review(self, agent_id: str, user: str, rating: int, comment: str = ""):
         """Добавить отзыв."""
         data = self._load()

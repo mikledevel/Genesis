@@ -4,69 +4,75 @@ import contextvars
 import json
 import queue
 import threading
-from fastapi import APIRouter
+from fastapi import Query, APIRouter
 from fastapi.responses import StreamingResponse
-from app.deps import (
-    UploadFile,
-    File,
-    Any,
-    Depends,
-    Dict,
-    HTTPException,
-    MessageRequest,
-    Optional,
-    get_agent,
-    get_current_user_id,
-    os,
-    settings
-)
+import os
+from fastapi import UploadFile, File, Depends, HTTPException
+from typing import Any, Dict, Optional
+from app.api.contracts import MessageRequest
+from app.deps import get_agent
+from app.core.auth import get_current_user_id
+from app.config import settings
+
+from app.core.execution import bounded_call, serial_conversation, submit
 
 router = APIRouter()
 
+
+@router.get("/api/traces")
+def execution_traces(user_id: str = Depends(get_current_user_id), limit: int = Query(30, ge=1, le=100),
+                     offset: int = Query(0, ge=0)):
+    from app.db.database import GenesisDB
+    return {"traces": GenesisDB().list_traces(user_id, limit, offset)}
+
+
+@router.get("/api/traces/{trace_id}")
+def execution_trace(trace_id: str, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    trace = GenesisDB().get_trace(user_id, trace_id)
+    if trace is None:
+        raise HTTPException(status_code=404, detail="Trace not found")
+    return trace
+
 # ── Agent ──
 @router.get("/api/agent/conversations")
-async def agent_conversations(user_id: str = Depends(get_current_user_id)):
+def agent_conversations(user_id: str = Depends(get_current_user_id), limit: int = Query(100,ge=1,le=200), offset: int = Query(0,ge=0)):
     from app.db.database import GenesisDB
-    return {"conversations": GenesisDB().list_chats(user_id=user_id)}
+    return {"conversations": GenesisDB().list_chats(user_id=user_id,limit=limit,offset=offset),"limit":limit,"offset":offset}
 
 @router.get("/api/agent/chat/{conversation_id}")
-async def agent_chat(conversation_id: str, user_id: str = Depends(get_current_user_id)):
+def agent_chat(conversation_id: str, user_id: str = Depends(get_current_user_id), limit: int = Query(200,ge=1,le=500), offset: int = Query(0,ge=0)):
     from app.db.database import GenesisDB
     db = GenesisDB()
     owner = db.get_chat_owner(conversation_id)
-    if owner is not None and owner != user_id:
+    if owner != user_id:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    return {"messages": db.get_messages(conversation_id)}
+    return {"messages": db.get_messages(conversation_id,limit=limit,offset=offset,newest=True),"limit":limit,"offset":offset,"total":db.get_message_count(conversation_id)}
 
+@serial_conversation
+@bounded_call
 def _agent_message_sync(req: MessageRequest, user_id: str) -> dict:
     """Shared by the plain JSON endpoint and the SSE streaming endpoint below: ownership check,
-    balance pre-check, the agent call, billing AFTER success, bot tagging. Raises HTTPException."""
+    transactional reservation, agent execution, settlement and bot tagging. Raises HTTPException."""
     from app.db.database import GenesisDB
     from app.core.llm_errors import LLMError
     # No id from the client (API users, scripts): give each ACCOUNT its own default thread. A single
     # shared "default" became owned by whoever wrote first, so every other account got a permanent
     # 403 ("belongs to another account") on its very first message. The web UI always sends an id.
     cid = req.conversation_id or f"default-{user_id}"
+    if cid.startswith("telegram_") or (cid.startswith("default-") and cid != f"default-{user_id}"):
+        raise HTTPException(status_code=403,detail="Reserved conversation identifier")
     db = GenesisDB()
     owner = db.get_chat_owner(cid)
     if owner is not None and owner != user_id:
         raise HTTPException(status_code=403, detail="This conversation belongs to another account")
 
-    # If the user has a paid bot selected (per-user, stored in DB), a message to it costs
-    # money. We only CHECK the balance here (no mutation) so an obviously-unaffordable
-    # request fails fast without spending an LLM call. The actual charge happens AFTER
-    # agent.process() succeeds, below - previously the charge happened here, before the LLM
-    # was ever called, so a Groq outage or any other generation failure still cost the buyer
-    # money for a message that was never actually generated.
+    # Один снимок конфигурации используется и для оплаты, и для ответа.
     selected = db.get_selected_model(user_id)
     price = selected.get("price_per_call", 0) or 0
     bot_author = selected.get("author")
     price_cents = round(price * 100)
     billable = price > 0 and bot_author and bot_author != user_id
-    if billable and db.get_balance(user_id) < price_cents:
-        raise HTTPException(status_code=402, detail=(
-            f"Insufficient balance - this bot costs ${price:.3f}/message, "
-            f"you have ${db.get_balance(user_id)/100:.2f}. Add funds to continue."))
 
     agent = get_agent(cid, user_id)
     # If the currently-selected bot has a running A/B test, use this conversation's assigned
@@ -75,15 +81,22 @@ def _agent_message_sync(req: MessageRequest, user_id: str) -> dict:
     # Reuses the same agent_override mechanism built for external channels (Telegram): it
     # bypasses users.selected_model_json entirely for this one field rather than mutating it,
     # so it can't race with the user's own unrelated model selection.
-    agent.agent_override = None
+    agent.agent_override = dict(selected) or {"model": "openai/gpt-oss-120b", "system_prompt": ""}
     agent_id = selected.get("agent_id")
     if agent_id:
         ab_test = db.get_running_ab_test_for_agent(agent_id)
+        if ab_test:
+            # defence in depth: a test created by someone who is not the bot's author (older data, or a future bug) must not
+            # replace the author's system prompt
+            from app.core.agent_store import AgentStore
+            _bot = AgentStore().get_agent(agent_id)
+            if not _bot or _bot.get("author") != ab_test.get("user_id"):
+                ab_test = None
         if ab_test and ab_test["variants"]:
             variant = db.get_or_assign_variant(ab_test["id"], ab_test["variants"], cid)
             agent.agent_override = {**selected, "system_prompt": variant["system_prompt"]}
 
-    process_kwargs = {}
+    process_kwargs = {"background": True, "request_id": req.request_id} if req.background else {}
     agent_message = req.message
     if req.attachments:
         from app.core import chat_uploads
@@ -94,9 +107,22 @@ def _agent_message_sync(req: MessageRequest, user_id: str) -> dict:
             raise HTTPException(status_code=e.status_code, detail=str(e))
         agent_message = req.message + extra           # what the model/tools see
         process_kwargs["display_message"] = req.message + shown   # what the history shows
+    operation = None
+    if billable:
+        from app.core.usage import reserved_usage, operation_key, fingerprint
+        from app.db.reliability import UsageRejected
+        try:
+            operation = db.reserve_usage(user_id, price_cents, author_id=bot_author,
+                operation_id=operation_key(user_id, "chat:"+cid, req.request_id), request_hash=fingerprint(req.model_dump()), related_id=agent_id)
+        except UsageRejected as error:
+            raise HTTPException(status_code=error.status, detail=str(error)) from error
+        if operation["replayed"]:
+            return operation["result"]
     try:
         response = agent.process(agent_message, cid, req.projects, user_id=user_id, **process_kwargs)
     except LLMError as e:
+        if operation:
+            db.finish_usage(operation["id"], refund=True)
         # Generation genuinely failed - surface a real error instead of a fake 200, and
         # (critically) never reach the charge_for_usage call below, so nobody is billed for
         # a message the model never produced. See app.core.llm_errors for the status-code
@@ -115,18 +141,10 @@ def _agent_message_sync(req: MessageRequest, user_id: str) -> dict:
             friendly = "The AI provider failed to generate a response. Please try again in a moment."
         raise HTTPException(status_code=e.http_status, detail=friendly)
 
-    if billable:
-        charge = db.charge_for_usage(
-            buyer_user_id=user_id, amount_cents=price_cents,
-            description=f"Message to {selected.get('agent_name', 'bot')}",
-            author_user_id=bot_author, related_id=agent_id,
-        )
-        if not charge["ok"]:
-            # Balance changed between our pre-check and now (e.g. a concurrent spend) - the
-            # response was already generated, so we still return it rather than discard real
-            # output, but we do NOT pretend the charge succeeded.
-            print(f"[billing] charge_for_usage failed post-generation for user={user_id} agent={agent_id}: "
-                  f"balance={charge.get('balance_cents')}")
+    except BaseException:
+        if operation:
+            db.finish_usage(operation["id"], refund=True)
+        raise
 
     if agent_id:
         # Must run AFTER agent.process() - that's what actually creates the chats row
@@ -134,11 +152,14 @@ def _agent_message_sync(req: MessageRequest, user_id: str) -> dict:
         # that would silently update zero rows on the very first message of a chat.
         db.tag_chat_with_agent(cid, agent_id)  # links this conversation to the bot for
                                                 # analytics - see GenesisDB.get_bot_analytics
-    return {"response": response.message, "conversation_id": cid, "data": response.data, "message_id": response.message_id}
+    result = {"response": response.message, "conversation_id": cid, "data": response.data, "message_id": response.message_id}
+    if operation:
+        db.finish_usage(operation["id"], result=result, refund=not response.success)
+    return result
 
 
 @router.get("/api/llm/status")
-async def llm_status(user_id: str = Depends(get_current_user_id)):
+def llm_status(user_id: str = Depends(get_current_user_id)):
     """Which LLM providers are configured and which are cooling down after a failure (no secrets)."""
     from app.config import settings as _settings
     from app.core import groq_client
@@ -162,7 +183,7 @@ async def agent_upload(file: UploadFile = File(...), user_id: str = Depends(get_
 
 
 @router.post("/api/agent/message")
-async def agent_message(req: MessageRequest, user_id: str = Depends(get_current_user_id)):
+def agent_message(req: MessageRequest, user_id: str = Depends(get_current_user_id)):
     return _agent_message_sync(req, user_id)
 
 
@@ -190,7 +211,7 @@ async def agent_message_stream(req: MessageRequest, user_id: str = Depends(get_c
         finally:
             q.put(None)
 
-    threading.Thread(target=ctx.run, args=(run,), daemon=True).start()
+    future = submit(run)
 
     async def events():
         while True:
@@ -207,7 +228,7 @@ async def agent_message_stream(req: MessageRequest, user_id: str = Depends(get_c
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 @router.post("/api/agent/chat/{conversation_id}/messages/{message_id}/rate")
-async def rate_message(conversation_id: str, message_id: int, data: dict, user_id: str = Depends(get_current_user_id)):
+def rate_message(conversation_id: str, message_id: int, data: dict, user_id: str = Depends(get_current_user_id)):
     """Thumbs up(1)/down(-1)/clear(null) on an assistant message - the signal A/B test stats
     are built from (see GenesisDB.get_ab_test_stats)."""
     from app.db.database import GenesisDB
@@ -223,7 +244,7 @@ async def rate_message(conversation_id: str, message_id: int, data: dict, user_i
     return {"status": "ok", "rating": rating}
 
 @router.post("/api/agent/chat/{conversation_id}/rename")
-async def rename_chat(conversation_id: str, data: Dict[str, Any], user_id: str = Depends(get_current_user_id)):
+def rename_chat(conversation_id: str, data: Dict[str, Any], user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     db = GenesisDB()
     if db.get_chat_owner(conversation_id) != user_id:
@@ -232,7 +253,7 @@ async def rename_chat(conversation_id: str, data: Dict[str, Any], user_id: str =
     return {"status": "renamed"}
 
 @router.delete("/api/agent/chat/{conversation_id}")
-async def delete_chat(conversation_id: str, user_id: str = Depends(get_current_user_id)):
+def delete_chat(conversation_id: str, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     db = GenesisDB()
     if db.get_chat_owner(conversation_id) != user_id:
@@ -242,29 +263,29 @@ async def delete_chat(conversation_id: str, user_id: str = Depends(get_current_u
 
 # ── Memory ──
 @router.get("/api/memory/facts")
-async def memory_facts(user_id: str = Depends(get_current_user_id)):
+def memory_facts(user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     return {"facts": GenesisDB().get_facts(user_id)}
 
 @router.get("/api/dashboard/activity")
-async def dashboard_activity(user_id: str = Depends(get_current_user_id)):
+def dashboard_activity(user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     return {"activity": GenesisDB().get_activity_last_7_days(user_id=user_id)}
 
 @router.get("/api/memory/persona")
-async def memory_persona():
+def memory_persona(user_id: str = Depends(get_current_user_id)):
     from app.core.memory.graph import KnowledgeGraph
     from app.core.memory.persona import PersonaGenerator
-    return {"persona": PersonaGenerator(KnowledgeGraph()).generate()}
+    return {"persona": PersonaGenerator(_user_graph(user_id)).generate(user_id)}
 
 @router.get("/api/memory/graph")
-async def memory_graph():
+def memory_graph(user_id: str = Depends(get_current_user_id)):
     from app.core.memory.graph import KnowledgeGraph
-    return KnowledgeGraph().to_dict()
+    return _user_graph(user_id).to_dict()
 
 # ── Code Generation ──
 @router.post("/api/codegen/generate")
-async def generate_code(data: dict, user_id: str = Depends(get_current_user_id)):
+def generate_code(data: dict, user_id: str = Depends(get_current_user_id)):
     from app.core.codegen.generator import CodeGenerator
     from app.db.database import GenesisDB
     gen = CodeGenerator(GenesisDB())
@@ -274,7 +295,7 @@ async def generate_code(data: dict, user_id: str = Depends(get_current_user_id))
     return {"code_path": path, "code": code}
 
 @router.get("/api/codegen/list")
-async def list_generated(user_id: str = Depends(get_current_user_id)):
+def list_generated(user_id: str = Depends(get_current_user_id)):
     import glob
     # Only ever return the caller's own generated files - see save_code's owner-tagged
     # filenames. Previously this globbed every file in the shared "generated/" directory
@@ -286,7 +307,7 @@ async def list_generated(user_id: str = Depends(get_current_user_id)):
 # ── Health ──
 
 @router.post("/api/agent/select-model")
-async def select_model(data: dict, user_id: str = Depends(get_current_user_id)):
+def select_model(data: dict, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     GenesisDB().set_selected_model(user_id, data)
     return {"status": "ok", "model": data.get("model", "")}
@@ -296,7 +317,7 @@ async def select_model(data: dict, user_id: str = Depends(get_current_user_id)):
 # model before touching anything here - in particular why this container gets real network
 # access (unlike the skills sandbox) and what that does and doesn't protect against.
 @router.post("/api/agent-browser/sessions")
-async def agent_browser_create_session(user_id: str = Depends(get_current_user_id)):
+def agent_browser_create_session(user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     from app.core.agent_browser import AgentBrowserSession, AgentBrowserError
     if not settings.agent_browser_enabled:
@@ -318,7 +339,7 @@ async def agent_browser_create_session(user_id: str = Depends(get_current_user_i
             "price_cents_per_minute": settings.agent_browser_price_cents_per_minute}
 
 @router.post("/api/agent-browser/sessions/{session_id}/actions")
-async def agent_browser_perform_action(session_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
+def agent_browser_perform_action(session_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     from app.core.agent_browser import AgentBrowserSession, AgentBrowserError
     db = GenesisDB()
@@ -342,7 +363,7 @@ async def agent_browser_perform_action(session_id: str, data: dict, user_id: str
     return result
 
 @router.post("/api/agent-browser/sessions/{session_id}/close")
-async def agent_browser_close_session(session_id: str, user_id: str = Depends(get_current_user_id)):
+def agent_browser_close_session(session_id: str, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     from app.core.agent_browser import AgentBrowserSession, AgentBrowserError, compute_browser_cost_cents
     db = GenesisDB()
@@ -378,12 +399,12 @@ async def agent_browser_close_session(session_id: str, user_id: str = Depends(ge
             "balance_cents_remaining": db.get_balance(user_id)}
 
 @router.get("/api/agent-browser/sessions")
-async def agent_browser_list_sessions(user_id: str = Depends(get_current_user_id)):
+def agent_browser_list_sessions(user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     return {"sessions": GenesisDB().list_agent_browser_sessions(user_id)}
 
 @router.get("/api/agent-browser/sessions/{session_id}")
-async def agent_browser_get_session(session_id: str, user_id: str = Depends(get_current_user_id)):
+def agent_browser_get_session(session_id: str, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     record = GenesisDB().get_agent_browser_session(session_id)
     if not record or record["user_id"] != user_id:
@@ -393,12 +414,12 @@ async def agent_browser_get_session(session_id: str, user_id: str = Depends(get_
 
 # ---- Pending actions ("Level 4": outbound_action skills always stop here first) ----
 @router.get("/api/pending-actions")
-async def list_pending_actions(status: Optional[str] = None, user_id: str = Depends(get_current_user_id)):
+def list_pending_actions(status: Optional[str] = None, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     return {"actions": GenesisDB().list_pending_actions_for_owner(user_id, status=status)}
 
 @router.post("/api/pending-actions/{action_id}/approve")
-async def approve_pending_action(action_id: str, user_id: str = Depends(get_current_user_id)):
+def approve_pending_action(action_id: str, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     from app.core.skills.skill_generator import SkillGenerator
     db = GenesisDB()
@@ -419,10 +440,19 @@ async def approve_pending_action(action_id: str, user_id: str = Depends(get_curr
     return {"action": db.get_pending_action(action_id)}
 
 @router.post("/api/pending-actions/{action_id}/reject")
-async def reject_pending_action(action_id: str, user_id: str = Depends(get_current_user_id)):
+def reject_pending_action(action_id: str, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     action = GenesisDB().decide_pending_action(action_id, user_id, approve=False)
     if not action:
         raise HTTPException(status_code=404, detail=(
             "Pending action not found, doesn't belong to you, or was already decided"))
     return {"action": action}
+
+
+def _user_graph(user_id):
+    from app.db.database import GenesisDB
+    from app.core.memory.graph import KnowledgeGraph
+    graph = KnowledgeGraph()
+    for fact in GenesisDB().get_facts(user_id):
+        graph.add_fact(user_id, fact["predicate"], fact["object"], confidence=fact["confidence"])
+    return graph

@@ -3,7 +3,10 @@
 // password reset is shown as a refusal (never as "we sent the link").  Run: cd tests/ui && npm install && node antibot_test.js
 const { JSDOM } = require('jsdom');
 const fs = require('fs'), path = require('path');
-const html = fs.readFileSync(path.join(__dirname, '../../static/index.html'), 'utf8');
+let html = fs.readFileSync(path.join(__dirname, '../../static/index.html'), 'utf8').replace('<script src="/static/ui-icons.js?v=20261110"></script>', '<script>' + fs.readFileSync(path.join(__dirname, '../../static/ui-icons.js'), 'utf8') + '</script>');
+for (const script of ['appearance','model-display']) {
+  html = html.replace('<script src="/static/' + script + '.js?v=20261110-beta1"></script>', '<script>' + fs.readFileSync(require('path').join(__dirname, '../../static/' + script + '.js'), 'utf8') + '</script>');
+}
 let failures = 0;
 let finished = false;
 process.on('exit', (c) => { if (!finished && c === 0) { console.log('FAIL the test ended before its last check ran (a promise never settled)'); process.exitCode = 1; } });

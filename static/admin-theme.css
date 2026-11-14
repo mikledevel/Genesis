@@ -1,0 +1,15 @@
+/* Служебный экран использует ту же палитру без изменений политики CSP. */
+:root{--bg:var(--page);--text:var(--txt);--muted:var(--txt2);--line:var(--brd);--bad:var(--danger)}
+body{font-family:var(--font-ui);font-size:13px}
+main{padding:32px 24px}
+h1{font-weight:600;letter-spacing:-.5px}
+.card,.wrap{border-radius:var(--r);box-shadow:none}
+.card b,td:nth-child(4),td:nth-child(5),td:nth-child(6){font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+input,select,button{border-radius:4px;min-height:34px;border-color:var(--brd2)}
+button{transition:background-color var(--dur-fast) var(--ease)}
+button:hover{background:var(--card2)}
+button:disabled{opacity:.45;cursor:not-allowed}
+:where(button,input,select):focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.tag{border-radius:4px}
+@media(max-width:640px){main{padding:20px 12px}.bar{gap:12px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}

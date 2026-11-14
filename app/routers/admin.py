@@ -5,7 +5,8 @@ Deliberately NOT here: reading anyone's data (chats, datasets, models), imperson
 changes, deleting accounts, minting marketplace balance. The panel manages plans, limits and suspensions only.
 """
 from fastapi import APIRouter, Query
-from app.deps import Depends, HTTPException, require_admin
+from fastapi import Depends, HTTPException
+from app.core.auth import require_admin
 
 router = APIRouter()
 
@@ -25,7 +26,7 @@ def _target(db, user_id: str) -> dict:
 
 
 @router.get("/api/admin/overview")
-async def admin_overview(admin_id: str = Depends(require_admin)):
+def admin_overview(admin_id: str = Depends(require_admin)):
     from app.core import antibot, email_sender
     data = _db().admin_overview()
     data["email"] = email_sender.status()
@@ -34,7 +35,7 @@ async def admin_overview(admin_id: str = Depends(require_admin)):
 
 
 @router.post("/api/admin/email/test")
-async def admin_email_test(admin_id: str = Depends(require_admin)):
+def admin_email_test(admin_id: str = Depends(require_admin)):
     """Sends one test message to the admin's own address through the configured provider and reports the real result:
     the quickest way to find out that the key, the sender domain and the recipient are right."""
     from app.core import email_sender
@@ -48,13 +49,13 @@ async def admin_email_test(admin_id: str = Depends(require_admin)):
 
 
 @router.get("/api/admin/users")
-async def admin_users(q: str = Query("", max_length=100), limit: int = Query(50, ge=1, le=200),
+def admin_users(q: str = Query("", max_length=100), limit: int = Query(50, ge=1, le=200),
                       offset: int = Query(0, ge=0), admin_id: str = Depends(require_admin)):
     return _db().admin_list_users(q, limit, offset)
 
 
 @router.post("/api/admin/users/{user_id}/plan")
-async def admin_set_plan(user_id: str, data: dict, admin_id: str = Depends(require_admin)):
+def admin_set_plan(user_id: str, data: dict, admin_id: str = Depends(require_admin)):
     from app.core import plans
     db = _db()
     user = _target(db, user_id)
@@ -68,7 +69,7 @@ async def admin_set_plan(user_id: str, data: dict, admin_id: str = Depends(requi
 
 
 @router.post("/api/admin/users/{user_id}/token-limit")
-async def admin_set_token_limit(user_id: str, data: dict, admin_id: str = Depends(require_admin)):
+def admin_set_token_limit(user_id: str, data: dict, admin_id: str = Depends(require_admin)):
     """limit: null = back to the plan's limit; 0 = unlimited; a positive integer = that many tokens per month."""
     db = _db()
     user = _target(db, user_id)
@@ -82,7 +83,7 @@ async def admin_set_token_limit(user_id: str, data: dict, admin_id: str = Depend
 
 
 @router.post("/api/admin/users/{user_id}/disable")
-async def admin_set_disabled(user_id: str, data: dict, admin_id: str = Depends(require_admin)):
+def admin_set_disabled(user_id: str, data: dict, admin_id: str = Depends(require_admin)):
     db = _db()
     user = _target(db, user_id)
     disabled = data.get("disabled")
@@ -96,5 +97,5 @@ async def admin_set_disabled(user_id: str, data: dict, admin_id: str = Depends(r
 
 
 @router.get("/api/admin/audit")
-async def admin_audit(limit: int = Query(50, ge=1, le=200), admin_id: str = Depends(require_admin)):
+def admin_audit(limit: int = Query(50, ge=1, le=200), admin_id: str = Depends(require_admin)):
     return {"actions": _db().list_admin_actions(limit)}

@@ -1,0 +1,729 @@
+{
+  "dataset_sha256": "f0d9412dda1f30d8232fc613f366f4d43aee1de860e980c954a241559c50cf53",
+  "embedding_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+  "threshold": 0.6,
+  "margin": 0.05,
+  "runtime": {
+    "python": "3.12.15",
+    "numpy": "2.4.4",
+    "scikit-learn": "1.8.0",
+    "fastembed": "0.9.1"
+  },
+  "results": {
+    "lexical": {
+      "summary": {
+        "dev": {
+          "answerable": 4,
+          "top1_hits": 4,
+          "top3_hits": 4,
+          "unanswerable": 2,
+          "correct_abstentions": 2,
+          "median_latency_ms": 0.23
+        },
+        "heldout": {
+          "answerable": 14,
+          "top1_hits": 8,
+          "top3_hits": 8,
+          "unanswerable": 6,
+          "correct_abstentions": 3,
+          "median_latency_ms": 0.209
+        }
+      },
+      "cases": [
+        {
+          "id": "dev-ru-1",
+          "split": "dev",
+          "language": "ru",
+          "q": "Сколько дней занимает доставка курьером?",
+          "expected": "delivery_ru.md",
+          "retrieved": [
+            "delivery_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 535.024
+        },
+        {
+          "id": "dev-ru-2",
+          "split": "dev",
+          "language": "ru",
+          "q": "Забыл пароль, как снова войти?",
+          "expected": "security_ru.md",
+          "retrieved": [
+            "security_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.264
+        },
+        {
+          "id": "dev-en-1",
+          "split": "dev",
+          "language": "en",
+          "q": "Can I carry over unused vacation?",
+          "expected": "vacation_en.md",
+          "retrieved": [
+            "vacation_en.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.23
+        },
+        {
+          "id": "dev-en-2",
+          "split": "dev",
+          "language": "en",
+          "q": "What is the subscription refund window?",
+          "expected": "billing_en.md",
+          "retrieved": [
+            "billing_en.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.23
+        },
+        {
+          "id": "dev-none-1",
+          "split": "dev",
+          "language": "ru",
+          "q": "Какой у магазина номер телефона?",
+          "expected": null,
+          "retrieved": [],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.098
+        },
+        {
+          "id": "dev-none-2",
+          "split": "dev",
+          "language": "en",
+          "q": "What is the office street address?",
+          "expected": null,
+          "retrieved": [],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.093
+        },
+        {
+          "id": "ru-1",
+          "split": "heldout",
+          "language": "ru",
+          "q": "За какое время привезут заказ?",
+          "expected": "delivery_ru.md",
+          "retrieved": [],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 0.089
+        },
+        {
+          "id": "ru-2",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Можно ли отдать покупку обратно, если она не подошла?",
+          "expected": "returns_ru.md",
+          "retrieved": [],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 0.086
+        },
+        {
+          "id": "ru-3",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Сколько живёт ссылка для сброса пароля?",
+          "expected": "security_ru.md",
+          "retrieved": [],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 0.088
+        },
+        {
+          "id": "ru-4",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Нужна ли справка от врача при долгом отсутствии из-за болезни?",
+          "expected": "sickleave_ru.md",
+          "retrieved": [
+            "sickleave_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.227
+        },
+        {
+          "id": "ru-5",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Когда можно забрать товар самостоятельно?",
+          "expected": "delivery_ru.md",
+          "retrieved": [
+            "returns_ru.md"
+          ],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 0.226
+        },
+        {
+          "id": "ru-6",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Обмен размера возможен сколько дней?",
+          "expected": "returns_ru.md",
+          "retrieved": [
+            "returns_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.219
+        },
+        {
+          "id": "ru-7",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Мне обязательно отвечать на рабочие звонки во время больничного?",
+          "expected": "sickleave_ru.md",
+          "retrieved": [
+            "sickleave_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.231
+        },
+        {
+          "id": "en-1",
+          "split": "heldout",
+          "language": "en",
+          "q": "How much paid time off do staff get annually?",
+          "expected": "vacation_en.md",
+          "retrieved": [
+            "vacation_en.md",
+            "billing_en.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.215
+        },
+        {
+          "id": "en-2",
+          "split": "heldout",
+          "language": "en",
+          "q": "Am I allowed to moonlight for a rival business?",
+          "expected": "sidework_en.md",
+          "retrieved": [],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 0.091
+        },
+        {
+          "id": "en-3",
+          "split": "heldout",
+          "language": "en",
+          "q": "How do I stop my plan from charging me again?",
+          "expected": "billing_en.md",
+          "retrieved": [],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 0.085
+        },
+        {
+          "id": "en-4",
+          "split": "heldout",
+          "language": "en",
+          "q": "When do you permanently erase information after account deletion?",
+          "expected": "retention_en.md",
+          "retrieved": [
+            "retention_en.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.227
+        },
+        {
+          "id": "en-5",
+          "split": "heldout",
+          "language": "en",
+          "q": "May I use my work laptop for freelance projects?",
+          "expected": "sidework_en.md",
+          "retrieved": [
+            "sidework_en.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.217
+        },
+        {
+          "id": "follow-ru",
+          "split": "heldout",
+          "language": "ru",
+          "q": "А сколько она действует?",
+          "history": [
+            {
+              "role": "user",
+              "content": "Мне нужна ссылка для восстановления пароля."
+            }
+          ],
+          "expected": "security_ru.md",
+          "retrieved": [
+            "security_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.25
+        },
+        {
+          "id": "follow-en",
+          "split": "heldout",
+          "language": "en",
+          "q": "How long do they last?",
+          "history": [
+            {
+              "role": "user",
+              "content": "Tell me about database backups."
+            }
+          ],
+          "expected": "retention_en.md",
+          "retrieved": [
+            "retention_en.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.23
+        },
+        {
+          "id": "none-ru-1",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Как зовут директора магазина?",
+          "expected": null,
+          "retrieved": [],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.087
+        },
+        {
+          "id": "none-ru-2",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Какой размер скидки для студентов?",
+          "expected": null,
+          "retrieved": [],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.087
+        },
+        {
+          "id": "none-ru-3",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Можно ли оплатить товар биткоином?",
+          "expected": null,
+          "retrieved": [
+            "returns_ru.md"
+          ],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 0.203
+        },
+        {
+          "id": "none-en-1",
+          "split": "heldout",
+          "language": "en",
+          "q": "What is the monthly subscription price?",
+          "expected": null,
+          "retrieved": [
+            "billing_en.md"
+          ],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 0.212
+        },
+        {
+          "id": "none-en-2",
+          "split": "heldout",
+          "language": "en",
+          "q": "How many sick days are paid each year?",
+          "expected": null,
+          "retrieved": [
+            "vacation_en.md"
+          ],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 0.206
+        },
+        {
+          "id": "none-en-3",
+          "split": "heldout",
+          "language": "en",
+          "q": "Which courier company delivers parcels?",
+          "expected": null,
+          "retrieved": [],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 0.09
+        }
+      ]
+    },
+    "hybrid": {
+      "summary": {
+        "dev": {
+          "answerable": 4,
+          "top1_hits": 4,
+          "top3_hits": 4,
+          "unanswerable": 2,
+          "correct_abstentions": 2,
+          "median_latency_ms": 3.2800000000000002
+        },
+        "heldout": {
+          "answerable": 14,
+          "top1_hits": 11,
+          "top3_hits": 11,
+          "unanswerable": 6,
+          "correct_abstentions": 3,
+          "median_latency_ms": 3.682
+        }
+      },
+      "cases": [
+        {
+          "id": "dev-ru-1",
+          "split": "dev",
+          "language": "ru",
+          "q": "Сколько дней занимает доставка курьером?",
+          "expected": "delivery_ru.md",
+          "retrieved": [
+            "delivery_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 1150.059
+        },
+        {
+          "id": "dev-ru-2",
+          "split": "dev",
+          "language": "ru",
+          "q": "Забыл пароль, как снова войти?",
+          "expected": "security_ru.md",
+          "retrieved": [
+            "security_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 3.849
+        },
+        {
+          "id": "dev-en-1",
+          "split": "dev",
+          "language": "en",
+          "q": "Can I carry over unused vacation?",
+          "expected": "vacation_en.md",
+          "retrieved": [
+            "vacation_en.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 3.271
+        },
+        {
+          "id": "dev-en-2",
+          "split": "dev",
+          "language": "en",
+          "q": "What is the subscription refund window?",
+          "expected": "billing_en.md",
+          "retrieved": [
+            "billing_en.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 3.289
+        },
+        {
+          "id": "dev-none-1",
+          "split": "dev",
+          "language": "ru",
+          "q": "Какой у магазина номер телефона?",
+          "expected": null,
+          "retrieved": [],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 2.988
+        },
+        {
+          "id": "dev-none-2",
+          "split": "dev",
+          "language": "en",
+          "q": "What is the office street address?",
+          "expected": null,
+          "retrieved": [],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 2.883
+        },
+        {
+          "id": "ru-1",
+          "split": "heldout",
+          "language": "ru",
+          "q": "За какое время привезут заказ?",
+          "expected": "delivery_ru.md",
+          "retrieved": [
+            "delivery_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 3.098
+        },
+        {
+          "id": "ru-2",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Можно ли отдать покупку обратно, если она не подошла?",
+          "expected": "returns_ru.md",
+          "retrieved": [
+            "returns_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 4.163
+        },
+        {
+          "id": "ru-3",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Сколько живёт ссылка для сброса пароля?",
+          "expected": "security_ru.md",
+          "retrieved": [
+            "security_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 4.151
+        },
+        {
+          "id": "ru-4",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Нужна ли справка от врача при долгом отсутствии из-за болезни?",
+          "expected": "sickleave_ru.md",
+          "retrieved": [
+            "sickleave_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 5.119
+        },
+        {
+          "id": "ru-5",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Когда можно забрать товар самостоятельно?",
+          "expected": "delivery_ru.md",
+          "retrieved": [
+            "returns_ru.md"
+          ],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 3.184
+        },
+        {
+          "id": "ru-6",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Обмен размера возможен сколько дней?",
+          "expected": "returns_ru.md",
+          "retrieved": [
+            "returns_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 3.443
+        },
+        {
+          "id": "ru-7",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Мне обязательно отвечать на рабочие звонки во время больничного?",
+          "expected": "sickleave_ru.md",
+          "retrieved": [
+            "sickleave_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 4.225
+        },
+        {
+          "id": "en-1",
+          "split": "heldout",
+          "language": "en",
+          "q": "How much paid time off do staff get annually?",
+          "expected": "vacation_en.md",
+          "retrieved": [
+            "vacation_en.md",
+            "billing_en.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 3.889
+        },
+        {
+          "id": "en-2",
+          "split": "heldout",
+          "language": "en",
+          "q": "Am I allowed to moonlight for a rival business?",
+          "expected": "sidework_en.md",
+          "retrieved": [],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 3.798
+        },
+        {
+          "id": "en-3",
+          "split": "heldout",
+          "language": "en",
+          "q": "How do I stop my plan from charging me again?",
+          "expected": "billing_en.md",
+          "retrieved": [],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 3.807
+        },
+        {
+          "id": "en-4",
+          "split": "heldout",
+          "language": "en",
+          "q": "When do you permanently erase information after account deletion?",
+          "expected": "retention_en.md",
+          "retrieved": [
+            "retention_en.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 4.116
+        },
+        {
+          "id": "en-5",
+          "split": "heldout",
+          "language": "en",
+          "q": "May I use my work laptop for freelance projects?",
+          "expected": "sidework_en.md",
+          "retrieved": [
+            "sidework_en.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 3.471
+        },
+        {
+          "id": "follow-ru",
+          "split": "heldout",
+          "language": "ru",
+          "q": "А сколько она действует?",
+          "history": [
+            {
+              "role": "user",
+              "content": "Мне нужна ссылка для восстановления пароля."
+            }
+          ],
+          "expected": "security_ru.md",
+          "retrieved": [
+            "security_ru.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 4.525
+        },
+        {
+          "id": "follow-en",
+          "split": "heldout",
+          "language": "en",
+          "q": "How long do they last?",
+          "history": [
+            {
+              "role": "user",
+              "content": "Tell me about database backups."
+            }
+          ],
+          "expected": "retention_en.md",
+          "retrieved": [
+            "retention_en.md"
+          ],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 4.439
+        },
+        {
+          "id": "none-ru-1",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Как зовут директора магазина?",
+          "expected": null,
+          "retrieved": [],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 2.667
+        },
+        {
+          "id": "none-ru-2",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Какой размер скидки для студентов?",
+          "expected": null,
+          "retrieved": [],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 3.077
+        },
+        {
+          "id": "none-ru-3",
+          "split": "heldout",
+          "language": "ru",
+          "q": "Можно ли оплатить товар биткоином?",
+          "expected": null,
+          "retrieved": [
+            "returns_ru.md"
+          ],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 3.566
+        },
+        {
+          "id": "none-en-1",
+          "split": "heldout",
+          "language": "en",
+          "q": "What is the monthly subscription price?",
+          "expected": null,
+          "retrieved": [
+            "billing_en.md"
+          ],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 3.128
+        },
+        {
+          "id": "none-en-2",
+          "split": "heldout",
+          "language": "en",
+          "q": "How many sick days are paid each year?",
+          "expected": null,
+          "retrieved": [
+            "vacation_en.md"
+          ],
+          "top1": false,
+          "top3": false,
+          "latency_ms": 3.326
+        },
+        {
+          "id": "none-en-3",
+          "split": "heldout",
+          "language": "en",
+          "q": "Which courier company delivers parcels?",
+          "expected": null,
+          "retrieved": [],
+          "top1": true,
+          "top3": true,
+          "latency_ms": 3.211
+        }
+      ]
+    }
+  },
+  "model_assets_sha256": {
+    "model_optimized.onnx": "634d0f66c29dc934c8fa72b8a4fe91dd4d420a22f1d82a241058d4316e659a99"
+  }
+}

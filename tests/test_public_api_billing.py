@@ -87,7 +87,7 @@ def test_estimate_prompt_tokens_never_zero():
 def test_estimate_worst_case_cost_uses_max_tokens_as_completion_ceiling():
     messages = [{"role": "user", "content": "a" * 4000}]  # -> 1000 estimated prompt tokens
     cost = billing.estimate_worst_case_cost_cents(messages, max_tokens=2000)
-    assert cost == billing.compute_cost_cents(1000, 2000)
+    assert cost == billing.compute_cost_cents(billing.prompt_token_upper_bound(messages), 2000)
 
 
 # ---------------------------------------------------------------- reconcile_charge ----

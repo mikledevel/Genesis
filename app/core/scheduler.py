@@ -40,6 +40,11 @@ async def _run_one_job(db, job: dict):
     from app.core.skills.skill_generator import SkillGenerator
     from app.core.email_sender import send_email
 
+    state = db.get_session_state(job["owner_user_id"])
+    if not state or state[1]:
+        db.complete_scheduled_job_run(job["id"],success=False,result=None,error="Account is inactive")
+        return
+
     skill = db.get_skill(job["skill_id"])
     if not skill or not skill["active"] or not skill["test_passed"]:
         db.complete_scheduled_job_run(job["id"], success=False, result=None,

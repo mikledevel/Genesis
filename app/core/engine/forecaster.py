@@ -57,11 +57,18 @@ def infer_freq(index: "pd.DatetimeIndex") -> Tuple[str, List[str]]:
     notes: List[str] = []
     if len(idx) >= 3:
         try:
-            f = pd.infer_freq(idx)
+            try:
+                # Newer pandas can return a DateOffset directly. Opt in locally where
+                # supported; older pandas versions do not define this option.
+                with pd.option_context("future.infer_freq_returns_offset", True):
+                    f = pd.infer_freq(idx)
+            except pd.errors.OptionError:
+                f = pd.infer_freq(idx)
         except (TypeError, ValueError):
             f = None
         if f:
-            return f, notes
+            # pandas may return an offset object instead of a string in newer releases.
+            return getattr(f, "freqstr", str(f)), notes
     deltas = np.diff(idx.values).astype("timedelta64[s]").astype(float) / 86400.0
     med = float(np.median(deltas)) if len(deltas) else 1.0
     day1 = float((idx.day == 1).mean())
@@ -149,8 +156,8 @@ def features_at(spec: _Spec, prefix: np.ndarray, date: "pd.Timestamp", t: int) -
     def cyc(v, period):
         a = 2 * np.pi * v / period
         return [np.sin(a), np.cos(a)]
-    f += cyc(date.dayofweek, 7) + cyc(date.month - 1, 12) + cyc(date.dayofyear - 1, 365.25) + cyc(date.day - 1, 31)
-    f.append(float(date.dayofweek >= 5))
+    f += cyc(date.day_of_week, 7) + cyc(date.month - 1, 12) + cyc(date.day_of_year - 1, 365.25) + cyc(date.day - 1, 31)
+    f.append(float(date.day_of_week >= 5))
     if spec.hourly:
         f += cyc(date.hour, 24)
     if spec.use_trend:

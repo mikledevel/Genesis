@@ -1,6 +1,10 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
-const html = fs.readFileSync(require('path').join(__dirname, '../../static/index.html'), 'utf8');
+let html = fs.readFileSync(require('path').join(__dirname, '../../static/index.html'), 'utf8');
+html = html.replace('<script src="/static/ui-icons.js?v=20261110"></script>', '<script>' + fs.readFileSync(require('path').join(__dirname, '../../static/ui-icons.js'), 'utf8') + '</script>');
+for (const script of ['appearance','model-display']) {
+  html = html.replace('<script src="/static/' + script + '.js?v=20261110-beta1"></script>', '<script>' + fs.readFileSync(require('path').join(__dirname, '../../static/' + script + '.js'), 'utf8') + '</script>');
+}
 let failures = 0;
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) failures++; };
 
@@ -14,7 +18,12 @@ function sse(events) {
 
 (async () => {
   const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost:8000/' });
-  const w = dom.window; w.TextDecoder = TextDecoder;  // jsdom lacks it; every real browser has it
+  const w = dom.window;
+  w.eval(fs.readFileSync(require('path').join(__dirname, '../../static/ui-icons.js'), 'utf8'));
+  w.eval(fs.readFileSync(require('path').join(__dirname, '../../static/workspace.js'), 'utf8'));
+  w.eval(fs.readFileSync(require('path').join(__dirname, '../../static/registry.js'), 'utf8'));
+  w.eval(fs.readFileSync(require('path').join(__dirname, '../../static/jobs.js'), 'utf8'));
+  w.TextDecoder = TextDecoder;  // jsdom lacks it; every real browser has it
   await new Promise(r => setTimeout(r, 50));
   const $ = id => w.document.getElementById(id);
 
@@ -37,6 +46,54 @@ function sse(events) {
   ok(md.includes('class="mermaid-block"') && md.includes('data-src="flowchart TD'), 'mermaid block created');
   ok(w.mdRender('```js\nunclosed').includes('code-block'), 'unclosed fence still renders');
   ok(w.mdRender('') === '' && w.mdRender(null) === '', 'empty input safe');
+
+  const sourceMessage = w.addAiMsg('Returns are accepted within 14 days.', {
+    grounding: 'cited', sources: [{ id: 'kb-1', filename: '<img src=x onerror=alert(1)>.txt', excerpt: '<script>bad()</script>\n14 days.', cited: true }]
+  });
+  ok(sourceMessage.querySelector('.answer-source summary') && !sourceMessage.querySelector('.answer-sources img') && !sourceMessage.querySelector('.answer-sources script'), 'source passages render as escaped text with native disclosure');
+  sourceMessage.remove();
+
+  const dateChoice = w.addAiMsg('Choose a date column', {
+    needs_date: true, date_candidates: ['order_date', '<img src=x>'], path: 'datasets/demo.csv',
+    original_request: 'Forecast revenue for 2 weeks'
+  });
+  const dateButton = dateChoice.querySelector('.cand');
+  ok(dateButton && dateButton.dataset.msg.includes('revenue for 2 weeks') && dateButton.dataset.msg.includes('date column order_date'), 'date clarification preserves target and horizon');
+  ok(!dateChoice.querySelector('img'), 'date column names are escaped');
+  dateChoice.remove();
+
+  const traceOnly = w.addAiMsg('Hello', { trace_id: 'internal-id' });
+  ok(!traceOnly.querySelector('.data-card'), 'internal trace identifier does not create a result card');
+  traceOnly.remove();
+  w.fetch = async () => ({ ok: true, json: async () => ({ kind: 'train', status: 'succeeded', result: {
+    message: 'Raw metrics should not fill the chat', data: { model_id: 'm1', metrics: { accuracy_test: 0.8 } } } }) });
+  const completedJob = w.addAiMsg('Queued', { job_id: 'job-complete' });
+  await new Promise(r => setTimeout(r, 20));
+  ok(completedJob.querySelector('.job-status').textContent.includes('trained and saved') && !completedJob.textContent.includes('Raw metrics'), 'completed training shows a concise result and its metric card');
+  ok(!completedJob.querySelector('.job-status > button'), 'completed background job has no cancel button');
+  completedJob.remove();
+  let cancelled = false;
+  w.fetch = async (_, opts = {}) => {
+    if (opts.method === 'DELETE') cancelled = true;
+    return { ok: true, json: async () => ({ status: cancelled ? 'cancelled' : 'running', progress: { detail: 'Cross-validating' } }) };
+  };
+  const runningJob = w.addAiMsg('Queued', { job_id: 'job-running' });
+  await new Promise(r => setTimeout(r, 20));
+  ok(runningJob.querySelector('.job-status').textContent.includes('Cross-validating'), 'job progress is visible');
+  runningJob.querySelector('.job-status button').click();
+  await new Promise(r => setTimeout(r, 20));
+  ok(cancelled && runningJob.querySelector('.job-status').textContent.includes('cancelled'), 'cancel requests server cancellation and refreshes status');
+  runningJob.remove();
+  let recoverStatus = false;
+  w.fetch = async () => ({ ok: recoverStatus, json: async () => ({ status: 'succeeded', result: { message: 'Recovered' } }) });
+  const retryJob = w.addAiMsg('Queued', { job_id: 'job-retry' });
+  await new Promise(r => setTimeout(r, 20));
+  ok(retryJob.querySelector('.job-status button').textContent === 'Retry status', 'job status failure offers an explicit retry');
+  recoverStatus = true;
+  retryJob.querySelector('.job-status button').click();
+  await new Promise(r => setTimeout(r, 20));
+  ok(retryJob.textContent.includes('Recovered'), 'status retry recovers without creating another job');
+  retryJob.remove();
 
   // ---- welcome screen
   w.currentUser = { name: 'Mikle Test' };

@@ -14,6 +14,9 @@ raising it is an operator action: GenesisDB.set_user_groq_limit, or the admin pa
 precedence: verified owner e-mail (unlimited) > per-user override > the plan's limit.
 """
 from typing import Tuple, Optional
+from contextvars import ContextVar
+
+quota_owner = ContextVar("quota_owner",default=None)
 
 
 def check_quota(db, user_id: Optional[str]) -> Tuple[bool, int, int]:

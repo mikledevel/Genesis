@@ -1,13 +1,50 @@
-"""Database layer - SQLite storage with API keys support."""
+"""Database layer with local SQLite and persistent PostgreSQL storage."""
 
 import sqlite3, uuid, os, json
+from app.core.resource_guard import resource_guard
+from app.core.secrets_store import encrypt_secret, decrypt_secret, key_digest
 from typing import Dict, List, Any, Optional
 
 
-class GenesisDB:
-    def __init__(self, db_path: str = "genesis.db"):
-        self.db_path = db_path
-        self._init_db()
+from app.db.crypto_billing import CryptoBillingMixin, SCHEMA as CRYPTO_SCHEMA
+from app.db.reliability import ReliabilityMixin, SCHEMA as RELIABILITY_SCHEMA
+from app.db.jobs import JobQueueMixin
+from app.db.artifacts import ArtifactMixin, SCHEMA as ARTIFACT_SCHEMA
+from app.db.traces import TraceMixin, SCHEMA as TRACE_SCHEMA
+
+
+class GenesisDB(CryptoBillingMixin, ReliabilityMixin, JobQueueMixin, ArtifactMixin, TraceMixin):
+    def __init__(self, db_path: Optional[str] = None, *, database_url: Optional[str] = None):
+        from app.config import settings
+        self.database_url = database_url or (settings.database_url if db_path is None else "")
+        self.is_postgres = bool(self.database_url)
+        self.db_path = db_path or "genesis.db"
+        self._integrity_errors = (sqlite3.IntegrityError,)
+        if self.is_postgres:
+            if not self.database_url.startswith(("postgresql://", "postgres://")):
+                raise ValueError("DATABASE_URL must be a PostgreSQL connection URL")
+            from app.db.postgres import psycopg, schema_initialization
+            self._integrity_errors += (psycopg.IntegrityError,)
+            with schema_initialization(self.database_url) as initialize:
+                if initialize:
+                    with self._connect() as conn:
+                        exists = conn.execute("SELECT to_regclass('genesis.schema_migrations')").fetchone()[0]
+                        version = conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] if exists else 0
+                    if version and version>4:
+                        raise RuntimeError("Database schema is newer than this application")
+                    if version != 4:
+                        if not settings.database_auto_migrate:
+                            raise RuntimeError("Run python scripts/migrate.py before starting the application")
+                        self._init_db()
+        else:
+            with self._connect() as conn:
+                version = conn.execute("PRAGMA user_version").fetchone()[0]
+            if version>4:
+                raise RuntimeError("Database schema is newer than this application")
+            if version < 4:
+                if not settings.database_auto_migrate:
+                    raise RuntimeError("Run python scripts/migrate.py before starting the application")
+                self._init_db()
 
     def _connect(self) -> sqlite3.Connection:
         """Every new sqlite3 connection starts with foreign_keys OFF by default -
@@ -29,6 +66,9 @@ class GenesisDB:
         (settings.database_url already exists for this - see CHANGES.md for the migration
         plan), not to tune these settings further.
         """
+        if self.is_postgres:
+            from app.db.postgres import Connection
+            return Connection(self.database_url)
         conn = sqlite3.connect(self.db_path, timeout=5.0)
         conn.execute("PRAGMA foreign_keys = ON")
         conn.execute("PRAGMA journal_mode = WAL")
@@ -103,6 +143,10 @@ class GenesisDB:
                     stripe_session_id TEXT,
                     created_at TEXT DEFAULT (datetime('now'))
                 );
+                CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+                    event_id TEXT PRIMARY KEY, event_type TEXT NOT NULL,
+                    processed_at TEXT DEFAULT (datetime('now'))
+                );
                 CREATE TABLE IF NOT EXISTS chats (
                     id TEXT PRIMARY KEY, title TEXT DEFAULT 'Untitled',
                     user_id TEXT,
@@ -144,6 +188,11 @@ class GenesisDB:
                     success INTEGER NOT NULL, error TEXT,
                     created_at TEXT DEFAULT (datetime('now'))
                 );
+                CREATE TABLE IF NOT EXISTS feature_usage (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, feature TEXT NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_feature_usage_user ON feature_usage(user_id, feature, created_at);
                 CREATE TABLE IF NOT EXISTS prompts (
                     id TEXT PRIMARY KEY, user_id TEXT NOT NULL,
                     name TEXT NOT NULL, description TEXT DEFAULT '',
@@ -222,6 +271,7 @@ class GenesisDB:
                 );
                 PRAGMA journal_mode=WAL;
             """)
+            conn.executescript(CRYPTO_SCHEMA)
             conn.commit()
             # Idempotent migration: databases created before user accounts existed won't have
             # these columns yet. ALTER TABLE ADD COLUMN is safe to retry - ignore if already there.
@@ -251,12 +301,27 @@ class GenesisDB:
                                           # The mailbox an address really delivers to (a.b+x@gmail.com -> ab@gmail.com): one
                                           # mailbox, one account (app/core/antibot.py canonical_email).
                                           ("users", "email_canonical", "TEXT"),
+                                          ("users", "crypto_plan_id", "TEXT"),
+                                          ("users", "crypto_access_until", "INTEGER DEFAULT 0"),
+                                          ("users", "stripe_customer_id", "TEXT"),
+                                          ("users", "stripe_subscription_id", "TEXT"),
+                                          ("users", "stripe_subscription_status", "TEXT"),
+                                          ("users", "stripe_subscription_price_id", "TEXT"),
+                                          ("users", "stripe_subscription_current_period_end", "INTEGER"),
+                                          ("users", "stripe_subscription_cancel_at_period_end", "INTEGER DEFAULT 0"),
+                                          ("users", "stripe_checkout_session_id", "TEXT"),
+                                          ("users", "stripe_checkout_attempt_id", "TEXT"),
+                                          ("users", "stripe_checkout_plan_id", "TEXT"),
+                                          ("users", "stripe_checkout_created_at", "INTEGER"),
                                           ("bot_skills", "action_type", "TEXT NOT NULL DEFAULT 'read_only'")]:
                 try:
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coldef}")
                     conn.commit()
                 except sqlite3.OperationalError:
                     pass  # column already exists
+            conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_stripe_customer_id "
+                         "ON users(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL")
+            conn.commit()
             try:        # backfill rows created before email_canonical existed, then index it
                 from app.core.antibot import canonical_email
                 for _uid, _em in conn.execute("SELECT id, email FROM users WHERE email_canonical IS NULL").fetchall():
@@ -265,6 +330,37 @@ class GenesisDB:
                 conn.commit()
             except sqlite3.OperationalError:
                 pass
+
+            conn.executescript(RELIABILITY_SCHEMA + ARTIFACT_SCHEMA + TRACE_SCHEMA)
+            try:
+                conn.execute("ALTER TABLE usage_operations ADD COLUMN request_hash TEXT NOT NULL DEFAULT ''")
+                conn.commit()
+            except sqlite3.OperationalError:
+                pass
+            try:
+                conn.execute("ALTER TABLE background_jobs ADD COLUMN progress_json TEXT")
+                conn.commit()
+            except sqlite3.OperationalError:
+                pass
+            try:
+                conn.execute("ALTER TABLE usage_operations ADD COLUMN related_id TEXT")
+                conn.commit()
+            except sqlite3.OperationalError:
+                pass
+            conn.execute("INSERT INTO schema_migrations(version) VALUES (1) ON CONFLICT DO NOTHING")
+            conn.execute("INSERT INTO schema_migrations(version) VALUES (2) ON CONFLICT DO NOTHING")
+            conn.execute("INSERT INTO schema_migrations(version) VALUES (3) ON CONFLICT DO NOTHING")
+            conn.execute("INSERT INTO schema_migrations(version) VALUES (4) ON CONFLICT DO NOTHING")
+            if not self.is_postgres:
+                conn.execute("PRAGMA user_version=4")
+            conn.commit()
+
+            if self.is_postgres:
+                tables = conn.execute("SELECT quote_ident(tablename) FROM pg_catalog.pg_tables "
+                                      "WHERE schemaname='genesis'").fetchall()
+                for (table,) in tables:
+                    conn.execute(f"ALTER TABLE genesis.{table} ENABLE ROW LEVEL SECURITY")
+                conn.commit()
 
     # --- Users ---
     def create_user(self, email: str, password_hash: str, name: str = "") -> Dict:
@@ -278,7 +374,11 @@ class GenesisDB:
 
     def canonical_email_exists(self, canonical: str) -> bool:
         with self._connect() as conn:
-            return conn.execute("SELECT 1 FROM users WHERE email_canonical = ? LIMIT 1", (canonical,)).fetchone() is not None
+            if conn.execute("SELECT 1 FROM users WHERE email_canonical = ? LIMIT 1", (canonical,)).fetchone():
+                return True
+            from app.core.antibot import canonical_email
+            rows = conn.execute("SELECT email FROM users WHERE email_canonical IS NULL").fetchall()
+            return any(canonical_email(row[0]) == canonical for row in rows)
 
     def count_recent_auth_tokens(self, user_id: str, purpose: str, minutes: int = 60) -> int:
         """How many tokens of this purpose (= how many e-mails) were issued to the user in the last N minutes."""
@@ -297,6 +397,177 @@ class GenesisDB:
         with self._connect() as conn:
             row = conn.execute("SELECT id, email, name, balance_cents FROM users WHERE id = ?", (user_id,)).fetchone()
             return {"id": row[0], "email": row[1], "name": row[2], "balance_cents": row[3]} if row else None
+
+    def get_billing_user(self, user_id: str) -> Optional[Dict]:
+        """Billing-only view; Stripe identifiers are never added to public auth responses."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT id,email,name,plan,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,"
+                "stripe_subscription_price_id,stripe_subscription_current_period_end,"
+                "stripe_subscription_cancel_at_period_end,stripe_checkout_session_id,stripe_checkout_attempt_id,"
+                "stripe_checkout_plan_id,stripe_checkout_created_at FROM users WHERE id=?", (user_id,)
+            ).fetchone()
+        if not row:
+            return None
+        return {"id": row[0], "email": row[1], "name": row[2], "plan": row[3], "stripe_customer_id": row[4],
+                "stripe_subscription_id": row[5], "stripe_subscription_status": row[6],
+                "stripe_subscription_price_id": row[7], "current_period_end": row[8],
+                "cancel_at_period_end": bool(row[9]), "checkout_session_id": row[10],
+                "checkout_attempt_id": row[11], "checkout_plan_id": row[12],
+                "checkout_created_at": row[13]}
+
+    def reserve_stripe_checkout(self, user_id: str, plan_id: str, attempt_id: str) -> Dict:
+        """Serialize subscription checkout creation per user to prevent duplicate subscriptions."""
+        import time
+        now = int(time.time())
+        with self._connect() as conn:
+            conn.execute("BEGIN" if self.is_postgres else "BEGIN IMMEDIATE")
+            if self.is_postgres:
+                conn.execute("SELECT id FROM users WHERE id=? FOR UPDATE", (user_id,))
+            row = conn.execute(
+                "SELECT stripe_subscription_id,stripe_subscription_status,stripe_checkout_session_id,"
+                "stripe_checkout_attempt_id,stripe_checkout_plan_id,stripe_checkout_created_at "
+                "FROM users WHERE id=?", (user_id,)
+            ).fetchone()
+            if not row:
+                conn.rollback()
+                raise ValueError("GenesisAI account was not found")
+            sub_id, sub_status, session_id, current_attempt, current_plan, created_at = row
+            if sub_id and sub_status not in ("canceled", "incomplete_expired", "unpaid", "paused"):
+                conn.rollback()
+                return {"status": "subscription_exists", "subscription_status": sub_status}
+            if current_attempt and created_at and now - int(created_at) < 3600:
+                conn.commit()
+                return {"status": "pending", "session_id": session_id, "attempt_id": current_attempt,
+                        "plan_id": current_plan}
+            conn.execute(
+                "UPDATE users SET stripe_checkout_session_id=NULL,stripe_checkout_attempt_id=?,"
+                "stripe_checkout_plan_id=?,stripe_checkout_created_at=? WHERE id=?",
+                (attempt_id, plan_id, now, user_id),
+            )
+            conn.commit()
+        return {"status": "reserved", "attempt_id": attempt_id, "plan_id": plan_id}
+
+    def save_stripe_checkout_session(self, user_id: str, attempt_id: str, session_id: str) -> bool:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "UPDATE users SET stripe_checkout_session_id=? WHERE id=? AND stripe_checkout_attempt_id=?",
+                (session_id, user_id, attempt_id),
+            )
+            conn.commit()
+        return cur.rowcount == 1
+
+    def clear_stripe_checkout(self, user_id: str, attempt_id: str) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE users SET stripe_checkout_session_id=NULL,stripe_checkout_attempt_id=NULL,"
+                "stripe_checkout_plan_id=NULL,stripe_checkout_created_at=NULL WHERE id=? AND stripe_checkout_attempt_id=?",
+                (user_id, attempt_id),
+            )
+            conn.commit()
+
+    def get_user_id_for_stripe_customer(self, customer_id: str) -> Optional[str]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT id FROM users WHERE stripe_customer_id=?", (customer_id,)).fetchone()
+        return row[0] if row else None
+
+    def save_stripe_customer(self, user_id: str, customer_id: str) -> str:
+        """Link one Stripe customer to one Genesis account; return the stored ID."""
+        with self._connect() as conn:
+            conn.execute("BEGIN" if self.is_postgres else "BEGIN IMMEDIATE")
+            if self.is_postgres:
+                conn.execute("SELECT id FROM users WHERE id=? FOR UPDATE", (user_id,))
+            row = conn.execute("SELECT stripe_customer_id FROM users WHERE id=?", (user_id,)).fetchone()
+            if not row:
+                conn.rollback()
+                raise ValueError("GenesisAI account was not found")
+            current = row[0]
+            if current and current != customer_id:
+                conn.rollback()
+                raise ValueError("This GenesisAI account is already linked to another Stripe customer")
+            try:
+                conn.execute("UPDATE users SET stripe_customer_id=? WHERE id=?", (customer_id, user_id))
+                conn.commit()
+            except self._integrity_errors as e:
+                conn.rollback()
+                raise ValueError("This Stripe customer is already linked to another account") from e
+        return current or customer_id
+
+    def apply_stripe_subscription_event(self, event_id: str, event_type: str, user_id: str, customer_id: str,
+                                       subscription_id: str, subscription_status: str, price_id: Optional[str],
+                                       period_end: Optional[int], cancel_at_period_end: bool,
+                                       target_plan: str) -> Dict:
+        """Atomically deduplicate a Stripe event and apply a snapshot of the latest subscription state."""
+        terminal = {"canceled", "incomplete_expired", "unpaid", "paused"}
+        paid = {"pro", "business"}
+        with self._connect() as conn:
+            conn.execute("BEGIN" if self.is_postgres else "BEGIN IMMEDIATE")
+            if self.is_postgres:
+                conn.execute("SELECT id FROM users WHERE id=? FOR UPDATE", (user_id,))
+            inserted = conn.execute(
+                "INSERT INTO stripe_webhook_events(event_id,event_type) VALUES (?,?) ON CONFLICT DO NOTHING",
+                (event_id, event_type),
+            )
+            if inserted.rowcount == 0:
+                conn.rollback()
+                return {"status": "already_processed"}
+
+            row = conn.execute(
+                "SELECT plan,stripe_customer_id,stripe_subscription_id,stripe_subscription_status "
+                "FROM users WHERE id=?", (user_id,)
+            ).fetchone()
+            if not row:
+                conn.rollback()
+                raise ValueError("Subscription event refers to an unknown GenesisAI account")
+            current_plan, current_customer, current_subscription, current_status = row
+            if current_customer and current_customer != customer_id:
+                conn.rollback()
+                raise ValueError("Subscription event customer does not match the linked Stripe customer")
+
+            if current_subscription and current_subscription != subscription_id:
+                # Never let a delayed event from an old subscription overwrite the user's newer one.
+                if current_status not in terminal or subscription_status in terminal:
+                    conn.commit()  # record the ignored event so Stripe doesn't retry it forever
+                    return {"status": "ignored_stale_subscription"}
+
+            if subscription_status in ("active", "trialing") and target_plan in paid:
+                effective_plan = target_plan
+            elif subscription_status == "past_due" and current_subscription == subscription_id and current_plan in paid:
+                # Keep access through Stripe's configured retry window; cancellation/unpaid later revokes it.
+                effective_plan = current_plan
+            else:
+                effective_plan = "free"
+
+            conn.execute(
+                "UPDATE users SET stripe_customer_id=?,stripe_subscription_id=?,stripe_subscription_status=?,"
+                "stripe_subscription_price_id=?,stripe_subscription_current_period_end=?,"
+                "stripe_subscription_cancel_at_period_end=?,plan=? WHERE id=?",
+                (customer_id, subscription_id, subscription_status, price_id, period_end,
+                 int(bool(cancel_at_period_end)), effective_plan, user_id),
+            )
+            conn.execute(
+                "UPDATE users SET stripe_checkout_session_id=NULL,stripe_checkout_attempt_id=NULL,"
+                "stripe_checkout_plan_id=NULL,stripe_checkout_created_at=NULL WHERE id=?",
+                (user_id,),
+            )
+            conn.commit()
+        return {"status": "updated", "user_id": user_id, "plan": effective_plan,
+                "subscription_status": subscription_status}
+
+    def update_display_name(self, user_id: str, name: str):
+        with self._connect() as conn:
+            conn.execute("UPDATE users SET name=? WHERE id=?", (name, user_id))
+            conn.commit()
+
+    def change_account_password(self, user_id: str, previous_hash: str, new_hash: str) -> bool:
+        # Compare-and-set prevents two sessions from overwriting a concurrent password change.
+        import time
+        with self._connect() as conn:
+            result = conn.execute(
+                "UPDATE users SET password_hash=?,sessions_valid_after=? WHERE id=? AND password_hash=?",
+                (new_hash, int(time.time() * 1000), user_id, previous_hash))
+            conn.commit()
+            return result.rowcount == 1
 
     def update_password(self, user_id: str, new_password_hash: str):
         with self._connect() as conn:
@@ -521,6 +792,7 @@ class GenesisDB:
     # than retrying forever against something that's clearly broken (wrong domain, dead
     # site, a bug introduced by editing the skill) and quietly wasting compute/API calls.
 
+    @resource_guard("scheduled_job","owner_user_id")
     def create_scheduled_job(self, skill_id: str, agent_id: str, owner_user_id: str,
                               params: dict, interval_minutes: int, notify_on_change: bool = True) -> Dict:
         if interval_minutes < self.MIN_SCHEDULE_INTERVAL_MINUTES:
@@ -641,6 +913,8 @@ class GenesisDB:
             return row[0] if row else 0
 
     def set_selected_model(self, user_id: str, data: dict):
+        from app.core.selection import resolve_selection
+        data = resolve_selection(self,user_id,data)
         with self._connect() as conn:
             conn.execute("UPDATE users SET selected_model_json = ? WHERE id = ?", (json.dumps(data), user_id))
             conn.commit()
@@ -648,12 +922,14 @@ class GenesisDB:
     def get_selected_model(self, user_id: str) -> dict:
         with self._connect() as conn:
             row = conn.execute("SELECT selected_model_json FROM users WHERE id = ?", (user_id,)).fetchone()
-            if row and row[0]:
-                try:
-                    return json.loads(row[0])
-                except json.JSONDecodeError:
-                    return {}
+        if not row or not row[0]:
             return {}
+        try:
+            stored = json.loads(row[0])
+        except json.JSONDecodeError:
+            return {}
+        from app.core.selection import resolve_selection
+        return resolve_selection(self,user_id,stored)
 
     def stripe_session_already_processed(self, stripe_session_id: str) -> bool:
         """Idempotency guard - Stripe can (and does) redeliver the same webhook event more
@@ -737,7 +1013,11 @@ class GenesisDB:
     # --- Chats ---
     def create_chat(self, chat_id: str, title: str = "Untitled", user_id: str = None) -> Dict:
         with self._connect() as conn:
-            conn.execute("INSERT OR IGNORE INTO chats (id, title, user_id) VALUES (?, ?, ?)", (chat_id, title, user_id))
+            conn.execute("INSERT INTO chats (id, title, user_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING", (chat_id, title, user_id))
+            owner = conn.execute("SELECT user_id FROM chats WHERE id=?",(chat_id,)).fetchone()
+            if owner is None or owner[0] != user_id:
+                conn.rollback()
+                raise PermissionError("Conversation belongs to another account")
             conn.commit()
         return {"id": chat_id, "title": title}
 
@@ -757,13 +1037,12 @@ class GenesisDB:
             conn.execute("UPDATE chats SET agent_id = COALESCE(agent_id, ?) WHERE id = ?", (agent_id, chat_id))
             conn.commit()
 
-    def list_chats(self, user_id: str = None) -> List[Dict]:
+    def list_chats(self, user_id=None, limit=200, offset=0):
         with self._connect() as conn:
-            if user_id is not None:
-                rows = conn.execute("SELECT * FROM chats WHERE user_id = ? ORDER BY updated_at DESC", (user_id,)).fetchall()
-            else:
-                rows = conn.execute("SELECT * FROM chats ORDER BY updated_at DESC").fetchall()
-            return [{"id": r[0], "title": r[1], "user_id": r[2], "created_at": r[3], "updated_at": r[4]} for r in rows]
+            where = " WHERE user_id=?" if user_id is not None else ""
+            parameters = [user_id] if user_id is not None else []
+            rows = conn.execute("SELECT * FROM chats"+where+" ORDER BY updated_at DESC LIMIT ? OFFSET ?",(*parameters,limit,offset)).fetchall()
+        return [{"id":r[0],"title":r[1],"user_id":r[2],"created_at":r[3],"updated_at":r[4]} for r in rows]
 
     def rename_chat(self, chat_id: str, title: str):
         with self._connect() as conn:
@@ -781,14 +1060,22 @@ class GenesisDB:
     def add_message(self, chat_id: str, role: str, content: str, data: dict = None) -> int:
         data_json = json.dumps(data, ensure_ascii=False) if data else None
         with self._connect() as conn:
-            cur = conn.execute("INSERT INTO messages (chat_id, role, content, data) VALUES (?, ?, ?, ?)", (chat_id, role, content, data_json))
+            cur = conn.execute("INSERT INTO messages (chat_id, role, content, data) VALUES (?, ?, ?, ?) RETURNING id", (chat_id, role, content, data_json))
+            message_id = cur.fetchone()[0]
             conn.execute("UPDATE chats SET updated_at = datetime('now') WHERE id = ?", (chat_id,))
             conn.commit()
-            return cur.lastrowid
+            return message_id
 
-    def get_messages(self, chat_id: str) -> List[Dict]:
+    def get_messages(self, chat_id: str, limit=None, offset=0, newest=False) -> List[Dict]:
         with self._connect() as conn:
-            rows = conn.execute("SELECT id, role, content, data, created_at, rating FROM messages WHERE chat_id = ? ORDER BY id ASC", (chat_id,)).fetchall()
+            query = "SELECT id, role, content, data, created_at, rating FROM messages WHERE chat_id = ? ORDER BY id " + ("DESC" if newest else "ASC")
+            parameters = [chat_id]
+            if limit is not None:
+                query += " LIMIT ? OFFSET ?"
+                parameters.extend([limit,offset])
+            rows = conn.execute(query,parameters).fetchall()
+            if newest:
+                rows.reverse()
             result = []
             for r in rows:
                 msg = {"id": r[0], "role": r[1], "content": r[2], "timestamp": r[4], "rating": r[5]}
@@ -820,7 +1107,6 @@ class GenesisDB:
         """Count of messages sent per day for each of the last 7 days (oldest first),
         used to draw the real Dashboard activity chart instead of mock data."""
         with self._connect() as conn:
-            conn.row_factory = sqlite3.Row
             if user_id is not None:
                 rows = conn.execute("""
                     SELECT date(m.created_at) AS day, COUNT(*) AS count
@@ -835,7 +1121,7 @@ class GenesisDB:
                     WHERE date(created_at) >= date('now', '-6 days')
                     GROUP BY day
                 """).fetchall()
-        counts = {r["day"]: r["count"] for r in rows}
+        counts = {r[0]: r[1] for r in rows}
         from datetime import date, timedelta
         today = date.today()
         return [
@@ -883,22 +1169,29 @@ class GenesisDB:
     # only (e.g. "laptop", "prod server") - it is NEVER used for authorization. Previously
     # these routes accepted an arbitrary client-supplied user_name with no login required at
     # all, which meant anyone could list, create, or delete ANY api key for ANY account.
+    @resource_guard("api_key","owner_user_id")
     def create_api_key(self, owner_user_id: str, user_name: str = "", calls_limit: int = 100) -> Dict:
         api_key = f"gen-{uuid.uuid4().hex[:24]}"
         with self._connect() as conn:
             conn.execute("INSERT INTO api_keys (user_id, user_name, api_key, calls_limit) VALUES (?, ?, ?, ?)",
-                         (owner_user_id, user_name, api_key, calls_limit))
+                         (owner_user_id, user_name, key_digest(api_key), calls_limit))
             conn.commit()
         return {"user_id": owner_user_id, "user_name": user_name, "api_key": api_key, "calls_limit": calls_limit, "calls_used": 0}
 
     def validate_api_key(self, api_key: str) -> Optional[Dict]:
-        with self._connect() as conn:
-            row = conn.execute("SELECT id, user_name, api_key, calls_limit, calls_used, active, user_id "
-                                "FROM api_keys WHERE api_key = ? AND active = 1", (api_key,)).fetchone()
-            if row:
-                return {"id": row[0], "user_name": row[1], "api_key": row[2], "calls_limit": row[3],
-                        "calls_used": row[4], "user_id": row[6]}
+        if not isinstance(api_key, str) or not api_key.startswith("gen-"):
             return None
+        digest = key_digest(api_key)
+        with self._connect() as conn:
+            row = conn.execute("SELECT k.id,k.user_name,k.calls_limit,k.calls_used,k.user_id,k.api_key FROM api_keys k "
+                               "JOIN users u ON u.id=k.user_id AND u.disabled=0 "
+                               "WHERE k.api_key IN (?,?) AND k.active=1", (digest,api_key)).fetchone()
+            if not row:
+                return None
+            if row[5] != digest:
+                conn.execute("UPDATE api_keys SET api_key=? WHERE id=?", (digest,row[0]))
+                conn.commit()
+            return {"id":row[0],"user_name":row[1],"calls_limit":row[2],"calls_used":row[3],"user_id":row[4],"api_key":api_key}
 
     def use_api_key(self, api_key: str, model_id: str) -> bool:
         """Increments the call counter and logs usage. Atomic check-and-increment in one
@@ -910,11 +1203,12 @@ class GenesisDB:
         with self._connect() as conn:
             cur = conn.execute(
                 "UPDATE api_keys SET calls_used = calls_used + 1 "
-                "WHERE api_key = ? AND active = 1 AND calls_used < calls_limit", (api_key,))
+                "WHERE api_key = ? AND active = 1 AND calls_used < calls_limit "
+                "AND EXISTS (SELECT 1 FROM users WHERE users.id=api_keys.user_id AND users.disabled=0)", (key_digest(api_key),))
             if cur.rowcount == 0:
                 conn.rollback()
                 return False
-            conn.execute("INSERT INTO usage_log (api_key, model_id) VALUES (?, ?)", (api_key, model_id))
+            conn.execute("INSERT INTO usage_log (api_key, model_id) VALUES (?, ?)", (key_digest(api_key), model_id))
             conn.commit()
             return True
 
@@ -929,7 +1223,7 @@ class GenesisDB:
             conn.execute(
                 "INSERT INTO public_api_usage (api_key, user_id, model, prompt_tokens, completion_tokens, "
                 "charged_cents) VALUES (?, ?, ?, ?, ?, ?)",
-                (api_key, user_id, model, prompt_tokens, completion_tokens, charged_cents))
+                (key_digest(api_key), user_id, model, prompt_tokens, completion_tokens, charged_cents))
             conn.commit()
 
     def get_public_api_usage_summary(self, user_id: str, limit: int = 100) -> Dict:
@@ -1003,11 +1297,11 @@ class GenesisDB:
         with self._connect() as conn:
             rows = conn.execute("SELECT id, user_name, api_key, calls_limit, calls_used, active, user_id "
                                  "FROM api_keys WHERE user_id = ?", (owner_user_id,)).fetchall()
-            return [{"id": r[0], "user_name": r[1], "api_key": r[2], "calls_limit": r[3], "calls_used": r[4], "active": r[5]} for r in rows]
+            return [{"id": r[0], "user_name": r[1], "api_key": "..." + str(r[2])[-6:], "calls_limit": r[3], "calls_used": r[4], "active": r[5]} for r in rows]
 
     def get_api_key_owner(self, api_key: str) -> Optional[str]:
         with self._connect() as conn:
-            row = conn.execute("SELECT user_id FROM api_keys WHERE api_key = ?", (api_key,)).fetchone()
+            row = conn.execute("SELECT user_id FROM api_keys WHERE api_key IN (?,?)", (key_digest(api_key),api_key)).fetchone()
             return row[0] if row else None
 
     def delete_api_key(self, api_key: str, owner_user_id: str) -> bool:
@@ -1015,7 +1309,7 @@ class GenesisDB:
         deleted) for a key owned by someone else or that doesn't exist, distinguishable from
         a real delete by the route handler."""
         with self._connect() as conn:
-            cur = conn.execute("DELETE FROM api_keys WHERE api_key = ? AND user_id = ?", (api_key, owner_user_id))
+            cur = conn.execute("DELETE FROM api_keys WHERE (api_key IN (?,?) OR CAST(id AS TEXT)=?) AND user_id = ?", (key_digest(api_key), api_key, api_key, owner_user_id))
             conn.commit()
             return cur.rowcount > 0
 
@@ -1088,7 +1382,23 @@ class GenesisDB:
             row = conn.execute(
                 "SELECT SUM(total_tokens) FROM groq_usage_log WHERE user_id = ? AND success = 1 "
                 "AND created_at >= datetime('now', 'start of month')", (user_id,)).fetchone()
-            return row[0] or 0
+            from datetime import datetime, timezone
+            budget = conn.execute("SELECT used FROM monthly_counters WHERE user_id=? AND month=? AND feature='tokens'",
+                                  (user_id,datetime.now(timezone.utc).strftime("%Y-%m"))).fetchone()
+            return max(row[0] or 0, budget[0] if budget else 0)
+
+    # --- per-month counters for plan limits that are about JOBS, not stored things (server training runs, ...) ---
+    def record_feature_use(self, user_id: str, feature: str) -> None:
+        with self._connect() as conn:
+            conn.execute("INSERT INTO feature_usage (user_id, feature) VALUES (?, ?)", (user_id, feature))
+            conn.commit()
+
+    def count_feature_use_this_month(self, user_id: str, feature: str) -> int:
+        """Uses since the start of the current calendar month (UTC), the same window as get_groq_usage_this_month."""
+        with self._connect() as conn:
+            row = conn.execute("SELECT COUNT(*) FROM feature_usage WHERE user_id = ? AND feature = ? "
+                               "AND created_at >= datetime('now', 'start of month')", (user_id, feature)).fetchone()
+        return int(row[0] or 0)
 
     def get_user_groq_limit(self, user_id: str) -> Optional[int]:
         """A per-user override of the platform-default monthly token limit, if one has been
@@ -1109,8 +1419,12 @@ class GenesisDB:
     def get_user_plan(self, user_id: str) -> str:
         from app.core import plans
         with self._connect() as conn:
-            row = conn.execute("SELECT plan FROM users WHERE id = ?", (user_id,)).fetchone()
-        return plans.normalize_plan(row[0] if row else None)
+            row = conn.execute("SELECT plan,crypto_plan_id,crypto_access_until FROM users WHERE id = ?", (user_id,)).fetchone()
+        import time
+        base = plans.normalize_plan(row[0] if row else None)
+        if row and row[1] in ('pro','business') and (row[2] or 0) > int(time.time()):
+            return 'business' if 'business' in (base,row[1]) else 'pro'
+        return base
 
     def set_user_plan(self, user_id: str, plan: str):
         with self._connect() as conn:
@@ -1211,6 +1525,7 @@ class GenesisDB:
                 "list_price_mrr_usd": paid_mrr}
 
     # --- Prompt Library (versioned) ---
+    @resource_guard("prompt","user_id")
     def create_prompt(self, user_id: str, name: str, content: str, description: str = "",
                        tags: Optional[List[str]] = None) -> Dict:
         prompt_id = f"prompt_{uuid.uuid4().hex[:16]}"
@@ -1304,6 +1619,7 @@ class GenesisDB:
             return True
 
     # --- A/B Testing ---
+    @resource_guard("ab_test","user_id")
     def create_ab_test(self, user_id: str, agent_id: str, name: str,
                         variants: List[Dict]) -> Dict:
         """variants: list of {label, system_prompt, weight, prompt_id?, prompt_version?}.
@@ -1367,7 +1683,7 @@ class GenesisDB:
                 conn.execute("INSERT INTO ab_assignments (test_id, variant_id, conversation_id) VALUES (?, ?, ?)",
                             (test_id, chosen["id"], conversation_id))
                 conn.commit()
-            except sqlite3.IntegrityError:
+            except self._integrity_errors:
                 # Race: another call assigned this conversation between our SELECT and INSERT -
                 # re-read the now-existing assignment rather than double-count it.
                 conn.rollback()
@@ -1383,24 +1699,15 @@ class GenesisDB:
         """Per-variant: conversations assigned, assistant messages sent, thumbs up/down counts.
         Joins through ab_assignments -> chats/messages, since conversation_id == chats.id."""
         with self._connect() as conn:
-            variants = conn.execute("SELECT id, label, weight FROM ab_variants WHERE test_id = ?", (test_id,)).fetchall()
-            stats = {}
-            for v in variants:
-                variant_id = v[0]
-                convs = conn.execute("SELECT conversation_id FROM ab_assignments WHERE test_id = ? AND variant_id = ?",
-                                     (test_id, variant_id)).fetchall()
-                conv_ids = [c[0] for c in convs]
-                msg_count = up = down = 0
-                if conv_ids:
-                    placeholders = ",".join("?" * len(conv_ids))
-                    row = conn.execute(
-                        f"SELECT COUNT(*), SUM(CASE WHEN rating=1 THEN 1 ELSE 0 END), "
-                        f"SUM(CASE WHEN rating=-1 THEN 1 ELSE 0 END) FROM messages "
-                        f"WHERE chat_id IN ({placeholders}) AND role = 'assistant'", conv_ids).fetchone()
-                    msg_count, up, down = row[0] or 0, row[1] or 0, row[2] or 0
-                stats[variant_id] = {"label": v[1], "weight": v[2], "conversations": len(conv_ids),
-                                     "assistant_messages": msg_count, "thumbs_up": up, "thumbs_down": down}
-            return stats
+            rows = conn.execute("""
+                SELECT v.id,v.label,v.weight,COUNT(DISTINCT a.conversation_id),
+                       COUNT(m.id),COALESCE(SUM(CASE WHEN m.rating=1 THEN 1 ELSE 0 END),0),
+                       COALESCE(SUM(CASE WHEN m.rating=-1 THEN 1 ELSE 0 END),0)
+                FROM ab_variants v LEFT JOIN ab_assignments a ON a.variant_id=v.id AND a.test_id=v.test_id
+                LEFT JOIN messages m ON m.chat_id=a.conversation_id AND m.role='assistant'
+                WHERE v.test_id=? GROUP BY v.id,v.label,v.weight
+            """,(test_id,)).fetchall()
+            return {r[0]:{"label":r[1],"weight":r[2],"conversations":r[3],"assistant_messages":r[4],"thumbs_up":r[5],"thumbs_down":r[6]} for r in rows}
 
     def stop_ab_test(self, test_id: str, user_id: str, winner_variant_id: Optional[str] = None) -> bool:
         with self._connect() as conn:
@@ -1424,7 +1731,13 @@ class GenesisDB:
             return True
 
     # --- Knowledge Base (per-bot documents, retrieved via app.core.knowledge_base) ---
+    @resource_guard(None,"user_id")
     def add_kb_document(self, agent_id: str, user_id: str, filename: str, content: str, chunks: List[str]) -> str:
+        from app.core.plans import kb_gate_message
+        reason = kb_gate_message(self,user_id,agent_id,len(content))
+        if reason:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=403,detail=reason)
         doc_id = f"kbdoc_{uuid.uuid4().hex[:16]}"
         with self._connect() as conn:
             conn.execute("BEGIN")
@@ -1451,6 +1764,13 @@ class GenesisDB:
                 "SELECT id, filename, created_at, LENGTH(content) FROM kb_documents "
                 "WHERE agent_id = ? AND user_id = ? ORDER BY created_at DESC", (agent_id, user_id)).fetchall()
             return [{"id": r[0], "filename": r[1], "created_at": r[2], "content_length": r[3]} for r in rows]
+
+    def get_kb_usage(self, agent_id: str, user_id: str) -> Dict[str, int]:
+        """What one bot's knowledge base already holds: {documents, chars}. Ownership-checked like the other management views."""
+        with self._connect() as conn:
+            row = conn.execute("SELECT COUNT(*), COALESCE(SUM(LENGTH(content)), 0) FROM kb_documents WHERE agent_id = ? AND user_id = ?",
+                               (agent_id, user_id)).fetchone()
+        return {"documents": int(row[0] or 0), "chars": int(row[1] or 0)}
 
     def delete_kb_document(self, document_id: str, user_id: str) -> bool:
         with self._connect() as conn:
@@ -1479,11 +1799,13 @@ class GenesisDB:
     def log_handoff_event(self, agent_id: str, conversation_id: str, user_message: str,
                            reason: str, delivered: bool, delivery_error: Optional[str] = None):
         with self._connect() as conn:
-            conn.execute(
+            cursor = conn.execute(
                 "INSERT INTO handoff_events (agent_id, conversation_id, user_message, reason, "
-                "delivered, delivery_error) VALUES (?, ?, ?, ?, ?, ?)",
+                "delivered, delivery_error) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
                 (agent_id, conversation_id, user_message, reason, int(delivered), delivery_error))
+            event_id = cursor.fetchone()[0]
             conn.commit()
+            return event_id
 
     def get_handoff_events(self, agent_id: str, limit: int = 50) -> List[Dict]:
         """Not ownership-checked at this layer - the API endpoint calling this is (see
@@ -1501,6 +1823,7 @@ class GenesisDB:
         """One Telegram bot per GenesisAI bot (agent_id is UNIQUE) - reconnecting the same
         bot updates the existing link (new token/secret/status) rather than creating a
         duplicate row."""
+        bot_token = encrypt_secret(bot_token)
         with self._connect() as conn:
             existing = conn.execute("SELECT id FROM telegram_links WHERE agent_id = ?", (agent_id,)).fetchone()
             if existing:
@@ -1527,7 +1850,7 @@ class GenesisDB:
                 "FROM telegram_links WHERE agent_id = ? AND user_id = ?", (agent_id, user_id)).fetchone()
             if not row:
                 return None
-            token = row[7] or ""
+            token = decrypt_secret(row[7] or "")
             masked = f"...{token[-6:]}" if len(token) > 6 else "..."
             return {"id": row[0], "bot_id": row[1], "bot_username": row[2], "status": row[3],
                     "last_error": row[4], "created_at": row[5], "updated_at": row[6], "token_masked": masked}
@@ -1543,7 +1866,7 @@ class GenesisDB:
                 "FROM telegram_links WHERE webhook_secret = ?", (webhook_secret,)).fetchone()
             if not row:
                 return None
-            return {"id": row[0], "agent_id": row[1], "user_id": row[2], "bot_token": row[3],
+            return {"id": row[0], "agent_id": row[1], "user_id": row[2], "bot_token": decrypt_secret(row[3]),
                     "bot_id": row[4], "bot_username": row[5], "status": row[6]}
 
     def update_telegram_link_status(self, link_id: str, status: str, last_error: Optional[str] = None):
@@ -1563,7 +1886,7 @@ class GenesisDB:
             conn.execute("DELETE FROM telegram_links WHERE id = ?", (row[0],))
             conn.execute("DELETE FROM telegram_events WHERE link_id = ?", (row[0],))
             conn.commit()
-            return {"id": row[0], "bot_token": row[1]}
+            return {"id": row[0], "bot_token": decrypt_secret(row[1])}
 
     def log_telegram_event(self, link_id: str, event_type: str, detail: str = ""):
         with self._connect() as conn:

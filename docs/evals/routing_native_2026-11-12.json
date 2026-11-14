@@ -1,0 +1,297 @@
+{
+  "mode": "live_routing",
+  "model": "openai/gpt-oss-120b",
+  "tools_executed": false,
+  "provider_order": "groq",
+  "summary": {
+    "cases": 12,
+    "passed": 8,
+    "success_rate": 0.6666666666666666,
+    "median_latency_ms": 942.615,
+    "p95_latency_ms": 16694.243
+  },
+  "estimated_cost_usd": null,
+  "known_estimated_cost_usd": 0.0044463,
+  "cases": [
+    {
+      "id": "greeting",
+      "passed": true,
+      "actual_tool": null,
+      "actual_args": {},
+      "latency_ms": 378.357,
+      "prompt_tokens": 2591,
+      "completion_tokens": 48,
+      "estimated_cost_usd": 0.00042465,
+      "known_estimated_cost_usd": 0.00042465,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 0,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "id": "analyze-ru",
+      "passed": true,
+      "actual_tool": "analyze_dataset",
+      "actual_args": {
+        "path": "datasets/eval.csv"
+      },
+      "latency_ms": 633.509,
+      "prompt_tokens": 2597,
+      "completion_tokens": 37,
+      "estimated_cost_usd": 0.0004173,
+      "known_estimated_cost_usd": 0.0004173,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 0,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "id": "train-en",
+      "passed": true,
+      "actual_tool": "train_model",
+      "actual_args": {
+        "path": "datasets/eval.csv",
+        "target_column": "churn",
+        "model_type": "logistic",
+        "budget": "fast"
+      },
+      "latency_ms": 362.353,
+      "prompt_tokens": 2603,
+      "completion_tokens": 75,
+      "estimated_cost_usd": 0.00044669999999999996,
+      "known_estimated_cost_usd": 0.00044669999999999996,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 0,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "id": "train-ru",
+      "passed": true,
+      "actual_tool": "train_model",
+      "actual_args": {
+        "path": "datasets/eval.csv",
+        "target_column": "churn",
+        "budget": "fast"
+      },
+      "latency_ms": 686.24,
+      "prompt_tokens": 2611,
+      "completion_tokens": 67,
+      "estimated_cost_usd": 0.00044189999999999995,
+      "known_estimated_cost_usd": 0.00044189999999999995,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 0,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "id": "forecast",
+      "passed": false,
+      "actual_tool": null,
+      "actual_args": {},
+      "latency_ms": 1186.716,
+      "prompt_tokens": 2653,
+      "completion_tokens": 114,
+      "estimated_cost_usd": null,
+      "known_estimated_cost_usd": 0.00048345,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 1,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "error"
+        },
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "id": "list-models",
+      "passed": true,
+      "actual_tool": "list_models",
+      "actual_args": {},
+      "latency_ms": 329.359,
+      "prompt_tokens": 2595,
+      "completion_tokens": 39,
+      "estimated_cost_usd": 0.0004185,
+      "known_estimated_cost_usd": 0.0004185,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 0,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "id": "local",
+      "passed": true,
+      "actual_tool": "train_local",
+      "actual_args": {
+        "path": "churn.csv",
+        "target_column": "churn",
+        "budget": "fast"
+      },
+      "latency_ms": 698.514,
+      "prompt_tokens": 2615,
+      "completion_tokens": 61,
+      "estimated_cost_usd": 0.000438,
+      "known_estimated_cost_usd": 0.000438,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 0,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "id": "improve",
+      "passed": false,
+      "actual_tool": "improve_model",
+      "actual_args": {
+        "path": "datasets/eval.csv",
+        "budget": "balanced",
+        "model_id": "model_123"
+      },
+      "latency_ms": 1760.739,
+      "prompt_tokens": 2612,
+      "completion_tokens": 54,
+      "estimated_cost_usd": 0.0004323,
+      "known_estimated_cost_usd": 0.0004323,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 0,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "id": "publish",
+      "passed": false,
+      "error_type": "LLMTimeoutError",
+      "latency_ms": 10027.869,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "estimated_cost_usd": null,
+      "known_estimated_cost_usd": 0.0,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 2,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "error"
+        },
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "error"
+        }
+      ]
+    },
+    {
+      "id": "bot",
+      "passed": true,
+      "actual_tool": "create_bot",
+      "actual_args": {
+        "description": "Бот поддержки, отвечающий вежливо на русском языке."
+      },
+      "latency_ms": 2237.779,
+      "prompt_tokens": 2603,
+      "completion_tokens": 54,
+      "estimated_cost_usd": 0.00043095,
+      "known_estimated_cost_usd": 0.00043095,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 0,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "id": "explain",
+      "passed": true,
+      "actual_tool": null,
+      "actual_args": {},
+      "latency_ms": 16694.243,
+      "prompt_tokens": 2652,
+      "completion_tokens": 153,
+      "estimated_cost_usd": null,
+      "known_estimated_cost_usd": 0.00051255,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 1,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "error"
+        },
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "id": "unsupported",
+      "passed": false,
+      "error_type": "LLMTimeoutError",
+      "latency_ms": 10047.218,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "estimated_cost_usd": null,
+      "known_estimated_cost_usd": 0.0,
+      "unpriced_calls": 0,
+      "unmetered_attempts": 2,
+      "provider_attempts": [
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "error"
+        },
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "status": "error"
+        }
+      ]
+    }
+  ],
+  "protocol": "native"
+}

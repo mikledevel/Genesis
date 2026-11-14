@@ -64,10 +64,10 @@ def test_the_default_thread_stays_stable_for_one_account(client, monkeypatch):
     assert a == b
 
 
-def _setup_model(monkeypatch, n_features=2):
+def _setup_model(monkeypatch, owner, n_features=2):
     from sklearn.linear_model import LinearRegression
     model = LinearRegression().fit(np.array([[0.0] * n_features, [1.0] * n_features]), [0.0, 1.0])
-    record = {"features": ["a", "b"][:n_features], "metadata": {}, "metrics": {}}
+    record = {"features": ["a", "b"][:n_features], "metadata": {"author": owner}, "metrics": {}}
 
     class FakeRegistry:
         def get_record(self, model_id):
@@ -89,8 +89,8 @@ def _used(client, headers):
 
 
 def test_valid_predict_still_works_and_costs_one_call(client, monkeypatch):
-    _setup_model(monkeypatch)
     h = _register(client, "d@x.io")
+    _setup_model(monkeypatch, client.get("/api/auth/me", headers=h).json()["user"]["id"])
     k = _key(client, h)
     r = client.post("/api/models/m1/predict", json={"features": [1, 1]}, headers={"X-API-Key": k})
     assert r.status_code == 200, r.text
@@ -100,10 +100,10 @@ def test_valid_predict_still_works_and_costs_one_call(client, monkeypatch):
 
 @pytest.mark.parametrize("features", [[1], ["x", "y"], [1, 2, 3]])
 def test_malformed_features_are_422_and_do_not_spend_quota(client, monkeypatch, features):
-    _setup_model(monkeypatch)
     h = _register(client, "e@x.io")
+    _setup_model(monkeypatch, client.get("/api/auth/me", headers=h).json()["user"]["id"])
     k = _key(client, h)
     r = client.post("/api/models/m1/predict", json={"features": features}, headers={"X-API-Key": k})
     assert r.status_code == 422, r.text               # used to be 500
-    assert r.json()["detail"].startswith("Invalid features")
+    assert r.json()["detail"].startswith("Invalid model features")
     assert _used(client, h) == 0                      # used to be 1

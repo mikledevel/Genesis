@@ -1,3 +1,4 @@
+from app.api.contracts import (MessageRequest, PublishRequest, RegisterRequest, LoginRequest, ChatCompletionMessage, ChatCompletionsRequest, UseModelRequest, CheckoutRequest, SubscriptionCheckoutRequest)
 """Shared imports, request models, helpers and service singletons for the route modules.
 
 Everything here used to live at the top of app/main.py, in the same order (load_dotenv() still
@@ -12,7 +13,11 @@ from fastapi import FastAPI, Request, Depends, HTTPException, UploadFile, File, 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator, model_validator
+from typing import Literal
+from collections import OrderedDict
+import threading
+import time
 from typing import Optional, Dict, Any, List, Union
 
 from app.core.auth import require_admin, get_current_user_id, get_current_user_id_optional, get_api_key_from_request, hash_password, verify_password, create_token
@@ -55,51 +60,32 @@ if not settings.debug and settings.secret_key == "change-me":
         "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
     )
 
-_agents: Dict[str, Any] = {}
+_agents = OrderedDict()
+_agents_lock = threading.RLock()
 def get_agent(conversation_id: str, user_id: str):
     key = f"{user_id}:{conversation_id}"
-    if key not in _agents:
-        from app.core.agent import GenesisAgent
-        _agents[key] = GenesisAgent()
-    return _agents[key]
+    now = time.monotonic()
+    with _agents_lock:
+        for stale in [k for k, (_, touched) in _agents.items() if now - touched > 1800]:
+            _agents.pop(stale, None)
+        if key not in _agents:
+            from app.core.agent import GenesisAgent
+            _agents[key] = (GenesisAgent(), now)
+        agent, _ = _agents.pop(key)
+        _agents[key] = (agent, now)
+        while len(_agents) > 256:
+            _agents.popitem(last=False)
+        return agent
 
-class MessageRequest(BaseModel):
-    message: str; conversation_id: Optional[str] = None
-    projects: Optional[List[Dict]] = None
-    attachments: Optional[List[str]] = None   # ids returned by POST /api/agent/upload
 
-class PublishRequest(BaseModel):
-    model_id: str; title: str; description: str
-    task: str; model_type: str
-    metrics: Dict[str, float] = {}; price_per_call: float = 0.01
 
-class RegisterRequest(BaseModel):
-    email: str; password: str; name: str = ""
-    # bot protection (app/core/antibot.py): hidden honeypot, ms the form was open, Cloudflare Turnstile token
-    website: str = ""; form_elapsed_ms: Optional[float] = None; captcha_token: str = ""
 
-class LoginRequest(BaseModel):
-    email: str; password: str
 
-class ChatCompletionMessage(BaseModel):
-    role: str
-    content: str
 
-class ChatCompletionsRequest(BaseModel):
-    """Body for POST /api/v1/chat/completions - the public developer API. Deliberately named
-    and shaped like OpenAI's chat-completions request so existing tooling/snippets built for
-    that shape need minimal changes to point at this platform instead."""
-    model: Optional[str] = None
-    messages: List[ChatCompletionMessage]
-    max_tokens: Optional[int] = None
-    temperature: Optional[float] = 0.7
 
-class UseModelRequest(BaseModel):
-    features: List[Union[float, str]] = []   # raw values; categorical models take strings
 
 # ── Payments (Stripe - cards + USDC via the same Checkout flow) ──
-class CheckoutRequest(BaseModel):
-    amount_usd: float
+
 
 # ── Public Developer API ──
 # OpenAI-compatible-shaped chat completions endpoint for third-party integrations: point an
@@ -151,6 +137,8 @@ def _enforce_groq_quota(user_id: Optional[str]):
     without this, a bot-builder session (each build can be 5-15+ real Groq calls between the
     generate/test/fix loop) would completely bypass the cap."""
     from app.db.database import GenesisDB
+    from app.core.quota import quota_owner
+    quota_owner.set(user_id)
     from app.core.quota import check_quota, quota_exceeded_message
     allowed, used, limit = check_quota(GenesisDB(), user_id)
     if not allowed:

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Model Registry - хранилище обученных моделей с метаданными.
 
 Сохраняет модели, метрики, датасеты в локальном хранилище.
@@ -6,10 +6,12 @@ Model Registry - хранилище обученных моделей с мет�
 """
 
 import json
+from app.core.resource_guard import resource_guard
 import os
 import pickle
 import shutil
 import threading
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -60,6 +62,11 @@ class ModelRegistry:
         self._lock_path = self.storage_dir / ".index.lock"
         self._thread_lock = threading.RLock()
         self._index_mtime = None
+        from app.config import settings
+        self._document = None
+        if settings.database_url:
+            from app.db.document_store import DatabaseDocument, legacy_document
+            self._document = DatabaseDocument("registry:"+str(self.storage_dir), legacy_document(self.index_path, {}))
         self._index: Dict[str, Dict] = self._load_index()
 
     @contextmanager
@@ -68,6 +75,11 @@ class ModelRegistry:
         plus an OS file lock (fcntl on Linux/macOS, msvcrt on Windows) so several workers or
         processes can't overwrite each other's registrations. The index is re-read INSIDE the
         lock, so a write never starts from a stale copy."""
+        if self._document:
+            with self._document.transaction():
+                self._index = self._load_index()
+                yield
+            return
         with self._thread_lock:
             fh = open(self._lock_path, "a+b")
             try:
@@ -90,6 +102,9 @@ class ModelRegistry:
 
     def _refresh(self):
         """Reload the index if another process changed it since we last looked (cheap mtime check)."""
+        if self._document:
+            self._index = self._document.read()
+            return
         try:
             m = self.index_path.stat().st_mtime_ns
         except FileNotFoundError:
@@ -99,6 +114,8 @@ class ModelRegistry:
     
     def _load_index(self) -> Dict[str, Dict]:
         """Загрузка индекса моделей из JSON."""
+        if self._document:
+            return self._document.read()
         if self.index_path.exists():
             self._index_mtime = self.index_path.stat().st_mtime_ns
             with open(self.index_path, "r", encoding="utf-8") as f:
@@ -107,6 +124,9 @@ class ModelRegistry:
     
     def _save_index(self):
         """Сохранение индекса в JSON."""
+        if self._document:
+            self._document.replace(self._index)
+            return
         # Atomic: write a temp file then rename, so a crash mid-write can never leave a truncated index.
         tmp = self.index_path.with_suffix(".json.tmp")
         with open(tmp, "w", encoding="utf-8") as f:
@@ -116,6 +136,7 @@ class ModelRegistry:
         os.replace(tmp, self.index_path)
         self._index_mtime = self.index_path.stat().st_mtime_ns
     
+    @resource_guard("model","metadata")
     def register(
         self,
         model,
@@ -127,6 +148,7 @@ class ModelRegistry:
         metadata: Optional[Dict] = None,
         family_id: Optional[str] = None,
         parent_model_id: Optional[str] = None,
+        source_path: Optional[str] = None,
     ) -> str:
         """
         Регистрация новой модели в реестре.
@@ -152,14 +174,22 @@ class ModelRegistry:
             model_id уникальный идентификатор модели
         """
         # Генерация ID
-        model_id = f"{task}_{model_type}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+        # Timestamps at microsecond resolution still collide when several worker
+        # processes register the same model type concurrently. The random suffix
+        # keeps both the index key and pickle filename unique across processes.
+        model_id = f"{task}_{model_type}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
 
         # Сохранение модели
         model_filename = f"{model_id}.pkl"
         model_path = self.models_dir / model_filename
-        with open(model_path, "wb") as f:
-            pickle.dump(model, f)
+        if source_path is not None:
+            shutil.copyfile(source_path, model_path)
+        else:
+            with open(model_path, "wb") as f:
+                pickle.dump(model, f)
 
+        if self._document:
+            self._document.db.persist_artifact(model_path, (metadata or {}).get("author", "system"))
         with self._locked():
             fam_id = family_id or model_id
             existing_versions = [rec.get("version", 1) for rec in self._index.values()
@@ -187,6 +217,9 @@ class ModelRegistry:
 
         return model_id
 
+    def register_file(self, source_path, **kwargs):
+        return self.register(model=None, source_path=source_path, **kwargs)
+
     def get_family_history(self, family_id: str) -> List[Dict]:
         """All versions of a model lineage, newest version first. Records saved before
         versioning existed have no family_id - they're treated as their own standalone
@@ -205,9 +238,15 @@ class ModelRegistry:
             raise KeyError(f"Model {model_id} not found in registry")
         
         record = self._index[model_id]
+        from app.config import settings
+        from app.core.model_isolation import untrusted_record
+        if not settings.debug and untrusted_record(record):
+            raise RuntimeError("External models may only be loaded inside the isolated runner")
         # Restricted load: a registered model may have come from LLM-generated code or from
         # another user, so it is never fed to a plain pickle.load (see app/core/safe_pickle.py).
         from app.core.safe_pickle import safe_load
+        if self._document:
+            self._document.db.restore_artifact(record["model_path"])
         with open(record["model_path"], "rb") as f:
             return safe_load(f)
     
@@ -312,7 +351,9 @@ class ModelRegistry:
                 raise KeyError(f"Model {model_id} not found")
             record = self._index[model_id]
             model_path = Path(record["model_path"])
-            if model_path.exists():
+            if self._document:
+                self._document.db.delete_artifact(model_path)
+            elif model_path.exists():
                 model_path.unlink()
             del self._index[model_id]
             self._save_index()

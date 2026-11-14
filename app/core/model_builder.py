@@ -41,15 +41,19 @@ class ModelBuilder:
         """Load the pickled model produced by build() and register it in ModelRegistry.
         Returns the new model_id, or None if the model file couldn't be loaded."""
         from app.core.engine.registry import ModelRegistry
-        try:
-            # This file was written by LLM-generated code inside the sandbox, so it is untrusted:
-            # load it with the restricted unpickler, never a plain pickle.load on the host.
-            from app.core.safe_pickle import safe_load
-            with open(saved_model_path, "rb") as f:
-                model = safe_load(f)
-        except Exception as e:
-            print(f"[ModelBuilder] could not load model file: {e}")
+        import os
+        from app.db.database import GenesisDB
+        GenesisDB().restore_artifact(saved_model_path)
+        if not os.path.isfile(saved_model_path):
             return None
+        from app.config import settings
+        if settings.debug:
+            try:
+                from app.core.safe_pickle import safe_load
+                with open(saved_model_path,"rb") as handle:
+                    safe_load(handle)
+            except Exception:
+                return None
         reg = registry or ModelRegistry()
         metadata = {"author": author_user_id, "built_via": "ModelBuilder"}
         v = verification
@@ -60,8 +64,8 @@ class ModelBuilder:
             if v["contract"] == "raw_dataframe":
                 from app.core.engine.predict_utils import RAW_FORMAT
                 metadata.update({"input_format": RAW_FORMAT, "input_schema": v["input_schema"]})
-        return reg.register(
-            model=model,
+        return reg.register_file(
+            source_path=saved_model_path,
             metrics={k: val for k, val in metrics.items() if isinstance(val, (int, float)) and not isinstance(val, bool)},
             task=(v or {}).get("task") or metrics.get("task", "binary_classification"),
             model_type=(v or {}).get("model_type") or metrics.get("model_type", "unknown"),

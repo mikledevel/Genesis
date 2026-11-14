@@ -1,25 +1,70 @@
 """auth routes (split out of app/main.py)."""
+import os
 from typing import Optional
+from pydantic import BaseModel, ConfigDict, Field
 from fastapi import APIRouter, Header, Request
-from app.deps import (
-    CheckoutRequest,
-    Depends,
-    HTTPException,
-    LoginRequest,
-    RegisterRequest,
-    Request,
-    create_token,
-    get_current_user_id,
-    hash_password,
-    settings,
-    verify_password
-)
+from app.api.contracts import CheckoutRequest, LoginRequest, RegisterRequest, SubscriptionCheckoutRequest
+from fastapi import Depends, HTTPException, Request
+from app.core.auth import create_token, get_current_user_id, hash_password, verify_password
+from app.config import settings
 
 router = APIRouter()
 
+
+def _billing_return_base(request: Request) -> str:
+    base = (settings.public_base_url or "").strip().rstrip("/") or str(request.base_url).rstrip("/")
+    if not settings.debug and not base.startswith("https://"):
+        raise HTTPException(status_code=503, detail="Set PUBLIC_BASE_URL to the public HTTPS site URL to enable billing.")
+    return base
+
+def _billing_storage_ready() -> bool:
+    # Render's free filesystem is ephemeral: never sell subscriptions against it.
+    return bool(settings.database_url) or not os.environ.get("RENDER_EXTERNAL_URL")
+
+class ProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=100)
+
+
+class PasswordChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    current_password: str = Field(min_length=1, max_length=1024)
+    new_password: str = Field(min_length=6, max_length=72)
+
+
+@router.patch("/api/auth/profile")
+def update_profile(req: ProfileUpdate, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Display name cannot be empty")
+    db = GenesisDB()
+    if not db.get_user_by_id(user_id):
+        raise HTTPException(status_code=401, detail="User no longer exists")
+    db.update_display_name(user_id, name)
+    return {"user": db.get_user_by_id(user_id)}
+
+
+@router.post("/api/auth/change-password")
+def change_account_password(req: PasswordChange, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    if len(req.new_password.encode("utf-8")) > 72:
+        raise HTTPException(status_code=400, detail="Password must be at most 72 UTF-8 bytes")
+    db = GenesisDB()
+    user = db.get_user_by_id(user_id)
+    credentials = db.get_user_by_email(user["email"]) if user else None
+    if not credentials or not verify_password(req.current_password, credentials["password_hash"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if not db.change_account_password(user_id, credentials["password_hash"], hash_password(req.new_password)):
+        raise HTTPException(status_code=409, detail="Password changed in another session. Sign in again.")
+    return {"status": "password_updated", "token": create_token(user_id)}
+
+
 # ── Auth ──
 @router.post("/api/auth/register")
-async def auth_register(req: RegisterRequest, request: Request):
+def auth_register(req: RegisterRequest, request: Request):
+    if settings.genesis_pilot_enabled:
+        raise HTTPException(status_code=403, detail="This staging pilot uses pre-provisioned accounts.")
     from app.db.database import GenesisDB
     from app.core.email_sender import send_verification_email
     from app.core import antibot
@@ -44,7 +89,7 @@ async def auth_register(req: RegisterRequest, request: Request):
     return {"token": token, "user": user}
 
 @router.post("/api/auth/login")
-async def auth_login(req: LoginRequest):
+def auth_login(req: LoginRequest):
     from app.db.database import GenesisDB
     db = GenesisDB()
     user = db.get_user_by_email(req.email)
@@ -54,7 +99,7 @@ async def auth_login(req: LoginRequest):
     return {"token": token, "user": {"id": user["id"], "email": user["email"], "name": user["name"]}}
 
 @router.get("/api/auth/me")
-async def auth_me(user_id: str = Depends(get_current_user_id)):
+def auth_me(user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     user = GenesisDB().get_user_by_id(user_id)
     if not user:
@@ -65,29 +110,42 @@ async def auth_me(user_id: str = Depends(get_current_user_id)):
     return {"user": user}
 
 @router.get("/api/config/public")
-async def public_config():
+def public_config():
     """What the browser needs before login: the (public) Turnstile site key, empty when the captcha is off."""
     from app.core import antibot
-    return {"turnstile_site_key": settings.turnstile_site_key if antibot.captcha_enabled() else ""}
+    billing_ready = bool(
+        settings.stripe_subscriptions_enabled and settings.stripe_secret_key and settings.stripe_webhook_secret and _billing_storage_ready()
+        and settings.stripe_price_pro_monthly and settings.stripe_price_business_monthly
+        and (settings.debug or (settings.public_base_url or "").strip().startswith("https://"))
+    )
+    from app.core.crypto_payments import crypto_ready
+    return {"turnstile_site_key": settings.turnstile_site_key if antibot.captcha_enabled() else "",
+            "stripe_subscriptions_enabled": billing_ready, "crypto_payments_enabled": crypto_ready()}
 
 @router.get("/api/plans")
-async def public_plans():
+def public_plans():
     """The pricing list: only plans marked public, with the same limits the server enforces."""
     from app.core import plans
     return {"plans": plans.public_catalog()}
 
 @router.get("/api/me/plan")
-async def my_plan(user_id: str = Depends(get_current_user_id)):
+def my_plan(user_id: str = Depends(get_current_user_id)):
     """The caller's plan, effective limits (null = unlimited) and current usage."""
     from app.db.database import GenesisDB
     from app.core import plans
     db = GenesisDB()
     admin = db.is_admin(user_id)
+    billing = db.get_billing_user(user_id) or {}
     return {"plan": plans.get_plan(db.get_user_plan(user_id)), "is_admin": admin,
-            "effective_limits": plans.limits_for(db, user_id), "usage": plans.usage_for(db, user_id)}
+            "crypto": db.get_crypto_access(user_id),
+            "effective_limits": plans.limits_for(db, user_id), "usage": plans.usage_for(db, user_id),
+            "subscription": {"status": billing.get("stripe_subscription_status"),
+                             "current_period_end": billing.get("current_period_end"),
+                             "cancel_at_period_end": bool(billing.get("cancel_at_period_end")),
+                             "managed_by_stripe": bool(billing.get("stripe_customer_id"))}}
 
 @router.post("/api/auth/verify-email/resend")
-async def resend_verification_email(user_id: str = Depends(get_current_user_id)):
+def resend_verification_email(user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB as _DB
     if _DB().count_recent_auth_tokens(user_id, "verify_email", 60) >= settings.email_per_address_per_hour:
         raise HTTPException(status_code=429, detail="Too many verification e-mails were requested. Please try again in an hour.")
@@ -102,7 +160,7 @@ async def resend_verification_email(user_id: str = Depends(get_current_user_id))
     return {"status": "sent"}
 
 @router.post("/api/auth/verify-email/confirm")
-async def confirm_verification_email(data: dict, authorization: Optional[str] = Header(None)):
+def confirm_verification_email(data: dict, authorization: Optional[str] = Header(None)):
     from app.db.database import GenesisDB
     from app.core.auth import decode_token
     db = GenesisDB()
@@ -132,7 +190,7 @@ async def confirm_verification_email(data: dict, authorization: Optional[str] = 
     return {"status": "verified", "credit_cents": settings.signup_credit_cents}
 
 @router.post("/api/auth/password-reset/request")
-async def request_password_reset(data: dict, request: Request):
+def request_password_reset(data: dict, request: Request):
     from app.db.database import GenesisDB
     from app.core.email_sender import send_password_reset_email
     from app.core import antibot
@@ -152,7 +210,7 @@ async def request_password_reset(data: dict, request: Request):
     return {"status": "if_account_exists_email_sent"}
 
 @router.post("/api/auth/password-reset/confirm")
-async def confirm_password_reset(data: dict):
+def confirm_password_reset(data: dict):
     from app.db.database import GenesisDB
     db = GenesisDB()
     new_password = data.get("new_password", "")
@@ -166,7 +224,7 @@ async def confirm_password_reset(data: dict):
     return {"status": "password_updated"}
 
 @router.post("/api/payments/checkout")
-async def payments_checkout(req: CheckoutRequest, request: Request, user_id: str = Depends(get_current_user_id)):
+def payments_checkout(req: CheckoutRequest, request: Request, user_id: str = Depends(get_current_user_id)):
     from app.core.payments import create_checkout_session, MIN_TOPUP_USD, MAX_TOPUP_USD
     if req.amount_usd < MIN_TOPUP_USD or req.amount_usd > MAX_TOPUP_USD:
         raise HTTPException(status_code=400, detail=f"Amount must be between ${MIN_TOPUP_USD} and ${MAX_TOPUP_USD}")
@@ -182,28 +240,80 @@ async def payments_checkout(req: CheckoutRequest, request: Request, user_id: str
 
 @router.post("/api/payments/webhook")
 async def payments_webhook(request: Request):
-    from app.core.payments import verify_and_parse_webhook, handle_checkout_completed
+    from app.core.payments import verify_and_parse_webhook, handle_checkout_completed, handle_subscription_event
     from app.db.database import GenesisDB
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
     event = verify_and_parse_webhook(payload, sig_header)
     if not event:
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
-    result = handle_checkout_completed(event, GenesisDB())
+    db = GenesisDB()
+    result = handle_subscription_event(event, db)
+    if result is None:
+        result = handle_checkout_completed(event, db)
     return {"received": True, "result": result}
 
+
+@router.post("/api/subscriptions/checkout")
+def subscription_checkout(req: SubscriptionCheckoutRequest, request: Request,
+                               user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    from app.core.payments import create_subscription_checkout
+    if not settings.stripe_subscriptions_enabled:
+        raise HTTPException(status_code=503, detail="Stripe subscriptions are disabled.")
+    if req.plan_id not in ("pro", "business"):
+        raise HTTPException(status_code=400, detail="Choose a paid monthly plan.")
+    db = GenesisDB()
+    if not db.is_email_verified(user_id):
+        raise HTTPException(status_code=403, detail="Verify your email before starting a subscription.")
+    if not settings.stripe_secret_key or not settings.stripe_webhook_secret:
+        raise HTTPException(status_code=503, detail="Stripe API and webhook keys must be configured before subscriptions can be started.")
+    if not _billing_storage_ready():
+        raise HTTPException(status_code=503, detail="Persistent subscription storage must be configured before starting payments.")
+    base = _billing_return_base(request)
+    try:
+        session = create_subscription_checkout(
+            db, user_id, req.plan_id,
+            success_url=f"{base}/?subscription=success&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{base}/?subscription=cancelled",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        print(f"[subscriptions] Checkout session creation failed: {e}")
+        raise HTTPException(status_code=502, detail="Could not start Stripe Checkout. Please try again.")
+    return session
+
+
+@router.post("/api/subscriptions/portal")
+def subscription_portal(request: Request, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    from app.core.payments import create_customer_portal_session
+    base = _billing_return_base(request)
+    try:
+        return create_customer_portal_session(GenesisDB(), user_id, f"{base}/?subscription=returned")
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        print(f"[subscriptions] Billing portal session creation failed: {e}")
+        raise HTTPException(status_code=502, detail="Could not open Stripe billing. Please try again.")
+
 @router.get("/api/payments/balance")
-async def payments_balance(user_id: str = Depends(get_current_user_id)):
+def payments_balance(user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     return {"balance_cents": GenesisDB().get_balance(user_id)}
 
 @router.get("/api/payments/transactions")
-async def payments_transactions(user_id: str = Depends(get_current_user_id)):
+def payments_transactions(user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     return {"transactions": GenesisDB().get_transactions(user_id)}
 
 @router.post("/api/payments/dev-credit")
-async def payments_dev_credit(user_id: str = Depends(get_current_user_id)):
+def payments_dev_credit(user_id: str = Depends(get_current_user_id)):
     """DEV-ONLY: credits $10 test balance so payment/charging logic can be verified from
     the browser without a working Stripe account. Only works when settings.debug is True -
     set DEBUG=true in .env to enable, and turn it back off before this ever goes live."""
@@ -216,12 +326,12 @@ async def payments_dev_credit(user_id: str = Depends(get_current_user_id)):
 
 # ── API Keys ──
 @router.get("/api/keys")
-async def list_keys(user_id: str = Depends(get_current_user_id)):
+def list_keys(user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     return {"keys": GenesisDB().list_api_keys(user_id)}
 
 @router.post("/api/keys/create")
-async def create_key(data: dict, user_id: str = Depends(get_current_user_id)):
+def create_key(data: dict, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     from app.core import plans
     db = GenesisDB()
@@ -231,14 +341,14 @@ async def create_key(data: dict, user_id: str = Depends(get_current_user_id)):
     return db.create_api_key(user_id, data.get("user_name", ""), plans.api_key_calls(db, user_id, data.get("calls_limit")))
 
 @router.delete("/api/keys/{api_key}")
-async def delete_key(api_key: str, user_id: str = Depends(get_current_user_id)):
+def delete_key(api_key: str, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     if not GenesisDB().delete_api_key(api_key, user_id):
         raise HTTPException(status_code=404, detail="API key not found, or it doesn't belong to you")
     return {"status": "deleted"}
 
 @router.get("/api/usage")
-async def usage_stats(api_key: str = None, user_id: str = Depends(get_current_user_id)):
+def usage_stats(api_key: str = None, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     db = GenesisDB()
     # Previously unauthenticated and, with no api_key given, returned every user's usage log
@@ -254,7 +364,7 @@ async def usage_stats(api_key: str = None, user_id: str = Depends(get_current_us
     return {"usage": db.get_usage_stats(api_key)}
 
 @router.get("/api/usage/groq")
-async def groq_usage_stats(user_id: str = Depends(get_current_user_id)):
+def groq_usage_stats(user_id: str = Depends(get_current_user_id)):
     """The person's own internal Groq API usage (chat routing, bot builder, codegen,
     pipeline suggestions) - see GenesisDB.log_groq_usage for why this exists and what it
     is/isn't. Scoped to the caller's own usage only, consistent with per-user isolation -

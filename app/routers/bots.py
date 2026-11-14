@@ -1,29 +1,18 @@
 """bots routes (split out of app/main.py)."""
-from fastapi import APIRouter
-from app.deps import (
-    Depends,
-    File,
-    Form,
-    HTTPException,
-    List,
-    Optional,
-    Request,
-    SUPPORTED_KB_EXTENSIONS,
-    UploadFile,
-    _enforce_groq_quota,
-    _require_bot_owner,
-    _secrets,
-    get_current_user_id,
-    get_current_user_id_optional,
-    json,
-    re,
-    settings
-)
+import asyncio
+from fastapi import APIRouter, Query
+from fastapi import Depends, File, Form, HTTPException, Request, UploadFile
+from typing import List, Optional
+from app.deps import SUPPORTED_KB_EXTENSIONS, _enforce_groq_quota, _require_bot_owner, _secrets, json, re
+from app.core.auth import get_current_user_id, get_current_user_id_optional
+from app.config import settings
+
+from app.api.contracts import BotBuildRequest, BotChatRequest, BotReviseRequest
 
 router = APIRouter()
 
 @router.get("/api/my/models")
-async def my_models(user_id: str = Depends(get_current_user_id)):
+def my_models(user_id: str = Depends(get_current_user_id)):
     """The caller's OWN registered ML models (for the bot admin panel's "Linked ML model"
     picker). Unlike /api/registry/models this is authenticated and per-user, and returns only
     what the picker needs - never file paths."""
@@ -37,32 +26,32 @@ async def my_models(user_id: str = Depends(get_current_user_id)):
 
 # ── Agent Store ──
 @router.get("/api/agents")
-async def list_agents(author: str = None):
+def list_agents(author: str = None,limit: int = Query(50,ge=1,le=200),offset: int = Query(0,ge=0)):
     from app.core.agent_store import AgentStore
-    return {"agents": AgentStore().list_agents(author=author)}
+    return {"agents": [_public_agent(a) for a in AgentStore().list_agents(author=author)[offset:offset+limit]],"limit":limit,"offset":offset}
 
 @router.get("/api/agents/featured")
-async def featured_agents():
+def featured_agents():
     from app.core.agent_store import AgentStore
-    return {"agents": AgentStore().get_featured()}
+    return {"agents": [_public_agent(a) for a in AgentStore().get_featured() if a.get("published")]}
 
 @router.get("/api/agents/search")
-async def search_agents(q: str):
+def search_agents(q: str):
     from app.core.agent_store import AgentStore
-    return {"agents": AgentStore().search_agents(q)}
+    return {"agents": [_public_agent(a) for a in AgentStore().search_agents(q)]}
 
 @router.get("/api/agents/mine")
-async def my_agents(user_id: str = Depends(get_current_user_id)):
+def my_agents(user_id: str = Depends(get_current_user_id)):
     from app.core.agent_store import AgentStore
     return {"agents": AgentStore().list_agents(author=user_id, published_only=False)}
 
 @router.get("/api/agents/tools")
-async def available_tools():
+def available_tools():
     from app.core.agent_store import AgentStore
     return {"tools": AgentStore.AVAILABLE_TOOLS}
 
 @router.get("/api/agents/models")
-async def available_models():
+def available_models():
     """Flat list of every catalog model (chat + audio), richest single source of truth.
     Frontend model-selector cards and the Create Agent / Bot Settings dropdowns should
     all read from this instead of hardcoding model data."""
@@ -70,7 +59,7 @@ async def available_models():
     return {"models": [to_dict(spec) for spec in MODEL_CATALOG.values()]}
 
 @router.get("/api/agents/models/by-category")
-async def available_models_by_category():
+def available_models_by_category():
     """Category metadata (id/label/icon) plus the full flat model list. The frontend
     filters client-side by category membership, since a model can belong to several
     categories at once and grouping would duplicate cards."""
@@ -81,7 +70,7 @@ async def available_models_by_category():
     }
 
 @router.post("/api/agents/models/auto")
-async def auto_select_model(data: dict):
+def auto_select_model(data: dict):
     """Auto mode: given a task hint and hard constraints, return the best-fit chat model."""
     from app.core.models_catalog import pick_auto_model, MODEL_CATALOG, to_dict
     model_id = pick_auto_model(
@@ -99,7 +88,7 @@ async def auto_select_model(data: dict):
 # (treating "models" as an agent_id) before the more specific route below ever gets a chance.
 # This was a pre-existing bug that silently broke /api/agents/models entirely; fixed here.
 @router.get("/api/agents/{agent_id}")
-async def get_agent_by_id(agent_id: str, user_id: Optional[str] = Depends(get_current_user_id_optional)):
+def get_agent_by_id(agent_id: str, user_id: Optional[str] = Depends(get_current_user_id_optional)):
     from app.core.agent_store import AgentStore
     agent = AgentStore().get_agent(agent_id)
     if not agent:
@@ -111,7 +100,7 @@ async def get_agent_by_id(agent_id: str, user_id: Optional[str] = Depends(get_cu
     # for a private agent owned by someone else avoids confirming that a given id exists.
     if not agent.get("published") and agent.get("author") != user_id:
         raise HTTPException(status_code=404, detail="Not found")
-    return agent
+    return agent if agent.get("author")==user_id else _public_agent(agent)
 
 @router.post("/api/agents/{agent_id}/knowledge")
 async def upload_kb_document(agent_id: str, file: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
@@ -125,30 +114,38 @@ async def upload_kb_document(agent_id: str, file: UploadFile = File(...), user_i
     if agent.get("author") != user_id:
         raise HTTPException(status_code=403, detail="You don't own this bot")
 
+    from app.core import plans
     filename = file.filename or "document.txt"
     if not filename.lower().endswith(SUPPORTED_KB_EXTENSIONS):
         raise HTTPException(status_code=400,
             detail=f"Unsupported file type. Supported: {', '.join(SUPPORTED_KB_EXTENSIONS)} "
                    f"(PDF/DOCX not yet supported - convert to plain text first)")
 
-    raw = await file.read()
+    db = GenesisDB()
+    max_bytes = plans.kb_max_upload_bytes(db, user_id)         # the plan's text cap; never read more than that into memory
+    raw = await file.read() if max_bytes is None else await file.read(max_bytes + 1)
+    if max_bytes is not None and len(raw) > max_bytes:
+        raise HTTPException(status_code=413, detail="That file is larger than the knowledge-base text limit of your plan."
+                                                    + plans._upgrade_hint(db.get_user_plan(user_id)))
     try:
         content = raw.decode("utf-8")
     except UnicodeDecodeError:
         raise HTTPException(status_code=400, detail="File must be UTF-8 text")
     if not content.strip():
         raise HTTPException(status_code=400, detail="File is empty")
+    _limit = plans.kb_gate_message(db, user_id, agent_id, len(content))
+    if _limit:
+        raise HTTPException(status_code=403, detail=_limit)
 
     chunks = chunk_text(content)
     if not chunks:
         raise HTTPException(status_code=400, detail="Could not extract any content to index")
 
-    db = GenesisDB()
     doc_id = db.add_kb_document(agent_id, user_id, filename, content, chunks)
     return {"id": doc_id, "filename": filename, "chunk_count": len(chunks)}
 
 @router.get("/api/agents/{agent_id}/knowledge")
-async def list_kb_documents(agent_id: str, user_id: str = Depends(get_current_user_id)):
+def list_kb_documents(agent_id: str, user_id: str = Depends(get_current_user_id)):
     from app.core.agent_store import AgentStore
     from app.db.database import GenesisDB
     agent = AgentStore().get_agent(agent_id)
@@ -159,14 +156,14 @@ async def list_kb_documents(agent_id: str, user_id: str = Depends(get_current_us
     return {"documents": GenesisDB().list_kb_documents(agent_id, user_id)}
 
 @router.delete("/api/agents/{agent_id}/knowledge/{document_id}")
-async def delete_kb_document(agent_id: str, document_id: str, user_id: str = Depends(get_current_user_id)):
+def delete_kb_document(agent_id: str, document_id: str, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     if not GenesisDB().delete_kb_document(document_id, user_id):
         raise HTTPException(status_code=404, detail="Document not found or not yours")
     return {"status": "deleted"}
 
 @router.get("/api/agents/{agent_id}/analytics")
-async def bot_analytics(agent_id: str, user_id: str = Depends(get_current_user_id)):
+def bot_analytics(agent_id: str, user_id: str = Depends(get_current_user_id)):
     """Aggregates what's already being collected (conversations, ratings) - see
     GenesisDB.get_bot_analytics for what is/isn't included and why."""
     from app.core.agent_store import AgentStore
@@ -179,7 +176,7 @@ async def bot_analytics(agent_id: str, user_id: str = Depends(get_current_user_i
     return GenesisDB().get_bot_analytics(agent_id)
 
 @router.get("/api/agents/{agent_id}/handoffs")
-async def bot_handoffs(agent_id: str, user_id: str = Depends(get_current_user_id)):
+def bot_handoffs(agent_id: str, user_id: str = Depends(get_current_user_id)):
     """Recent human-handoff events for this bot - see app.core.handoff and
     GenesisAgent._do_request_handoff for how these get created."""
     from app.core.agent_store import AgentStore
@@ -192,7 +189,7 @@ async def bot_handoffs(agent_id: str, user_id: str = Depends(get_current_user_id
     return {"handoffs": GenesisDB().get_handoff_events(agent_id)}
 
 @router.get("/api/agents/{agent_id}/conversations")
-async def bot_conversations(agent_id: str, q: Optional[str] = None, date_from: Optional[str] = None,
+def bot_conversations(agent_id: str, q: Optional[str] = None, date_from: Optional[str] = None,
                             date_to: Optional[str] = None, limit: int = 25, offset: int = 0,
                             user_id: str = Depends(get_current_user_id)):
     """Admin panel conversation log: searchable/filterable list of conversations with this bot."""
@@ -205,7 +202,7 @@ async def bot_conversations(agent_id: str, q: Optional[str] = None, date_from: O
                                                 date_to=date_to, limit=limit, offset=offset)
 
 @router.get("/api/agents/{agent_id}/conversations/{conversation_id}")
-async def bot_conversation_messages(agent_id: str, conversation_id: str,
+def bot_conversation_messages(agent_id: str, conversation_id: str,
                                     user_id: str = Depends(get_current_user_id)):
     _require_bot_owner(agent_id, user_id)
     from app.db.database import GenesisDB
@@ -215,7 +212,7 @@ async def bot_conversation_messages(agent_id: str, conversation_id: str,
     return {"messages": messages}
 
 @router.post("/api/agents/{agent_id}/telegram/connect")
-async def telegram_connect(agent_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
+def telegram_connect(agent_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
     from app.core.agent_store import AgentStore
     from app.db.database import GenesisDB
     from app.core import telegram_integration as tg
@@ -259,11 +256,13 @@ async def telegram_connect(agent_id: str, data: dict, user_id: str = Depends(get
     link_id = db.upsert_telegram_link(agent_id, user_id, token, identity["id"],
                                       identity.get("username", ""), webhook_secret, status)
     db.log_telegram_event(link_id, "connected", f"@{identity.get('username', '')}")
+    if imported.get("avatar_file_id"):
+        imported["avatar_url"] = f"/api/agents/{agent_id}/telegram/avatar"
     return {"status": status, "bot_username": identity.get("username"), "bot_id": identity["id"],
             "imported": imported, "warning": warning}
 
 @router.get("/api/agents/{agent_id}/telegram")
-async def telegram_status(agent_id: str, user_id: str = Depends(get_current_user_id)):
+def telegram_status(agent_id: str, user_id: str = Depends(get_current_user_id)):
     from app.core.agent_store import AgentStore
     from app.db.database import GenesisDB
     agent = AgentStore().get_agent(agent_id)
@@ -277,7 +276,7 @@ async def telegram_status(agent_id: str, user_id: str = Depends(get_current_user
     return {"connected": True, **link}
 
 @router.delete("/api/agents/{agent_id}/telegram")
-async def telegram_disconnect(agent_id: str, user_id: str = Depends(get_current_user_id)):
+def telegram_disconnect(agent_id: str, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     from app.core import telegram_integration as tg
     deleted = GenesisDB().delete_telegram_link(agent_id, user_id)
@@ -290,7 +289,7 @@ async def telegram_disconnect(agent_id: str, user_id: str = Depends(get_current_
     return {"status": "disconnected"}
 
 @router.get("/api/agents/{agent_id}/telegram/events")
-async def telegram_events(agent_id: str, user_id: str = Depends(get_current_user_id)):
+def telegram_events(agent_id: str, user_id: str = Depends(get_current_user_id)):
     from app.core.agent_store import AgentStore
     from app.db.database import GenesisDB
     agent = AgentStore().get_agent(agent_id)
@@ -305,7 +304,7 @@ async def telegram_events(agent_id: str, user_id: str = Depends(get_current_user
     return {"events": db.get_telegram_events(link["id"])}
 
 @router.post("/api/agents/{agent_id}/telegram/test")
-async def telegram_test_chat(agent_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
+def telegram_test_chat(agent_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
     """Runs a message through the EXACT SAME dispatch pipeline the real Telegram webhook
     uses, without touching Telegram at all - lets a bot owner verify their bot's behavior
     (including RAG/predict/handoff) before ever connecting a real token, and remains fully
@@ -346,35 +345,19 @@ async def telegram_webhook(secret: str, request: Request):
     if not chat_id or not text:
         return {"ok": True}  # nothing to process (e.g. a sticker/photo) - ack so Telegram doesn't retry
 
-    from app.core.agent_store import AgentStore
-    from app.core.agent import GenesisAgent
-    from app.core import telegram_integration as tg
-
-    bot = AgentStore().get_agent(link["agent_id"])
-    if not bot:
+    state = db.get_session_state(link["user_id"])
+    if not state or state[1]:
         return {"ok": True}
-
-    db.log_telegram_event(link["id"], "message_in", text[:200])
-    agent = GenesisAgent()
-    agent.agent_override = {"model": bot.get("model", "openai/gpt-oss-120b"),
-                            "system_prompt": bot.get("system_prompt", ""), "agent_id": link["agent_id"]}
-    conversation_id = f"telegram_{link['agent_id']}_{chat_id}"
-    # Attributed to the BOT OWNER's account, not the (unauthenticated, no GenesisAI account)
-    # Telegram user - the owner's own Groq quota funds their bot's real traffic, same as any
-    # other cost their published bot generates.
-    resp = agent.process(text, conversation_id=conversation_id, user_id=link["user_id"])
-
-    try:
-        tg.send_message(link["bot_token"], chat_id, resp.message)
-        db.log_telegram_event(link["id"], "message_out", resp.message[:200])
-        db.update_telegram_link_status(link["id"], "connected")
-    except tg.TelegramAPIError as e:
-        db.log_telegram_event(link["id"], "error", str(e))
-        db.update_telegram_link_status(link["id"], "error", str(e))
+    update_id = update.get("update_id")
+    if not isinstance(update_id,int) or isinstance(update_id,bool):
+        raise HTTPException(status_code=400,detail="A Telegram update_id is required")
+    event_id = f"telegram:{link['id']}:{update_id}"
+    await asyncio.to_thread(db.record_incoming,event_id,link["user_id"],
+                           {"link_id":link["id"],"chat_id":chat_id,"text":text})
     return {"ok": True}
 
 @router.post("/api/agents/create")
-async def create_agent(data: dict, user_id: str = Depends(get_current_user_id)):
+def create_agent(data: dict, user_id: str = Depends(get_current_user_id)):
     from app.core.agent_store import AgentStore, AgentConfig
     from app.core import plans
     from app.db.database import GenesisDB
@@ -396,7 +379,7 @@ async def create_agent(data: dict, user_id: str = Depends(get_current_user_id)):
     return config.to_dict()
 
 @router.patch("/api/agents/{agent_id}")
-async def update_agent(agent_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
+def update_agent(agent_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
     from app.core.agent_store import AgentStore
     if "linked_model_id" in data and data["linked_model_id"]:
         from app.core.engine.registry import ModelRegistry
@@ -404,7 +387,7 @@ async def update_agent(agent_id: str, data: dict, user_id: str = Depends(get_cur
             record = ModelRegistry().get_record(data["linked_model_id"])
         except KeyError:
             raise HTTPException(status_code=400, detail="linked_model_id does not exist in the registry")
-        if record.get("metadata", {}).get("author", user_id) != user_id:
+        if record.get("metadata", {}).get("author") != user_id:
             # Older registry records (before ownership tracking existed on models) have no
             # owner_user_id at all - default to allowing rather than retroactively locking
             # a solo dev out of their own pre-existing models.
@@ -419,21 +402,21 @@ async def update_agent(agent_id: str, data: dict, user_id: str = Depends(get_cur
     return updated
 
 @router.delete("/api/agents/{agent_id}")
-async def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id)):
+def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id)):
     from app.core.agent_store import AgentStore
     if not AgentStore().delete_agent(agent_id, owner_user_id=user_id):
         raise HTTPException(status_code=403, detail="Not your bot, or it doesn't exist")
     return {"status": "deleted"}
 
 @router.post("/api/agents/{agent_id}/publish")
-async def publish_agent(agent_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
+def publish_agent(agent_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
     from app.core.agent_store import AgentStore
     if not AgentStore().publish_agent(agent_id, data.get("price", 0), owner_user_id=user_id):
         raise HTTPException(status_code=403, detail="Not your bot, or it doesn't exist")
     return {"status": "published"}
 
 @router.post("/api/agents/{agent_id}/clone")
-async def clone_agent(agent_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
+def clone_agent(agent_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
     from app.core.agent_store import AgentStore
     config = AgentStore().clone_agent(agent_id, user_id)
     if not config:
@@ -441,13 +424,13 @@ async def clone_agent(agent_id: str, data: dict, user_id: str = Depends(get_curr
     return config.to_dict()
 
 @router.post("/api/agents/{agent_id}/review")
-async def review_agent(agent_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
+def review_agent(agent_id: str, data: dict, user_id: str = Depends(get_current_user_id)):
     from app.core.agent_store import AgentStore
     AgentStore().add_review(agent_id, user_id, data.get("rating", 5), data.get("comment", ""))
     return {"status": "reviewed"}
 
 @router.post("/api/bot-builder/generate")
-async def bot_builder_generate(data: dict, user_id: Optional[str] = Depends(get_current_user_id_optional)):
+def bot_builder_generate(data: BotBuildRequest, user_id: str = Depends(get_current_user_id)):
     _enforce_groq_quota(user_id)
     from app.core.bot_builder import BotBuilder
     result = BotBuilder(user_id=user_id).build(
@@ -458,7 +441,7 @@ async def bot_builder_generate(data: dict, user_id: Optional[str] = Depends(get_
     return result
 
 @router.post("/api/bot-builder/chat")
-async def bot_builder_chat(data: dict, user_id: Optional[str] = Depends(get_current_user_id_optional)):
+def bot_builder_chat(data: BotChatRequest, user_id: str = Depends(get_current_user_id)):
     _enforce_groq_quota(user_id)
     from app.core.bot_builder import BotBuilder
     reply = BotBuilder(user_id=user_id).chat_with_draft(
@@ -473,7 +456,7 @@ async def bot_builder_chat(data: dict, user_id: Optional[str] = Depends(get_curr
 async def bot_builder_chat_with_attachments(
     spec: str = Form(...), message: str = Form(""), history: str = Form("[]"),
     model: Optional[str] = Form(None), files: List[UploadFile] = File(default=[]),
-    user_id: Optional[str] = Depends(get_current_user_id_optional),
+    user_id: str = Depends(get_current_user_id),
 ):
     """Preview chat with image/PDF attachments (multipart). See app.core.attachments for the
     limits and for how images vs PDFs reach the model. If the draft bot's model can't see
@@ -493,6 +476,14 @@ async def bot_builder_chat_with_attachments(
         raise HTTPException(status_code=400, detail="Write a message or attach a file")
     if len(files) > 5:
         raise HTTPException(status_code=400, detail="Too many files: up to 5 per message.")
+    from app.core.observability import _validate_json
+    try:
+        _validate_json(spec_obj)
+        _validate_json(history_obj)
+        if len(history_obj)>128 or len(message)>100000:
+            raise ValueError()
+    except ValueError:
+        raise HTTPException(status_code=422,detail="Attachment chat context is too large")
     raw_files = []
     for f in files:
         # read at most one byte past the cap so an oversized upload is rejected without
@@ -514,7 +505,7 @@ async def bot_builder_chat_with_attachments(
                            [{"name": d["name"], "kind": "document"} for d in processed["documents"]]}
 
 @router.post("/api/bot-builder/revise")
-async def bot_builder_revise(data: dict, user_id: Optional[str] = Depends(get_current_user_id_optional)):
+def bot_builder_revise(data: BotReviseRequest, user_id: str = Depends(get_current_user_id)):
     _enforce_groq_quota(user_id)
     from app.core.bot_builder import BotBuilder
     bb = BotBuilder(user_id=user_id)
@@ -523,7 +514,7 @@ async def bot_builder_revise(data: dict, user_id: Optional[str] = Depends(get_cu
     return {"spec": spec, "test_results": test_results, "success": all(r["ok"] for r in test_results)}
 
 @router.post("/api/bot-builder/publish")
-async def bot_builder_publish(data: dict, user_id: str = Depends(get_current_user_id)):
+def bot_builder_publish(data: dict, user_id: str = Depends(get_current_user_id)):
     from app.core.bot_builder import BotBuilder
     config = BotBuilder(user_id=user_id).publish(
         spec=data.get("spec", {}),
@@ -537,7 +528,7 @@ async def bot_builder_publish(data: dict, user_id: str = Depends(get_current_use
 
 # ---- Bot Skills (AI-generated, sandbox-tested network capabilities for a bot) ----
 @router.post("/api/skills/create")
-async def create_skill(data: dict, user_id: str = Depends(get_current_user_id)):
+def create_skill(data: dict, user_id: str = Depends(get_current_user_id)):
     """Generates, sandbox-tests, and (if the test passes) saves a new skill for a bot the
     caller owns. This can take several seconds and several real Groq calls (the
     generate -> test -> fix loop) - same cost shape as /api/bot-builder/generate, so it's
@@ -587,12 +578,12 @@ async def create_skill(data: dict, user_id: str = Depends(get_current_user_id)):
     return {"skill": skill, "test_success": result["success"], "log": result["log"]}
 
 @router.get("/api/skills")
-async def list_my_skills(user_id: str = Depends(get_current_user_id)):
+def list_my_skills(user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     return {"skills": GenesisDB().list_skills_for_owner(user_id)}
 
 @router.delete("/api/skills/{skill_id}")
-async def delete_skill(skill_id: str, user_id: str = Depends(get_current_user_id)):
+def delete_skill(skill_id: str, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     if not GenesisDB().delete_skill(skill_id, user_id):
         raise HTTPException(status_code=404, detail="Skill not found, or it doesn't belong to you")
@@ -601,7 +592,7 @@ async def delete_skill(skill_id: str, user_id: str = Depends(get_current_user_id
 
 # ---- Scheduled jobs ("Level 3": autonomous, timer-driven skill runs) ----
 @router.post("/api/scheduled-jobs/create")
-async def create_scheduled_job(data: dict, user_id: str = Depends(get_current_user_id)):
+def create_scheduled_job(data: dict, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     db = GenesisDB()
     skill_id = data.get("skill_id")
@@ -612,6 +603,10 @@ async def create_scheduled_job(data: dict, user_id: str = Depends(get_current_us
         raise HTTPException(status_code=404, detail="Skill not found, or it doesn't belong to you")
     if not skill["active"] or not skill["test_passed"]:
         raise HTTPException(status_code=400, detail="Only an active, sandbox-tested skill can be scheduled")
+    from app.core import plans
+    _limit = plans.gate_message(db, user_id, "scheduled_job")
+    if _limit:
+        raise HTTPException(status_code=403, detail=_limit)
 
     try:
         job = db.create_scheduled_job(
@@ -624,27 +619,60 @@ async def create_scheduled_job(data: dict, user_id: str = Depends(get_current_us
     return {"job": job}
 
 @router.get("/api/scheduled-jobs")
-async def list_scheduled_jobs(user_id: str = Depends(get_current_user_id)):
+def list_scheduled_jobs(user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     return {"jobs": GenesisDB().list_scheduled_jobs_for_owner(user_id)}
 
 @router.post("/api/scheduled-jobs/{job_id}/pause")
-async def pause_scheduled_job(job_id: str, user_id: str = Depends(get_current_user_id)):
+def pause_scheduled_job(job_id: str, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     if not GenesisDB().set_scheduled_job_active(job_id, user_id, active=False):
         raise HTTPException(status_code=404, detail="Job not found, or it doesn't belong to you")
     return {"status": "paused"}
 
 @router.post("/api/scheduled-jobs/{job_id}/resume")
-async def resume_scheduled_job(job_id: str, user_id: str = Depends(get_current_user_id)):
+def resume_scheduled_job(job_id: str, user_id: str = Depends(get_current_user_id)):
+    from app.core import plans
     from app.db.database import GenesisDB
+    _limit = plans.gate_message(GenesisDB(), user_id, "scheduled_job")     # a paused job does not count; resuming one that goes over the limit does
+    if _limit:
+        raise HTTPException(status_code=403, detail=_limit)
     if not GenesisDB().set_scheduled_job_active(job_id, user_id, active=True):
         raise HTTPException(status_code=404, detail="Job not found, or it doesn't belong to you")
     return {"status": "resumed"}
 
 @router.delete("/api/scheduled-jobs/{job_id}")
-async def delete_scheduled_job(job_id: str, user_id: str = Depends(get_current_user_id)):
+def delete_scheduled_job(job_id: str, user_id: str = Depends(get_current_user_id)):
     from app.db.database import GenesisDB
     if not GenesisDB().delete_scheduled_job(job_id, user_id):
         raise HTTPException(status_code=404, detail="Job not found, or it doesn't belong to you")
     return {"status": "deleted"}
+
+
+@router.get("/api/agents/{agent_id}/telegram/avatar")
+def telegram_avatar(agent_id: str, user_id: str = Depends(get_current_user_id)):
+    from app.db.database import GenesisDB
+    from app.core import telegram_integration as tg
+    from app.core.public_http import request_public
+    from fastapi.responses import Response
+    db = GenesisDB()
+    link = db.get_telegram_link(agent_id, user_id)
+    if not link:
+        raise HTTPException(status_code=404, detail="Avatar not found")
+    with db._connect() as conn:
+        row = conn.execute("SELECT bot_token,bot_id FROM telegram_links WHERE id=?", (link["id"],)).fetchone()
+    from app.core.secrets_store import decrypt_secret
+    token = decrypt_secret(row[0])
+    file_id = tg.get_bot_avatar_file_id(token, row[1])
+    url = tg.get_file_url(token, file_id) if file_id else None
+    if not url:
+        raise HTTPException(status_code=404, detail="Avatar not found")
+    response = request_public(url, max_bytes=2_000_000)
+    if response["status"] != 200:
+        raise HTTPException(status_code=502, detail="Avatar temporarily unavailable")
+    return Response(response["body"], media_type="image/jpeg", headers={"Cache-Control":"private,max-age=3600", "X-Content-Type-Options":"nosniff"})
+
+
+def _public_agent(agent):
+    fields = {"id","name","description","greeting","model","rating","usage_count","author","created_at","price_per_call","published"}
+    return {k:v for k,v in agent.items() if k in fields}

@@ -1,17 +1,17 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Genesis AI — Pipeline Builder</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/static/design-tokens.css?v=20261110">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:#0A0A0A;color:#FFFFFF;height:100vh;overflow:hidden}
-/* Same monochrome token values as static/index.html (ported from the iOS app's Theme.swift -
-   see that file for the canonical source) so the pipeline builder doesn't look like a
-   different product from the rest of the site. */
-:root{--accent:#FFFFFF;--accent-ink:#0D0D0D;--accent-dim:rgba(255,255,255,.10);--card:#1A1A1A;--card2:#202020;--brd:rgba(255,255,255,.10);--txt:#FFFFFF;--txt2:rgba(255,255,255,.7);--txt3:rgba(255,255,255,.45);--success:#4DD999;--danger:#F25959;--warn:#F2B84D}
+/* Общие токены загружаются из design-tokens.css. */
+
 
 /* TOPBAR */
 .topbar{height:48px;background:var(--card);border-bottom:1px solid var(--brd);display:flex;align-items:center;padding:0 16px;gap:12px}
@@ -81,17 +81,38 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .code-body{flex:1;overflow-y:auto;padding:14px;font-family:monospace;font-size:11px;line-height:1.6;color:var(--txt2);white-space:pre-wrap}
 .copy-btn{font-size:11px;color:var(--accent);cursor:pointer;background:none;border:none;font-family:inherit}
 .copy-btn:hover{text-decoration:underline}
+body{background:var(--page);color:var(--txt);font-family:var(--font-ui);height:100dvh}
+.topbar,.sidebar,.code-panel{background:var(--card)}
+.btn,.block,.block-item,.prompt-input,.template-chip{border-radius:var(--r)}
+.code-body,.topbar-sub{font-family:var(--font-mono)}
+.block{border-width:1px}.block:hover{background:var(--card2)}
+[class*=bi-]{background:var(--card2)}
+button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media(max-width:760px){
+ body{height:auto;min-height:100dvh;overflow-y:auto}
+ .topbar{height:auto;min-height:48px;padding:12px;gap:8px}
+ .topbar h1{flex-basis:55%}.topbar-sub{margin-left:auto}.topbar-spacer{display:none}
+ .topbar .btn{min-height:34px}
+ .code-panel{width:100%;min-height:200px;border-left:0;border-top:1px solid var(--brd)}
+ .prompt-input{min-width:0}
+}
 </style>
+<link rel="stylesheet" href="/static/brand.css?v=20261110-logo">
+<link rel="icon" href="/static/favicon.svg?v=genesis-logo" type="image/svg+xml">
+<link rel="stylesheet" href="/static/glass-beta.css?v=20261110-beta1">
+<script src="/static/appearance.js?v=20261110-beta1"></script>
 </head>
 <body>
 
 <div class="topbar">
-  <h1>🧬 Pipeline Builder</h1>
+  <h1 class="builder-brand"><span class="brand-mark" aria-hidden="true"><img src="/static/brand/genesis-logo.png" alt="" width="1024" height="1024" decoding="async"></span><span>Pipeline Builder</span></h1>
   <span class="topbar-sub" id="block-count">0 blocks</span>
   <div class="topbar-spacer"></div>
-  <button class="btn btn-ghost" onclick="clearCanvas()"><i class="ti ti-trash"></i> Clear</button>
-  <button class="btn btn-primary" onclick="generateCode()"><i class="ti ti-code"></i> Generate Code</button>
-  <button class="btn btn-ghost" onclick="window.location.href='/'"><i class="ti ti-arrow-left"></i> Back</button>
+  <button class="glass-beta-toggle" type="button" data-glass-toggle aria-pressed="true" aria-label="Liquid Glass beta"><i class="ti ti-layers-intersect" aria-hidden="true"></i><span>Glass</span><em>β</em></button>
+  <button class="btn btn-ghost" onclick="clearCanvas()"><i class="ti ti-trash" aria-hidden="true"></i> Clear</button>
+  <button class="btn btn-primary" onclick="generateCode()"><i class="ti ti-code" aria-hidden="true"></i> Generate Code</button>
+  <button class="btn btn-ghost" onclick="window.location.href='/'"><i class="ti ti-arrow-left" aria-hidden="true"></i> Back</button>
 </div>
 
 <div class="builder">
@@ -100,43 +121,43 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
     <div class="templates" style="padding-bottom:8px;border-bottom:1px solid var(--brd)">
       <span style="font-size:10px;color:var(--txt3);margin-right:4px">Quick:</span>
     </div>
-    <div class="sidebar-title">📊 Data</div>
+    <div class="sidebar-title"> Data</div>
     <div class="block-item" draggable="true" data-block="load_data" ondragstart="dragStart(event)" id="blk-load_data">
-      <div class="block-icon bi-data">📊</div> Load CSV
+      <div class="block-icon bi-data"></div> Load CSV
     </div>
     <div class="block-item" draggable="true" data-block="load_text" ondragstart="dragStart(event)" id="blk-load_text">
-      <div class="block-icon bi-data">📝</div> Load Text
+      <div class="block-icon bi-data"></div> Load Text
     </div>
 
-    <div class="sidebar-title">🔍 Analysis</div>
+    <div class="sidebar-title"> Analysis</div>
     <div class="block-item" draggable="true" data-block="profile" ondragstart="dragStart(event)" id="blk-profile">
-      <div class="block-icon bi-analysis">🔍</div> Profile Data
+      <div class="block-icon bi-analysis"></div> Profile Data
     </div>
 
-    <div class="sidebar-title">🧹 Preprocessing</div>
+    <div class="sidebar-title"> Preprocessing</div>
     <div class="block-item" draggable="true" data-block="clean" ondragstart="dragStart(event)" id="blk-clean">
-      <div class="block-icon bi-preprocess">🧹</div> Clean Data
+      <div class="block-icon bi-preprocess"></div> Clean Data
     </div>
 
-    <div class="sidebar-title">🤖 Models</div>
+    <div class="sidebar-title"> Models</div>
     <div class="block-item" draggable="true" data-block="train_xgboost" ondragstart="dragStart(event)" id="blk-train_xgboost">
-      <div class="block-icon bi-model">🤖</div> XGBoost Classifier
+      <div class="block-icon bi-model"></div> XGBoost Classifier
     </div>
     <div class="block-item" draggable="true" data-block="train_random_forest" ondragstart="dragStart(event)" id="blk-train_random_forest">
-      <div class="block-icon bi-model">🌲</div> Random Forest
+      <div class="block-icon bi-model"></div> Random Forest
     </div>
     <div class="block-item" draggable="true" data-block="train_logistic" ondragstart="dragStart(event)" id="blk-train_logistic">
-      <div class="block-icon bi-model">📐</div> Logistic Regression
+      <div class="block-icon bi-model"></div> Logistic Regression
     </div>
 
-    <div class="sidebar-title">📊 Evaluation</div>
+    <div class="sidebar-title"> Evaluation</div>
     <div class="block-item" draggable="true" data-block="evaluate" ondragstart="dragStart(event)" id="blk-evaluate">
-      <div class="block-icon bi-eval">📊</div> Evaluate
+      <div class="block-icon bi-eval"></div> Evaluate
     </div>
 
-    <div class="sidebar-title">💾 Output</div>
+    <div class="sidebar-title"> Output</div>
     <div class="block-item" draggable="true" data-block="save" ondragstart="dragStart(event)" id="blk-save">
-      <div class="block-icon bi-output">💾</div> Save Model
+      <div class="block-icon bi-output"></div> Save Model
     </div>
   </div>
 
@@ -146,13 +167,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
        ondrop="dropBlock(event)"
        id="canvas">
     <div class="prompt-area" style="background:transparent;padding:8px 0">
-      <input class="prompt-input" id="prompt-in" placeholder="Describe your ML pipeline and I'll build it... (e.g. 'load churn.csv, train XGBoost, evaluate, save')" onkeydown="if(event.key==='Enter')buildFromPrompt()">
-      <button class="btn btn-primary" onclick="buildFromPrompt()"><i class="ti ti-sparkles"></i> Build</button>
+      <input class="prompt-input" id="prompt-in" aria-label="Describe a machine learning pipeline" placeholder="Describe your ML pipeline and I'll build it... (e.g. 'load churn.csv, train XGBoost, evaluate, save')" onkeydown="if(event.key==='Enter')buildFromPrompt()">
+      <button class="btn btn-primary" onclick="buildFromPrompt()"><i class="ti ti-sparkles" aria-hidden="true"></i> Build</button>
     </div>
     <div class="templates" id="templates-bar" style="margin-bottom:16px"></div>
     <div class="pipeline" id="pipeline">
       <div class="canvas-empty">
-        <i class="ti ti-box-align-left"></i>
+        <i class="ti ti-box-align-left" aria-hidden="true"></i>
         <p>Drag blocks here or describe your pipeline</p>
         <span>Or pick a template above</span>
       </div>
@@ -163,40 +184,48 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
   <div class="code-panel" id="code-panel" style="display:none">
     <div class="code-header">
       <span>Generated Code</span>
-      <button class="copy-btn" onclick="copyCode()">📋 Copy</button>
+      <button class="copy-btn" onclick="copyCode()"> Copy</button>
     </div>
     <div class="code-body" id="code-body"></div>
   </div>
 </div>
 
+<script src="/static/ui-icons.js?v=20261110"></script>
 <script>
 const BLOCKS = {
-  load_data: {name:'Load CSV',icon:'📊',category:'data'},
-  load_text: {name:'Load Text',icon:'📝',category:'data'},
-  load_images: {name:'Load Images',icon:'🖼️',category:'data'},
-  profile: {name:'Profile',icon:'🔍',category:'analysis'},
-  clean: {name:'Clean',icon:'🧹',category:'preprocessing'},
-  scale: {name:'Scale',icon:'📏',category:'preprocessing'},
-  encode: {name:'Encode',icon:'🏷️',category:'preprocessing'},
-  feature_select: {name:'Feature Select',icon:'🎯',category:'preprocessing'},
-  tokenize: {name:'Tokenize',icon:'🔤',category:'preprocessing'},
-  embedding: {name:'Embeddings',icon:'🧮',category:'preprocessing'},
-  augment: {name:'Augment',icon:'🔄',category:'preprocessing'},
-  train_xgboost: {name:'XGBoost',icon:'🤖',category:'model'},
-  train_xgboost_reg: {name:'XGBoost Reg',icon:'🤖',category:'model'},
-  train_random_forest: {name:'Random Forest',icon:'🌲',category:'model'},
-  train_logistic: {name:'Logistic Reg',icon:'📐',category:'model'},
-  train_svm: {name:'SVM',icon:'🎯',category:'model'},
-  train_knn: {name:'KNN',icon:'👥',category:'model'},
-  train_mlp: {name:'Neural Net',icon:'🧠',category:'model'},
-  train_cnn: {name:'CNN',icon:'🧠',category:'model'},
-  cross_validate: {name:'Cross-Validate',icon:'🔁',category:'evaluation'},
-  evaluate: {name:'Evaluate',icon:'📊',category:'evaluation'},
-  evaluate_reg: {name:'Evaluate Reg',icon:'📊',category:'evaluation'},
-  confusion_matrix: {name:'Confusion Matrix',icon:'🎯',category:'evaluation'},
-  save: {name:'Save Model',icon:'💾',category:'output'},
+  load_data: {name:'Load CSV',icon:'',category:'data'},
+  load_text: {name:'Load Text',icon:'',category:'data'},
+  load_images: {name:'Load Images',icon:'',category:'data'},
+  profile: {name:'Profile',icon:'',category:'analysis'},
+  clean: {name:'Clean',icon:'',category:'preprocessing'},
+  scale: {name:'Scale',icon:'',category:'preprocessing'},
+  encode: {name:'Encode',icon:'',category:'preprocessing'},
+  feature_select: {name:'Feature Select',icon:'',category:'preprocessing'},
+  tokenize: {name:'Tokenize',icon:'',category:'preprocessing'},
+  embedding: {name:'Embeddings',icon:'',category:'preprocessing'},
+  augment: {name:'Augment',icon:'',category:'preprocessing'},
+  train_xgboost: {name:'XGBoost',icon:'',category:'model'},
+  train_xgboost_reg: {name:'XGBoost Reg',icon:'',category:'model'},
+  train_random_forest: {name:'Random Forest',icon:'',category:'model'},
+  train_logistic: {name:'Logistic Reg',icon:'',category:'model'},
+  train_svm: {name:'SVM',icon:'',category:'model'},
+  train_knn: {name:'KNN',icon:'',category:'model'},
+  train_mlp: {name:'Neural Net',icon:'',category:'model'},
+  train_cnn: {name:'CNN',icon:'',category:'model'},
+  cross_validate: {name:'Cross-Validate',icon:'',category:'evaluation'},
+  evaluate: {name:'Evaluate',icon:'',category:'evaluation'},
+  evaluate_reg: {name:'Evaluate Reg',icon:'',category:'evaluation'},
+  confusion_matrix: {name:'Confusion Matrix',icon:'',category:'evaluation'},
+  save: {name:'Save Model',icon:'',category:'output'},
 };
 
+Object.entries(BLOCKS).forEach(([id,block]) => { block.icon = GenesisIcons.block(id); });
+document.querySelectorAll('[data-block]').forEach(item => {
+  item.querySelector('.block-icon').innerHTML = GenesisIcons.block(item.dataset.block);
+  item.tabIndex = 0; item.setAttribute('role','button');
+  item.onclick = () => { pipeline.push(item.dataset.block); renderPipeline(); };
+  item.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); item.click(); } };
+});
 let pipeline = [];
 
 const TEMPLATES = [
@@ -210,7 +239,7 @@ const tb = document.getElementById('templates-bar');
 TEMPLATES.forEach(t => {
   const chip = document.createElement('span');
   chip.className = 'template-chip';
-  chip.textContent = '⚡ ' + t.name;
+  chip.textContent = ' ' + t.name;
   chip.onclick = () => loadTemplate(t);
   tb.appendChild(chip);
 });
@@ -270,7 +299,7 @@ function renderPipeline() {
   
   if (!pipeline.length) {
     el.innerHTML = `<div class="canvas-empty">
-      <i class="ti ti-box-align-left"></i>
+      <i class="ti ti-box-align-left" aria-hidden="true"></i>
       <p>Drag blocks here or describe your pipeline</p>
       <span>Or pick a template above</span>
     </div>`;
@@ -278,11 +307,11 @@ function renderPipeline() {
   }
 
   el.innerHTML = pipeline.map((bid, i) => {
-    const b = BLOCKS[bid] || {name:bid,icon:'❓'};
+    const b = BLOCKS[bid] || {name:bid,icon:''};
     return `<div class="step">
       ${i > 0 ? '<div class="arrow">→</div>' : ''}
       <div class="block filled">
-        <div class="block-remove" onclick="removeBlock(${i})">✕</div>
+        <div class="block-remove" role="button" tabindex="0" aria-label="Remove block" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();removeBlock(${i})}" onclick="removeBlock(${i})">×</div>
         <div class="block-icon-large">${b.icon}</div>
         <div class="block-name">${b.name}</div>
       </div>
@@ -351,8 +380,8 @@ function copyCode() {
   const code = document.getElementById('code-body').textContent;
   navigator.clipboard.writeText(code).then(() => {
     const btn = document.querySelector('.copy-btn');
-    btn.textContent = '✅ Copied!';
-    setTimeout(() => btn.textContent = '📋 Copy', 2000);
+    btn.textContent = ' Copied!';
+    setTimeout(() => btn.textContent = ' Copy', 2000);
   });
 }
 

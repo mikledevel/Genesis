@@ -16,6 +16,8 @@ Implementation is a plain in-memory sliding window, deliberately simple:
     upgrade; it buys real protection today and documents its own ceiling.
 """
 import time
+import hashlib
+import ipaddress
 from collections import defaultdict, deque
 from typing import Deque, Dict, Tuple
 
@@ -27,14 +29,26 @@ from starlette.responses import JSONResponse
 class _SlidingWindowLimiter:
     def __init__(self):
         self._hits: Dict[str, Deque[float]] = defaultdict(deque)
+        self._expires = {}
+        self._operations = 0
 
     def allow(self, key: str, limit: int, window_seconds: int) -> Tuple[bool, int]:
         """Returns (allowed, seconds_until_next_slot_frees_up)."""
         now = time.monotonic()
+        self._operations += 1
+        if self._operations % 128 == 0:
+            for stale in [k for k, until in self._expires.items() if until <= now]:
+                self._hits.pop(stale, None)
+                self._expires.pop(stale, None)
+        self._expires[key] = now + window_seconds
         q = self._hits[key]
         cutoff = now - window_seconds
         while q and q[0] < cutoff:
             q.popleft()
+        if not q:
+            # Don't retain one empty deque forever for every client that ever visited.
+            self._hits.pop(key, None)
+            q = self._hits[key]
         if len(q) >= limit:
             retry_after = int(window_seconds - (now - q[0])) + 1
             return False, max(retry_after, 1)
@@ -53,7 +67,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     Static files, docs, and non-API routes are never limited.
     """
 
-    AUTH_PATHS = ("/api/auth/login", "/api/auth/register")
+    AUTH_PATHS = ("/api/auth/login", "/api/auth/register", "/api/auth/change-password")
     AUTH_LIMIT, AUTH_WINDOW = 10, 60          # 10 attempts / minute / IP
     DEFAULT_LIMIT, DEFAULT_WINDOW = 120, 60   # 120 requests / minute / caller
 
@@ -63,18 +77,34 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     @staticmethod
     def _client_ip(request: Request) -> str:
-        fwd = request.headers.get("x-forwarded-for")
-        if fwd:
-            return fwd.split(",")[0].strip()
-        return request.client.host if request.client else "unknown"
+        from app.config import settings
+        peer = request.client.host if getattr(request, "client", None) else "unknown"
+        try:
+            networks = [ipaddress.ip_network(c.strip()) for c in settings.trusted_proxy_cidrs.split(",") if c.strip()]
+            chain = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+            for previous in reversed(chain):
+                if not any(ipaddress.ip_address(peer) in n for n in networks):
+                    break
+                ipaddress.ip_address(previous)
+                peer = previous
+        except ValueError:
+            return request.client.host if getattr(request, "client", None) else "unknown"
+        return peer
 
     def _caller_key(self, request: Request) -> str:
         auth = request.headers.get("authorization", "")
         if auth.startswith("Bearer ") and len(auth) > 12:
-            # Keyed on the token itself, not the decoded user_id - avoids importing/decoding
-            # JWTs in the middleware layer (that stays the auth dependency's job) while still
-            # giving each distinct caller their own bucket.
-            return "tok:" + auth[7:39]
+            # Hash the complete credential without decoding it. Truncating a JWT near its
+            # beginning makes unrelated users collide: every JWT has the same header segment.
+            # Hashing also keeps raw credentials out of the in-memory limiter keys.
+            import jwt
+            from app.config import settings
+            try:
+                payload = jwt.decode(auth[7:], settings.secret_key, algorithms=["HS256"])
+                if isinstance(payload.get("sub"), str):
+                    return "user:" + hashlib.sha256(payload["sub"].encode()).hexdigest()
+            except jwt.PyJWTError:
+                pass
         return "ip:" + self._client_ip(request)
 
     async def dispatch(self, request: Request, call_next):

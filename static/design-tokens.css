@@ -1,0 +1,39 @@
+/* Общие токены интерфейса Genesis AI. */
+:root{
+  --nav-w:52px;
+  --nav-surface:#1C1D19;
+  --scrim:#10110ECC;
+  --accent:#D6BC82;
+  --accent-2:#E3CEA3;
+  --accent-ink:#201C13;
+  --accent-dim:#302C22;
+  --accent-hover:#E3CEA3;
+  --surface:#181917;
+  --page:#181917;
+  --card:#1E1F1C;
+  --card2:#272823;
+  --txt:#EEEDE7;
+  --txt2:#BBBDB2;
+  --txt3:#A0A397;
+  --brd:#35372F;
+  --brd2:#626659;
+  --r:6px;
+  --r-lg:8px;
+  --r-xl:12px;
+  --success:#A5C5A0;
+  --warn:#DFC18A;
+  --danger:#F0A49B;
+  --shadow:none;
+  --shadow-md:0 8px 24px #10110E66;
+  --shadow-lg:0 24px 64px #10110E99;
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --dur-fast:180ms;
+  --dur:220ms;
+  --font-ui:'Manrope',system-ui,sans-serif;
+  --font-display:var(--font-ui);
+  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;
+  --space-6:24px;--space-8:32px;--space-12:48px;
+  --z-tooltip:100;--z-dialog:1000;
+
+}

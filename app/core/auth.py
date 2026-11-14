@@ -44,16 +44,14 @@ def _issued_ms(payload: dict) -> int:
 
 
 def _session_revoked(user_id: str, issued_ms: int) -> bool:
-    """A suspended account, or a token issued before the account's sessions_valid_after (set on password reset and when an
-    admin e-mail gets verified), is void. Best effort for ordinary endpoints: if the lookup itself fails the token is not
-    treated as revoked (the admin dependency below checks strictly)."""
+    """Отсутствующий или отключённый владелец не может продолжать сессию."""
     try:
         from app.db.database import GenesisDB
         state = GenesisDB().get_session_state(user_id)
-    except Exception:
-        return False
+    except Exception as error:
+        raise HTTPException(status_code=503, detail="Authentication storage is unavailable") from error
     if state is None:
-        return False
+        return True
     valid_after, disabled = state
     return bool(disabled) or bool(valid_after and issued_ms < valid_after)
 

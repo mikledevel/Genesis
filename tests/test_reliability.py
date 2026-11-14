@@ -8,6 +8,9 @@ from app.core.engine.trainer import DatasetTrainer
 from app.core.engine.transformers import looks_like_id
 
 
+from tests.pro_user import make_pro_user  # noqa: E402
+
+
 def T():
     return DatasetTrainer(tempfile.mkdtemp())
 
@@ -75,7 +78,7 @@ def test_excel_files_can_be_profiled(tmp_path):
 
 def test_openpyxl_is_a_declared_dependency():
     root = os.path.join(os.path.dirname(__file__), "..")
-    assert "openpyxl" in open(os.path.join(root, "requirements.txt")).read()
+    assert "openpyxl" in open(os.path.join(root, "requirements.lock.txt")).read()
     assert "openpyxl" in open(os.path.join(root, "requirements.lock.txt")).read()
 
 
@@ -87,7 +90,7 @@ def agent(tmp_path, monkeypatch):
     from app.db.database import GenesisDB
     monkeypatch.chdir(tmp_path); os.makedirs("datasets")
     a = GenesisAgent(trainer=T(), registry=ModelRegistry(storage_dir=str(tmp_path / "r")), db=GenesisDB(db_path=str(tmp_path / "t.db")))
-    a.current_user_id = "u1"; return a
+    a.current_user_id = "u1"; make_pro_user(a.db, "u1"); return a
 
 
 def _churn_file(order=("churn", "age", "avg_value")):

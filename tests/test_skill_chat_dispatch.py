@@ -126,9 +126,10 @@ class TestRunSkillDispatch:
         assert not resp.success
 
     def test_working_skill_executes_and_returns_real_result(self, env):
+        mocked_code = WORKING_SKILL_CODE + "\n_original_run = run\ndef run(params):\n    from unittest.mock import patch\n    with patch('app.core.skills.net_guard._resolve_all_ips',return_value=['93.184.216.34']), patch('app.core.public_http.request_public',return_value={'status':200,'body':b'ok','headers':{}}):\n        return _original_run(params)\n"
         skill = env["db"].create_skill(
             agent_id=env["bot_id"], owner_user_id="owner_user", name="check_github_repo",
-            description="x", code=WORKING_SKILL_CODE, allowed_domains=["github.com"], input_schema={})
+            description="x", code=mocked_code, allowed_domains=["github.com"], input_schema={})
         env["db"].update_skill_test_result(skill["id"], passed=True, log="ok")
 
         resp = env["agent"]._do_run_skill(
