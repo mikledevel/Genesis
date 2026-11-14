@@ -290,6 +290,7 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
         silently-empty knowledge base or silently-missing predict capability is a real
         regression a bot owner would want to know about."""
         self.retrieved_sources = []
+        self.knowledge_base_has_documents = False
         agent_id = self._get_selected_agent_config().get("agent_id")
         custom = self._get_selected_agent_config().get("system_prompt", "").strip()
         base_prompt = self.NATIVE_SYSTEM_PROMPT if native_tools else self.SYSTEM_PROMPT
@@ -319,6 +320,7 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             try:
                 from app.core.knowledge_base import retrieve_relevant_chunks, format_context_block, build_retrieval_query
                 chunks = self.db.get_kb_chunks_for_agent(agent_id)
+                self.knowledge_base_has_documents = bool(chunks)
                 if chunks:
                     # a short follow-up ("and how much is it?") is searched together with the previous user turns
                     top_k = 3
@@ -352,8 +354,8 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
                     cats = schema.get("categorical", [])
                     predict_block = (
                         f"\n\nPREDICTION CAPABILITY: you can call the predict_with_model tool to get a real "
-                        f"prediction for '{target}' from this bot's linked ML model. Ask the user for any of "
-                        f"these values you don't already have from the conversation, then respond with "
+                        f"prediction for '{target}' from this bot's linked ML model. For a prediction request, "
+                        f"call this tool even when some inputs are missing; pass only supplied values and the server will ask for missing inputs. Respond with "
                         f'tool="predict_with_model" and args={{"features": {{...}}}} using EXACTLY these '
                         f"feature names as keys: {', '.join(features)}. "
                         + (f"Input types by feature: {json.dumps(schema)}. Dates require valid date strings; "
@@ -754,6 +756,13 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
             except ValueError:
                 resp = AgentResponse(message="I couldn't verify the sources for that answer. Please rephrase the question.",
                                      success=False, data={"grounding": "invalid_citation"})
+        if (agent_id and not r.get("tool") and not blocked_tool_attempt
+                and getattr(self, "knowledge_base_has_documents", False)
+                and resp.data.get("grounding") not in {"cited", "invalid_citation"}):
+            text = ("В загруженных документах не найдено подтверждение ответа. Уточните вопрос или добавьте источник."
+                    if re.search(r"[а-яё]", message, re.I) else
+                    "I couldn't find supporting evidence in the uploaded documents. Please clarify the question or add a source.")
+            resp = AgentResponse(message=text, data={"grounding": "insufficient_evidence", "sources": []})
         from app.core.tracing import current_trace
         trace = current_trace.get()
         if trace:
