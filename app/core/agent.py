@@ -1358,11 +1358,11 @@ IMPORTANT: Only use a tool when the user's message actually asks for that specif
         for c in m.get("data_checks", []):
             msg_text += f"\n• {c['message']}"
         h = res["history"]
+        from app.core.forecast_reports import create_snapshot
+        snapshot = create_snapshot(res, mid, self.registry.get_record(mid).get("version", 1), agg)
         data = {"model_id": mid, "model_type": res["model_type"], "metrics": m, "route": "forecast",
-                "forecast": {"target": target, "freq": info["freq"],
-                             "history": {"dates": [d.strftime("%Y-%m-%d") for d in h.index], "values": [round(float(v), 4) for v in h.values]},
-                             "future": {"dates": [d.strftime("%Y-%m-%d") for d in fc["date"]], "values": [round(float(v), 4) for v in fc["forecast"]],
-                                        "lower": [round(float(v), 4) for v in fc["lower"]], "upper": [round(float(v), 4) for v in fc["upper"]]}}}
+                "report_snapshot": snapshot,
+                "forecast": snapshot["forecast"]}
         return AgentResponse(message=msg_text, data=data)
 
     @staticmethod

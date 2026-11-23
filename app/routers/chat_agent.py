@@ -176,8 +176,8 @@ async def agent_upload(file: UploadFile = File(...), user_id: str = Depends(get_
     try:
         from app.core import plans
         from app.db.database import GenesisDB
-        return chat_uploads.save_upload(user_id, file.filename or "file", data,
-                                        max_data_bytes=plans.max_dataset_bytes(GenesisDB(), user_id))
+        return await asyncio.to_thread(chat_uploads.save_upload, user_id, file.filename or "file", data,
+                                       max_data_bytes=plans.max_dataset_bytes(GenesisDB(), user_id))
     except chat_uploads.UploadError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e))
 

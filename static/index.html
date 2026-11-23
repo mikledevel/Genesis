@@ -935,7 +935,7 @@ svg.fc{width:100%;height:auto;display:block}.fc-t{font-size:10.5px;fill:var(--tx
   <!-- ABOUT: intro texts that used to sit above the fold in the hero -->
   <section class="ld-section" id="ld-about">
     <div class="ld-section-head">
-      <span class="ld-eyebrow"><span class="status-dot"></span> The only workspace where a trained model and the agent that explains it share one account</span>
+      <span class="ld-eyebrow"><span class="status-dot"></span> Train a model, inspect its results and work with it through an agent</span>
       <h2 class="ld-h2" style="margin-top:14px">About Genesis AI</h2>
       <p class="ld-h2-sub">Most tools make you choose: a no-code AutoML platform, or a chatbot builder, or a place to sell either one. Genesis AI does all three from the same dataset — train it, talk to it, and publish it, without stitching three products together.</p>
       <p class="ld-hero-note" style="margin-top:10px">Free to start, no credit card. Every account trains and sells real models.</p>
@@ -1109,6 +1109,9 @@ svg.fc{width:100%;height:auto;display:block}.fc-t{font-size:10.5px;fill:var(--tx
     <span class="nav-tooltip">AI Agent</span>
   </button>
   <div class="nav-divider"></div>
+  <button class="nav-btn" type="button" onclick="GenesisReports.open()" aria-label="Forecast report">
+    <i class="ti ti-chart-line" aria-hidden="true"></i><span class="nav-tooltip">Forecast report</span>
+  </button>
   <button class="nav-btn" id="nb-projects" onclick="show('projects')" aria-label="Projects">
     <i class="ti ti-folder" aria-hidden="true"></i>
     <span class="nav-tooltip">Projects</span>
@@ -2263,6 +2266,7 @@ svg.fc{width:100%;height:auto;display:block}.fc-t{font-size:10.5px;fill:var(--tx
 <script src="/static/workspace.js?v=20261110"></script>
 <script src="/static/registry.js?v=20261110"></script>
 <script src="/static/jobs.js?v=20261112"></script>
+<script src="/static/reports.js?v=20261122"></script>
 <script>
 // Shared keyboard-activation handler for interactive elements that aren't real <button>s
 // (e.g. custom-styled cards/list rows) - lets Enter/Space activate them like a click, so
@@ -3516,7 +3520,8 @@ function forecastChartHtml(f) {
   const band = [...fv.map((_, i) => pt(off + 1 + i, F.upper[i])), ...fv.map((_, i) => pt(off + 1 + i, F.lower[i])).reverse()].join(' ');
   const fmt = v => Math.abs(v) >= 1000 ? Math.round(v).toLocaleString('en-US') : (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1));
   const yt = [lo + pad, (lo + hi) / 2, hi - pad].map(v => `<text x="${L - 6}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end" class="fc-t">${fmt(v)}</text><line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="fc-g"/>`).join('');
-  const xt = [[0, Hh.dates[0], 'start'], [off, Hh.dates[off], 'middle'], [n - 1, F.dates[F.dates.length - 1], 'end']].map(([i, d, a]) => `<text x="${x(i).toFixed(1)}" y="${Ht - 14}" text-anchor="${a}" class="fc-t">${escHtml(String(d))}</text>`).join('');
+  const dateLabel = d => String(d).slice(0, String(f.freq || '').toLowerCase().startsWith('h') ? 16 : 10).replace('T', ' ');
+  const xt = [[0, Hh.dates[0], 'start'], [off, Hh.dates[off], 'middle'], [n - 1, F.dates[F.dates.length - 1], 'end']].map(([i, d, a]) => `<text x="${x(i).toFixed(1)}" y="${Ht - 14}" text-anchor="${a}" class="fc-t">${escHtml(dateLabel(d))}</text>`).join('');
   return `<div class="fc-card"><div class="mc-title"><span>Forecast \u00b7 ${escHtml(String(f.target || ''))}</span></div>
     <svg class="fc" viewBox="0 0 ${W} ${Ht}" role="img" aria-label="History and forecast of ${escHtml(String(f.target || 'the series'))} with an 80% range">
       ${yt}<polygon points="${band}" class="fc-band"/><line x1="${x(off).toFixed(1)}" x2="${x(off).toFixed(1)}" y1="${T}" y2="${Ht - B}" class="fc-now"/>

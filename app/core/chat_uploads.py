@@ -94,6 +94,22 @@ def save_upload(user_id: str, filename: str, data: bytes, max_data_bytes: Option
     uid = uuid.uuid4().hex[:8]
     safe = re.sub(r"[^\w.-]", "_", stem)[:60] or "file"
     if kind == "dataset":
+        if ext == ".csv":
+            import pandas as pd
+            table = None
+            for encoding in ("utf-8-sig", "cp1251"):
+                try:
+                    table = pd.read_csv(io.BytesIO(data), sep=None, engine="python", encoding=encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+                except (ValueError, pd.errors.ParserError):
+                    raise UploadError("Couldn't read this CSV. Check the delimiter and column count.") from None
+            if table is None:
+                raise UploadError("Save the CSV as UTF-8 or upload XLSX.")
+            data = table.to_csv(index=False).encode("utf-8")
+            if len(data) > cap or _dir_size(d) + len(data) > USER_QUOTA_BYTES:
+                raise UploadError("The normalised CSV exceeds your storage or file limit.", 413)
         if ext == ".tsv":                                  # normalise so the agent only meets .csv
             import pandas as pd
             try:

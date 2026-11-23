@@ -23,6 +23,9 @@ window.GenesisJobs = (() => {
         if (['succeeded', 'failed', 'cancelled'].includes(job.status)) {
           stopped = true; action.remove();
           const result = job.result;
+          if (job.status === 'succeeded' && job.kind === 'forecast' && result?.data?.report_snapshot && window.GenesisReports) {
+            GenesisReports.addDownloads(box, jobId);
+          }
           if (result && (result.message || result.data || result.code || result.metrics)) {
             const output = document.createElement('div'); output.className = 'msg-col';
             const answer = document.createElement('div'); answer.className = 'bubble'; output.append(answer);

@@ -1,9 +1,9 @@
 name: Tests
 on:
   push:
-    branches: [main]
+    branches: [main, codex/pilot-readiness]
   pull_request:
-    branches: [main]
+    branches: [main, codex/pilot-readiness]
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -51,3 +51,4 @@ jobs:
           node tests/ui/ui_test.js
           node tests/ui/admin_test.js
           node tests/ui/antibot_test.js
+          node tests/ui/reports_test.js

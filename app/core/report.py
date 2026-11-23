@@ -44,7 +44,7 @@ _T = {
         "last": "Last known value", "mavg": "Moving average", "mean": "Overall average",
         "better": "Error is {p:.0f}% lower than the best simple method.", "worse": "Error is {p:.0f}% higher than the best simple method.",
         "cov_close": "The range is meant to contain the real value 8 times out of 10. On held-out data it did so {c:.0%} of the time: close to the target.",
-        "cov_low": "The range is meant to contain the real value 8 times out of 10. On held-out data it did so only {c:.0%} of the time, so treat it as an approximate, slightly optimistic range.",
+        "cov_low": "The nominal coverage of this range is 80%. Its measured coverage on held-out data was only {c:.0%}, below that target. The range is not calibrated to the stated level. Do not interpret its limits as an 80% guarantee.",
         "limits": "Limits", "limit_list": [
             "The model only sees the history in your file. Promotions, holidays, price changes, stock-outs and other events are unknown to it.",
             "It assumes the future behaves like the past. Forecasts further out are less reliable than the next few periods.",
@@ -69,7 +69,7 @@ _T = {
         "last": "Последнее известное значение", "mavg": "Скользящее среднее", "mean": "Общее среднее",
         "better": "Ошибка на {p:.0f}% ниже, чем у лучшего простого метода.", "worse": "Ошибка на {p:.0f}% выше, чем у лучшего простого метода.",
         "cov_close": "Диапазон должен содержать реальное значение в 8 случаях из 10. На отложенных данных так и было в {c:.0%} случаев: близко к цели.",
-        "cov_low": "Диапазон должен содержать реальное значение в 8 случаях из 10. На отложенных данных так было лишь в {c:.0%} случаев, поэтому считайте его приблизительным и слегка оптимистичным.",
+        "cov_low": "Номинальное покрытие диапазона — 80%. Измеренное покрытие на отложенных данных составило лишь {c:.0%}, ниже этой цели. Диапазон не откалиброван до заявленного уровня. Не воспринимайте его границы как 80%-ю гарантию.",
         "limits": "Ограничения", "limit_list": [
             "Модель видит только историю из вашего файла. Акции, праздники, смену цен, дефицит товара и другие события она не знает.",
             "Она исходит из того, что будущее похоже на прошлое. Чем дальше горизонт, тем менее надёжен прогноз.",
@@ -215,6 +215,16 @@ def build_forecast_report(df: pd.DataFrame, date_col: Optional[str] = None, targ
     t = _T[lang]
     date_col, target, guess_notes = detect_columns(df, date_col, target, lang)
     out = Forecaster(model_dir=tempfile.mkdtemp(prefix="genesis_report_")).run(df, date_col, target, horizon=horizon, agg=agg)
+    return render_forecast_result(out, client, title, lang, agg, guess_notes)
+
+
+def render_forecast_result(out, client="", title="", lang="en", agg="sum", notes=(), generated_on=None):
+    """Отчёт по готовому результату без обучения и обращений к интеграциям."""
+    if lang not in _T:
+        raise ValueError("lang must be en or ru")
+    t = _T[lang]
+    target, date_col = out["target"], out["date_col"]
+    guess_notes = list(notes)
     m, fc, hist, info = out["metrics"], out["forecast"].copy(), out["history"], out["info"]
     trust = m.get("trust") or {}
     level = trust.get("level", "low") if isinstance(trust, dict) else str(trust)
@@ -233,7 +243,7 @@ def build_forecast_report(df: pd.DataFrame, date_col: Optional[str] = None, targ
             (t["mavg"], m.get("ma_mae_test")), (t["mean"], m.get("mean_mae_test"))]
     ev_rows = "".join(f"<tr><td>{_e(n)}</td><td>{_e(_fmt(v)) if v is not None else '-'}</td></tr>" for n, v in rows)
     fc_rows = "".join(
-        f"<tr><td>{_e(pd.Timestamp(r.date).date())}</td><td>{_e(_fmt(r.forecast))}</td><td>{_e(_fmt(r.lower))}</td><td>{_e(_fmt(r.upper))}</td></tr>"
+        f"<tr><td>{_e(pd.Timestamp(r.date).isoformat() if str(info['freq']).lower().startswith('h') else pd.Timestamp(r.date).date())}</td><td>{r.forecast:,.2f}</td><td>{r.lower:,.2f}</td><td>{r.upper:,.2f}</td></tr>"
         for r in fc.itertuples())
     notes = list(guess_notes)
     if info.get("gaps"):
@@ -258,7 +268,7 @@ def build_forecast_report(df: pd.DataFrame, date_col: Optional[str] = None, targ
 <p class="small">{_e(t['chosen'])}: {_e(m.get('chosen'))}</p>
 <h2>{_e(t['limits'])}</h2><ul>{''.join(f'<li>{_e(x)}</li>' for x in t['limit_list'])}</ul>
 {notes_html}
-<div class="foot">{_e(t['gen'].format(d=date.today().isoformat()))}</div>
+<div class="foot">{_e(t['gen'].format(d=generated_on or date.today().isoformat()))}</div>
 </div></body></html>"""
     summary = {"target": target, "date_col": date_col, "horizon": out["horizon"], "trust": level, "chosen": m.get("chosen"),
                "mae": m.get("mae_test"), "improvement_vs_best_simple_pct": imp, "coverage_80_test": cov, "n_points": m.get("n_points")}

@@ -1,0 +1,52 @@
+const { JSDOM } = require('jsdom');
+const fs = require('fs');
+const path = require('path');
+const assert = require('assert');
+const dom = new JSDOM('<!doctype html><body></body>', {runScripts:'outside-only', url:'http://localhost/'});
+const w = dom.window;
+w.HTMLDialogElement.prototype.showModal = function() { this.open = true; };
+w.HTMLDialogElement.prototype.close = function() { this.open = false; };
+w.currentUser = {id:'owner'}; w.API = '/api'; w.toast = message => { throw new Error(message); };
+let attached = [], requests = [], mode = 'paid';
+w.GenesisJobs = {attach: (box, id) => attached.push(id)};
+w.apiFetch = async (url, options = {}) => {
+  requests.push([url, options]);
+  const data = url.endsWith('/upload') ? {dataset_id:'a'.repeat(32), rows:200, columns:['date','sales'], n_columns:2} :
+    url.endsWith('/preview') ? {points:200, frequency:'D', gaps:0, duplicates:0, eligible:true, can_run:mode==='paid', warnings:[]} :
+    url.endsWith('/jobs') && options.method === 'POST' ? {job_id:'job-one'} : {jobs:[]};
+  return {ok:true, json:async()=>data};
+};
+w.eval(fs.readFileSync(path.join(__dirname,'../../static/reports.js'),'utf8'));
+const tick = () => new Promise(resolve=>setTimeout(resolve,10));
+const findButton = label => [...w.document.querySelectorAll('button')].find(button=>button.textContent===label);
+(async () => {
+  w.GenesisReports.open();
+  const input = w.document.querySelector('input[type=file]');
+  Object.defineProperty(input,'files',{value:[new w.File(['date,sales\n2026-01-01,1'],'test.csv')]});
+  await input.onchange();
+  assert(!requests.some(([url])=>url.endsWith('/jobs')), 'upload must not start a job');
+  const selects = w.document.querySelectorAll('select'); selects[0].value='date'; selects[1].value='sales';
+  await findButton('Check data').onclick();
+  assert(!requests.some(([url])=>url.endsWith('/jobs')), 'preview must not start a job');
+  await findButton('Confirm and build report').onclick();
+  assert.deepStrictEqual(attached,['job-one']);
+  const job = requests.find(([url])=>url.endsWith('/jobs'));
+  assert(JSON.parse(job[1].body).payload.dataset_id==='a'.repeat(32));
+  assert(job[1].headers['Idempotency-Key'], 'submit requires a stable retry id');
+  w.currentUser = {id:'other'};
+  w.GenesisReports.open();
+  assert(!w.document.body.textContent.includes('Ready to run'), 'another account must not inherit report state');
+  const otherInput=w.document.querySelector('input[type=file]');
+  Object.defineProperty(otherInput,'files',{value:[new w.File(['x'],'test.csv')]});
+  await otherInput.onchange();
+  const otherSelects=w.document.querySelectorAll('select'); otherSelects[0].value='date';otherSelects[1].value='sales';
+  mode='free'; await findButton('Check data').onclick();
+  assert(w.document.body.textContent.includes('no money has been charged'));
+  assert(!findButton('Confirm and build report'), 'unentitled account must not be prompted to run');
+  w.currentUser = {id:'third'}; w.GenesisReports.open();
+  findButton('Русский').click();
+  assert(w.document.body.textContent.includes('Прогнозный отчёт'));
+  assert(findButton('Мои отчёты'));
+  console.log('ALL REPORT UI CHECKS PASSED');
+  dom.window.close();
+})().catch(error=>{console.error(error);process.exitCode=1;dom.window.close();});
