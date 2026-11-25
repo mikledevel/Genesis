@@ -1,5 +1,6 @@
 from typing import Literal, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel, Field, model_validator
 from app.core.auth import get_current_user_id
 from app.db.database import GenesisDB
@@ -41,6 +42,61 @@ class JobRequest(BaseModel):
             raise ValueError("A dataset path or owned dataset_id is required")
         self.payload = data
         return self
+
+
+class ForecastPreview(BaseModel):
+    dataset_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    date_column: str = Field(min_length=1, max_length=200)
+    target_column: str = Field(min_length=1, max_length=200)
+    horizon: int = Field(default=14, ge=1, le=365)
+    agg: Literal["sum", "mean"] = "sum"
+
+    @model_validator(mode="after")
+    def different_columns(self):
+        if self.date_column == self.target_column:
+            raise ValueError("Choose different date and metric columns")
+        return self
+
+
+def _owned_table(db, user_id, dataset_id):
+    from pathlib import Path
+    from app.core.paths import is_owned_path
+    from app.core.engine.verification import load_table
+    path = db.dataset_path(user_id, dataset_id)
+    if not path or not is_owned_path(path, user_id) or not db.restore_artifact(path) or not Path(path).is_file():
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    try:
+        return load_table(path)
+    except (ValueError, OSError):
+        raise HTTPException(status_code=422, detail="Could not read the uploaded table") from None
+
+
+@router.post("/api/forecasts/preview")
+def preview_forecast(body: ForecastPreview, user_id: str = Depends(get_current_user_id)):
+    from app.core.engine.forecaster import prepare_series
+    from app.core import plans
+    db = GenesisDB()
+    frame = _owned_table(db, user_id, body.dataset_id)
+    try:
+        series, info = prepare_series(frame, body.date_column, body.target_column, body.agg)
+    except ValueError as error:
+        if "finite numeric" in str(error):
+            raise HTTPException(status_code=422, detail="The metric needs numeric values. For decimal-comma CSV, save as XLSX or export with decimal points.") from None
+        raise HTTPException(status_code=422, detail="Choose a readable date column and a numeric metric") from None
+    except (KeyError, TypeError):
+        raise HTTPException(status_code=422, detail="Choose a readable date column and a numeric metric") from None
+    need = max(24, 2 * max(info["season"], 3) + body.horizon)
+    horizon_limit = max(1, len(series) // 4)
+    warnings = list(info.get("notes", []))
+    zero_share = float((series == 0).mean())
+    if zero_share >= 0.4:
+        warnings.append("Many periods have zero values. Sparse sales require special care; do not use this as an inventory purchase plan.")
+    return {"points": len(series), "frequency": info["freq"], "gaps": info.get("gaps", 0),
+            "duplicates": info.get("duplicates", 0), "warnings": warnings,
+            "eligible": len(series) >= need and body.horizon <= horizon_limit,
+            "minimum_points": need, "maximum_horizon": horizon_limit,
+            "can_run": plans.gate_message(db, user_id, "server_training") is None,
+            "note": "Preview does not start training or charge a fee. Price for a reviewed one-off report is agreed separately."}
 
 
 @router.post("/api/jobs", status_code=202)
@@ -104,3 +160,25 @@ def cancel_job(job_id: str,user_id: str = Depends(get_current_user_id)):
     if not GenesisDB().cancel_job(user_id,job_id):
         raise HTTPException(status_code=409,detail="Job not found or already finished")
     return {"status":"cancelled"}
+
+
+@router.get("/api/jobs/{job_id}/report")
+def job_report(job_id: str, lang: Literal["en", "ru"] = "en", format: Literal["html", "csv"] = "html",
+               user_id: str = Depends(get_current_user_id)):
+    job = GenesisDB().get_job(user_id, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["kind"] != "forecast" or job["status"] != "succeeded":
+        raise HTTPException(status_code=409, detail="A completed forecast is required")
+    snapshot = ((job.get("result") or {}).get("data") or {}).get("report_snapshot")
+    if not snapshot:
+        raise HTTPException(status_code=409, detail="This older forecast has no report snapshot. Create a new forecast to export it.")
+    from app.core.forecast_reports import render_snapshot
+    try:
+        content = render_snapshot(snapshot, lang, format)
+    except (ValueError, KeyError, TypeError):
+        raise HTTPException(status_code=409, detail="The saved report is incomplete or incompatible") from None
+    return Response(content, media_type="text/html" if format == "html" else "text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="forecast-{lang}.{format}"',
+                             "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+                             "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"})

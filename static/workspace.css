@@ -373,3 +373,10 @@ input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;cursor:po
 .answer-source summary { cursor: pointer; color: var(--txt); }
 .answer-source summary:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 .answer-source p { white-space: pre-wrap; margin: 8px 0; }
+
+/* Короткий путь подготовки прогнозного отчёта. */
+.report-dialog{max-width:680px;width:calc(100% - 24px)}
+.report-content{padding:20px;max-height:75vh;overflow:auto;overflow-wrap:anywhere}
+.report-field{display:flex;flex-direction:column;gap:6px;margin:14px 0}
+.report-field input,.report-field select{max-width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--txt);font:inherit}
+.report-content .btn,.report-downloads .btn{margin:5px 8px 5px 0;min-height:40px;white-space:normal}

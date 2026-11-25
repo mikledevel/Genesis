@@ -13,8 +13,11 @@ def main():
         target = Path(work)
         for name in ("app", "tests", "scripts", "static", "docker", "docs", "eval", ".github"):
             shutil.copytree(source / name, target / name, ignore=shutil.ignore_patterns("__pycache__", "node_modules"))
-        for name in ("requirements.txt", "requirements.lock.txt", "requirements.render.txt", "pytest.ini", "render.yaml", "requirements.in", "requirements-dev.in"):
+        for name in ("requirements.txt", "requirements.lock.txt", "requirements.render.txt", "pytest.ini", "requirements.in", "requirements-dev.in"):
             shutil.copy2(source / name, target / name)
+        for name in ("render.yaml", "render.staging.yaml"):
+            if (source / name).exists():
+                shutil.copy2(source / name, target / name)
         for name in ("datasets", "agents", "blocks", "registry", "marketplace", "generated", "models"):
             (target / name).mkdir(exist_ok=True)
         env = {k: v for k, v in os.environ.items() if not any(part in k.upper() for part in

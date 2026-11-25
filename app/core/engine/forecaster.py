@@ -85,12 +85,16 @@ def prepare_series(df: "pd.DataFrame", date_col: str, target: str, agg: str = "s
     # daily file turned into a 338-day series with 218 INVENTED (interpolated) points.
     d[date_col] = _parse(d[date_col], _infer_dayfirst(d[date_col]))
     d[target] = pd.to_numeric(d[target], errors="coerce")
+    d[target] = d[target].where(np.isfinite(d[target]))
+    if not d[target].notna().any():
+        raise ValueError(f"Column «{target}» contains no finite numeric values")
     d = d.dropna(subset=[date_col])
     if d.empty:
         raise ValueError(f"Column «{date_col}» contains no readable dates")
     notes: List[str] = []
     dup = int(d.duplicated(date_col).sum())
-    s = d.groupby(date_col)[target].agg(agg).sort_index()
+    grouped = d.groupby(date_col)[target]
+    s = (grouped.sum(min_count=1) if agg == "sum" else grouped.agg(agg)).sort_index()
     if dup:
         notes.append(f"На одну дату приходилось несколько строк ({dup} лишних): значения объединены функцией «{agg}».")
     freq, fnotes = infer_freq(s.index)
@@ -103,6 +107,7 @@ def prepare_series(df: "pd.DataFrame", date_col: str, target: str, agg: str = "s
         grid = grid.interpolate("linear", limit_direction="both")
         notes.append(f"{gaps} пропущенных периодов из {len(grid)} заполнены линейной интерполяцией.")
     return grid.astype(float), {"freq": freq, "season": season_for(freq), "gaps": gaps, "duplicates": dup, "agg": agg,
+                                "zero_share": float((s.dropna() == 0).mean()),
                                 "notes": notes, "n": int(len(grid))}
 
 
@@ -258,8 +263,18 @@ def backtest(est, spec: _Spec, vals: np.ndarray, index: "pd.DatetimeIndex", star
     return np.array(errs), np.array(preds), np.array(acts), np.array(sn), np.array(lv), np.array(ma), np.array(mu)
 
 
-def interval_offsets(errs: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def interval_offsets(errs: np.ndarray, method="empirical") -> Tuple[np.ndarray, np.ndarray]:
     """80% interval offsets per horizon step from backtest errors (empirical quantiles; normal approximation if few origins)."""
+    if errs.ndim != 2 or not errs.size or not np.isfinite(errs).all():
+        raise ValueError("Finite nonempty calibration errors are required")
+    if method == "split":
+        rank = int(np.ceil((errs.shape[0] + 1) * .8))
+        if rank > errs.shape[0]:
+            raise ValueError("Not enough calibration origins for a finite interval")
+        radius = np.sort(np.abs(errs), axis=0)[rank - 1]
+        return -radius, radius
+    if method != "empirical":
+        raise ValueError("Unknown interval method")
     if errs.shape[0] >= 8:
         return np.percentile(errs, 10, axis=0), np.percentile(errs, 90, axis=0)
     sd = np.std(errs, axis=0) if errs.shape[0] >= 3 else np.full(errs.shape[1], np.std(errs) if errs.size else 0.0)
@@ -296,7 +311,7 @@ class Forecaster:
         self.model_dir = Path(model_dir); self.model_dir.mkdir(parents=True, exist_ok=True)
 
     def run(self, df: "pd.DataFrame", date_col: str, target: str, horizon: Optional[int] = None, agg: str = "sum",
-            on_stage=None) -> Dict[str, Any]:
+            on_stage=None, interval_method="empirical") -> Dict[str, Any]:
         from sklearn.metrics import mean_absolute_error
         st = on_stage or _noop
         st("prep", "active", "putting the series on a regular time grid")
@@ -309,11 +324,18 @@ class Forecaster:
             raise ValueError(f"The series has only {n} points - a forecast of {H} steps at this frequency needs at least {need}.")
         test_n = min(max(H, int(0.2 * n)), n // 3)
         train_end = n - test_n
+        if interval_method not in ("empirical", "split"):
+            raise ValueError("Unknown interval method")
+        selection_end = train_end
+        if interval_method == "split":
+            selection_end -= max(H + 3, int(.2 * n))
+            if selection_end < max(40, H * 2):
+                raise ValueError("Not enough history for independent interval calibration")
         st("prep", "done", f"{n} {freq} points, season {season}, horizon {H}; last {test_n} kept as an untouched holdout")
 
         # model selection: rolling-origin backtest on the END of the training part (never on the holdout)
         st("select", "active", "backtesting candidate models")
-        val_n = max(H, int(0.15 * train_end)); val_start = train_end - val_n
+        val_n = max(H, int(0.15 * selection_end)); val_start = selection_end - val_n
         scores: Dict[str, Optional[float]] = {}
         best_key, best_mae, val_errs = ("naive", "level"), None, None
         floor = make_spec(val_start, season, freq, "diff").max_back + 10
@@ -324,7 +346,7 @@ class Forecaster:
                 name = _name_of(kind, mode)
                 try:
                     est, spec = fit_candidate(kind, mode, vals, index, val_start, season, freq)
-                    errs, _p, acts_v, sn_v, lv_v, ma_v, mu_v = backtest(est, spec, vals, index, val_start, train_end, H)
+                    errs, _p, acts_v, sn_v, lv_v, ma_v, mu_v = backtest(est, spec, vals, index, val_start, selection_end, H)
                     mae = float(np.mean(np.abs(errs)))
                     scores[name] = round(mae, 4)
                     if kind == "naive":                        # the four simple methods share one backtest (they need no fitting)
@@ -351,6 +373,10 @@ class Forecaster:
         kind, mode = best_key
         model_name = _name_of(kind, mode)
 
+        if interval_method == "split":
+            calibration_est, calibration_spec = fit_candidate(kind, mode, vals, index, selection_end, season, freq)
+            val_errs = backtest(calibration_est, calibration_spec, vals, index, selection_end, train_end, H)[0]
+
         # honest evaluation: fit on the training part only, forecast the holdout from rolling origins
         st("eval", "active", "scoring on the untouched holdout")
         est, spec = fit_candidate(kind, mode, vals, index, train_end, season, freq)
@@ -363,7 +389,7 @@ class Forecaster:
         best_simple = min(base_mae, naive_mae, ma_mae, mean_mae)
         coverage = None
         if val_errs is not None:
-            lo, hi = interval_offsets(val_errs)
+            lo, hi = interval_offsets(val_errs, interval_method)
             coverage = float(np.mean((acts >= preds + lo) & (acts <= preds + hi)))
         metrics: Dict[str, Any] = {
             "mae_test": round(mae, 4), "rmse_test": round(rmse, 4), "smape_test": round(smape, 2), "mase_test": round(mae / denom, 3),
@@ -374,6 +400,13 @@ class Forecaster:
             "horizon": H, "n_origins": int(errs.shape[0]), "n_points": n, "frequency": freq, "season": season,
             "cv_metric": "mae_backtest", "cv_mean": round(best_mae, 4) if best_mae is not None else None,
             "candidates": scores, "chosen": model_name}
+        metrics["interval_protocol"] = {"method": interval_method, "selection_end": selection_end,
+            "calibration_start": selection_end if interval_method == "split" else val_start,
+            "calibration_end": train_end, "calibration_origins": len(val_errs) if val_errs is not None else 0,
+            "test_start": train_end, "test_end": n, "coverage_guarantee": False}
+        if val_errs is not None:
+            metrics["mean_interval_width_test"] = float(np.mean(hi - lo))
+            metrics["interval_score_80_test"] = float(np.mean((hi-lo) + 10*np.maximum(preds+lo-acts, 0) + 10*np.maximum(acts-preds-hi, 0)))
         st("eval", "done", f"MAE {mae:.4g} vs seasonal-naive {base_mae:.4g}" + (f", interval coverage {coverage:.0%}" if coverage is not None else ""))
 
         # final model: refit on ALL data; interval offsets from every backtest error we have
@@ -382,7 +415,7 @@ class Forecaster:
         if getattr(spec2, "simple", None) == "mean":
             spec2.simple_param = float(np.mean(vals))
         pooled = errs if val_errs is None else np.vstack([val_errs, errs])
-        lo_off, hi_off = interval_offsets(pooled)
+        lo_off, hi_off = interval_offsets(pooled, interval_method)
         model = _ForecastModel(est2, spec2, vals[-(spec2.max_back + 1):], index[-1].isoformat(), n, lo_off, hi_off, target, date_col, freq, model_name)
         fc = model.forecast(H)
         st("fit", "done", f"forecast of {H} periods ready")
@@ -407,6 +440,8 @@ class Forecaster:
         concerns: List[Tuple[int, str]] = []
         warns: List[str] = []
         gain = metrics["improvement_vs_best_simple_pct"]
+        if info.get("zero_share", 0) >= .4:
+            concerns.append((2, "В ряду много нулевых периодов. Для редких продаж нужна отдельная проверка; этот прогноз не является планом закупок."))
         simple = metrics["chosen"] in SIMPLE_MODELS
         if not simple and gain <= 1:
             msg = ("Модель не лучше самых простых прогнозов («как в прошлом сезоне», «как вчера», скользящее и общее среднее): "
