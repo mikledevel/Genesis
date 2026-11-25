@@ -2266,7 +2266,8 @@ svg.fc{width:100%;height:auto;display:block}.fc-t{font-size:10.5px;fill:var(--tx
 <script src="/static/workspace.js?v=20261110"></script>
 <script src="/static/registry.js?v=20261110"></script>
 <script src="/static/jobs.js?v=20261112"></script>
-<script src="/static/reports.js?v=20261122"></script>
+<script src="/static/reports.js?v=20261123"></script>
+<script src="/static/report-quotes.js?v=20261123"></script>
 <script>
 // Shared keyboard-activation handler for interactive elements that aren't real <button>s
 // (e.g. custom-styled cards/list rows) - lets Enter/Space activate them like a click, so
@@ -2827,6 +2828,7 @@ function initApp() {
   loadBalance();
   handleTopupRedirect();
   handleSubscriptionRedirect();
+  GenesisReportQuotes.handleReturn();
   loadDashboard();
   loadBaseModels(); // populates baseModelsData used by the Agent Store cards AND the
                      // Create Agent / Bot Settings model dropdowns (single source of truth)

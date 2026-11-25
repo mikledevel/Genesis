@@ -47,10 +47,10 @@ window.GenesisReports = (() => {
   function button(label, handler) {
     const el = text('button', label); el.type = 'button'; el.className = 'btn btn-secondary'; el.onclick = handler; return el;
   }
-  async function download(jobId, lang, format, source) {
+  async function download(jobId, lang, format, source, kind) {
     source.disabled = true;
     try {
-      const response = await apiFetch(API + '/jobs/' + encodeURIComponent(jobId) + '/report?lang=' + lang + '&format=' + format);
+      const response = await apiFetch(API + (kind === 'quote' ? '/report-quotes/' : '/jobs/') + encodeURIComponent(jobId) + '/report?lang=' + lang + '&format=' + format);
       if (!response.ok) throw new Error(apiError(await response.json(), 'Could not download the report.'));
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement('a'); link.href = url; link.download = 'forecast-' + lang + '.' + format;
@@ -58,11 +58,11 @@ window.GenesisReports = (() => {
     } catch (error) { toast(error.message || 'Report download failed', 'error'); }
     finally { source.disabled = false; }
   }
-  function addDownloads(box, jobId) {
+  function addDownloads(box, jobId, kind = 'job') {
     const row = document.createElement('div'); row.className = 'report-downloads';
     row.append(text('p', 'Saved report · downloading does not train a new model.'));
     for (const [label, lang, format] of [['Report EN', 'en', 'html'], ['Отчёт RU', 'ru', 'html'], ['Forecast CSV', 'en', 'csv']]) {
-      const btn = button(label, () => download(jobId, lang, format, btn)); row.append(btn);
+      const btn = button(label, () => download(jobId, lang, format, btn, kind)); row.append(btn);
     }
     box.append(row);
   }
@@ -165,7 +165,7 @@ window.GenesisReports = (() => {
       } catch (error) { setStatus(error.message); }
       finally { recent.disabled = false; }
     });
-    content.append(recent); document.body.append(dialog); dialog.showModal();
+    content.append(button(language === 'ru' ? 'Мой счёт и отчёт' : 'My quote and report', () => GenesisReportQuotes.open()),recent); document.body.append(dialog); dialog.showModal();
   }
   return { open, addDownloads };
 })();

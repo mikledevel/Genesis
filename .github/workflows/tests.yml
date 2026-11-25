@@ -53,3 +53,4 @@ jobs:
           node tests/ui/admin_test.js
           node tests/ui/antibot_test.js
           node tests/ui/reports_test.js
+          node tests/ui/report_quotes_test.js

@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     deepseek_api_key: str = ""
     stripe_subscriptions_enabled: bool = True
+    stripe_report_payments_enabled: bool = False
     crypto_payments_enabled: bool = False
     crypto_usdt_tron_address: str = ""
     trongrid_api_key: str = ""
