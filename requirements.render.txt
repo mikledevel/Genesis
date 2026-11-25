@@ -42,7 +42,7 @@ et-xmlfile==2.0.0
     # via openpyxl
 fastapi==0.143.0
     # via
-    #   -r requirements.render.txt
+    #   -r requirements.in
     #   sentry-sdk
 groq==1.7.0
     # via -r requirements.in
@@ -59,7 +59,7 @@ httptools==0.9.0
     # via uvicorn
 httpx==0.28.1
     # via
-    #   -r requirements.render.txt
+    #   -r requirements.in
     #   groq
 httpx2==2.16.0
     # via openai
@@ -75,7 +75,7 @@ joblib==1.6.0
     # via scikit-learn
 numpy==2.4.4
     # via
-    #   -r requirements.render.txt
+    #   -r requirements.in
     #   pandas
     #   scikit-learn
     #   scipy
@@ -98,7 +98,7 @@ pycparser==3.12
     # via cffi
 pydantic==2.14.0
     # via
-    #   -r requirements.render.txt
+    #   -r requirements.in
     #   fastapi
     #   groq
     #   openai
@@ -115,7 +115,7 @@ python-dateutil==4.0.0
     # via pandas
 python-dotenv==1.2.2
     # via
-    #   -r requirements.render.txt
+    #   -r requirements.in
     #   pydantic-settings
     #   uvicorn
 python-multipart==0.0.32
@@ -142,7 +142,7 @@ sniffio==1.3.1
     #   openai
 starlette==1.10.0
     # via fastapi
-stripe==16.0.0
+stripe==17.1.0
     # via -r requirements.in
 threadpoolctl==3.8.0
     # via scikit-learn

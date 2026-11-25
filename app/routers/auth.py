@@ -119,8 +119,10 @@ def public_config():
         and (settings.debug or (settings.public_base_url or "").strip().startswith("https://"))
     )
     from app.core.crypto_payments import crypto_ready
+    from app.core.report_quotes import payments_ready
     return {"turnstile_site_key": settings.turnstile_site_key if antibot.captcha_enabled() else "",
-            "stripe_subscriptions_enabled": billing_ready, "crypto_payments_enabled": crypto_ready()}
+            "stripe_subscriptions_enabled": billing_ready, "crypto_payments_enabled": crypto_ready(),
+            "report_payments_enabled":payments_ready()}
 
 @router.get("/api/plans")
 def public_plans():
@@ -240,7 +242,7 @@ def payments_checkout(req: CheckoutRequest, request: Request, user_id: str = Dep
 
 @router.post("/api/payments/webhook")
 async def payments_webhook(request: Request):
-    from app.core.payments import verify_and_parse_webhook, handle_checkout_completed, handle_subscription_event
+    from app.core.payments import verify_and_parse_webhook
     from app.db.database import GenesisDB
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
@@ -248,9 +250,12 @@ async def payments_webhook(request: Request):
     if not event:
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
     db = GenesisDB()
-    result = handle_subscription_event(event, db)
-    if result is None:
-        result = handle_checkout_completed(event, db)
+    import asyncio
+    from app.core.payments import dispatch_payment_event
+    try:
+        result = await asyncio.to_thread(dispatch_payment_event, event, db)
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Payment reconciliation is pending; retry this event") from None
     return {"received": True, "result": result}
 
 

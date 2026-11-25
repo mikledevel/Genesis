@@ -238,7 +238,7 @@ starlette==1.10.0
     # via
     #   -c requirements.render.txt
     #   fastapi
-stripe==16.0.0
+stripe==17.1.0
     # via
     #   -c requirements.render.txt
     #   -r requirements.in

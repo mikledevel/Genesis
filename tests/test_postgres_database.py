@@ -325,3 +325,27 @@ def test_pilot_snapshot_includes_accounts_and_binary_artifacts(pg, tmp_path, mon
     artifacts = snapshot['tables']['artifact_files']
     blob = artifacts['rows'][0][artifacts['columns'].index('content')]
     assert base64.b64decode(blob['$bytes']) == path.read_bytes()
+
+
+def test_report_payment_is_atomic_and_snapshot_survives_new_repository(pg):
+    from unittest.mock import Mock, patch
+    from app.core.report_quotes import ReportQuotes, handle_report_event
+    from app.core.forecast_reports import create_snapshot
+    from tests.test_forecast_exports import example_result
+    uid=user(pg);pg.mark_email_verified(uid)
+    store=ReportQuotes(pg,uid);q=store.issue('operator','Forecast and review',9900,'usd')
+    provider=Mock();provider.v1.checkout.sessions.create.return_value={'id':'cs_report_pg','url':'https://checkout.stripe.com/c/pay/test'}
+    with patch('app.core.report_quotes.stripe_client',return_value=provider):
+        store.checkout(q['id'],'https://example.test')
+        session={'id':'cs_report_pg','mode':'payment','payment_status':'paid','amount_total':9900,'currency':'usd',
+                 'client_reference_id':uid,'payment_intent':'pi_report_pg','metadata':{'purchase_type':'report',
+                 'genesis_user_id':uid,'quote_id':q['id'],'attempt_id':store.get(q['id'])['checkout_attempt']}}
+        provider.v1.checkout.sessions.retrieve.return_value=session
+        event={'type':'checkout.session.completed','data':{'object':session}}
+        with ThreadPoolExecutor(max_workers=4) as workers:
+            results=list(workers.map(lambda _:handle_report_event(event,pg),range(8)))
+    assert sum(result['status']=='paid' for result in results)==1
+    snapshot=create_snapshot(example_result(),'model',1,'sum');store.fulfill(q['id'],'operator','job',snapshot)
+    other=ReportQuotes(GenesisDB(database_url=pg.database_url),uid)
+    assert other.get(q['id'])['report_snapshot']==snapshot and other.list()[0]['report_available']
+    assert pg.get_user_plan(uid)=='free' and pg.get_balance(uid)==0

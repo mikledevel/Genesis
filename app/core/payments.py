@@ -272,3 +272,13 @@ def handle_checkout_completed(event, db) -> Optional[Dict]:
     amount_cents = session["amount_total"] if session["amount_total"] else 0
     db.add_transaction(user_id, "topup", amount_cents, "Stripe top-up", stripe_session_id=session_id)
     return {"status": "credited", "user_id": user_id, "amount_cents": amount_cents}
+
+
+def dispatch_payment_event(event, db):
+    from app.core.report_quotes import handle_report_event
+    result = handle_report_event(event, db)
+    if result is None:
+        result = handle_subscription_event(event, db)
+    if result is None:
+        result = handle_checkout_completed(event, db)
+    return result

@@ -1,0 +1,1286 @@
+{
+  "scope": "synthetic local diagnostic, not a competitor benchmark",
+  "split": "last 14 future points withheld from the entire engine",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "python": "3.12.15",
+  "packages": {
+    "numpy": "2.4.4",
+    "pandas": "3.0.2",
+    "scikit-learn": "1.8.0"
+  },
+  "cases": [
+    {
+      "case": "seasonal",
+      "seed": 100,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "252e944d94b9f5a9edb90339593d198b9c76fd266b53a395ce4d4a1cc5377582",
+      "status": "succeeded",
+      "model": "forecast_rf_diff",
+      "outer_mae": 3.8925383392409123,
+      "outer_wape": 3.9107394864263623,
+      "outer_coverage_80": 0.7142857142857143,
+      "mean_interval_width": 10.877297166108647,
+      "outer_interval_score": 12.348566073051092,
+      "interval_method": "split",
+      "internal_coverage_80": 0.843,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 3.148779669976201,
+      "last_value_mae": 13.099212973511053,
+      "trailing_mean_7_mae": 8.913091965510988,
+      "seconds": 2.672
+    },
+    {
+      "case": "seasonal",
+      "seed": 101,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "2fab84447a313ebbc6a32f9d04795252fcde5701c723151e122daaa3b1e17c4c",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 2.352001605778021,
+      "outer_wape": 2.357534644393511,
+      "outer_coverage_80": 0.9285714285714286,
+      "mean_interval_width": 9.61018241641724,
+      "outer_interval_score": 11.665190837504506,
+      "interval_method": "split",
+      "internal_coverage_80": 0.804,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 2.232875358095223,
+      "last_value_mae": 13.86722727566436,
+      "trailing_mean_7_mae": 9.887885990138171,
+      "seconds": 0.487
+    },
+    {
+      "case": "seasonal",
+      "seed": 102,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "9d3518bc13cc72be46ef5caca5d5cb3192bbff9fc0f27cf5f1562b0f65ba3e5a",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 2.4079816238949285,
+      "outer_wape": 2.4160304342183125,
+      "outer_coverage_80": 0.9285714285714286,
+      "mean_interval_width": 10.91753937358223,
+      "outer_interval_score": 11.220981309241964,
+      "interval_method": "split",
+      "internal_coverage_80": 0.753,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "Модель не лучше самых простых прогнозов («как в прошлом сезоне», «как вчера», скользящее и общее среднее): в этом ряду нет закономерностей, которые можно предсказать лучше."
+        ]
+      },
+      "seasonal_naive_mae": 2.702764966633341,
+      "last_value_mae": 10.912784762862797,
+      "trailing_mean_7_mae": 9.523194743658317,
+      "seconds": 0.491
+    },
+    {
+      "case": "seasonal",
+      "seed": 103,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "bfe57f14bbb4cda8d4f20437f4e1318a7e0411761975aca1713c9a1859961a53",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 1.824531266915985,
+      "outer_wape": 1.8159464702419008,
+      "outer_coverage_80": 0.8571428571428571,
+      "mean_interval_width": 8.143134862454104,
+      "outer_interval_score": 9.150068449379216,
+      "interval_method": "split",
+      "internal_coverage_80": 0.706,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 3.646641898543571,
+      "last_value_mae": 12.002566113462523,
+      "trailing_mean_7_mae": 9.011841644219556,
+      "seconds": 0.487
+    },
+    {
+      "case": "seasonal",
+      "seed": 104,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "c14a8a61b624a607fdce016c480322f1e6c2d1259b976d047d73905966c986a8",
+      "status": "succeeded",
+      "model": "forecast_hgb_level",
+      "outer_mae": 1.9956308508178975,
+      "outer_wape": 1.9926407788117801,
+      "outer_coverage_80": 1.0,
+      "mean_interval_width": 9.629250613099268,
+      "outer_interval_score": 9.629250613099268,
+      "interval_method": "split",
+      "internal_coverage_80": 0.776,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 3.8719529147008194,
+      "last_value_mae": 13.584639398651502,
+      "trailing_mean_7_mae": 10.296171180888974,
+      "seconds": 1.019
+    },
+    {
+      "case": "seasonal",
+      "seed": 105,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "3cca5e3587693bb1c1d718a3c315d26e1e91104c2fa305e582a8221334c2a5bd",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 2.95958413392436,
+      "outer_wape": 2.951719035200342,
+      "outer_coverage_80": 0.7857142857142857,
+      "mean_interval_width": 8.805552517331495,
+      "outer_interval_score": 11.792013228088065,
+      "interval_method": "split",
+      "internal_coverage_80": 0.871,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 3.2163863046895815,
+      "last_value_mae": 11.007642733478432,
+      "trailing_mean_7_mae": 9.424592049669766,
+      "seconds": 0.491
+    },
+    {
+      "case": "seasonal",
+      "seed": 106,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "66f6b8ba9e4461b5c75979fd70271fbab3bffea8d69a5c8197e124fe25baa42f",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 2.648861380612069,
+      "outer_wape": 2.61424391513976,
+      "outer_coverage_80": 0.7142857142857143,
+      "mean_interval_width": 8.122387066490218,
+      "outer_interval_score": 10.03118012735751,
+      "interval_method": "split",
+      "internal_coverage_80": 0.757,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 2.9046646673236185,
+      "last_value_mae": 15.35061415356077,
+      "trailing_mean_7_mae": 9.479739863589698,
+      "seconds": 0.504
+    },
+    {
+      "case": "seasonal",
+      "seed": 107,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "2b96dc012e0108fda4c2255b37735cb15c53b726028372b2727c338629a6f67a",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 2.7879849480281242,
+      "outer_wape": 2.766543821606997,
+      "outer_coverage_80": 0.9285714285714286,
+      "mean_interval_width": 9.568436629681688,
+      "outer_interval_score": 11.203005842207537,
+      "interval_method": "split",
+      "internal_coverage_80": 0.827,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 3.4265079293019025,
+      "last_value_mae": 12.698664778157532,
+      "trailing_mean_7_mae": 11.695725586253698,
+      "seconds": 0.507
+    },
+    {
+      "case": "seasonal",
+      "seed": 108,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "6136ee1a835c73173ea97eb994d9658290f5c9465ec5f77cb4fdd109b3d59257",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 2.0791992488806037,
+      "outer_wape": 2.0801732046605754,
+      "outer_coverage_80": 0.9285714285714286,
+      "mean_interval_width": 8.725965743690352,
+      "outer_interval_score": 8.853303946626763,
+      "interval_method": "split",
+      "internal_coverage_80": 0.698,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 5.064246555700174,
+      "last_value_mae": 15.75140822599386,
+      "trailing_mean_7_mae": 9.72727947943375,
+      "seconds": 0.486
+    },
+    {
+      "case": "seasonal",
+      "seed": 109,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "58ca40800550ba68b10ce544ad1efc7cddb6fae2ca08da080f55fdb1ce5b792c",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 2.2737137753752066,
+      "outer_wape": 2.288751953162098,
+      "outer_coverage_80": 0.9285714285714286,
+      "mean_interval_width": 10.781936340981622,
+      "outer_interval_score": 11.100257827596394,
+      "interval_method": "split",
+      "internal_coverage_80": 0.971,
+      "internal_trust": {
+        "level": "medium",
+        "reasons": [
+          "Интервал «80%» на новых данных покрыл 97% значений - границы ненадёжны."
+        ]
+      },
+      "seasonal_naive_mae": 3.9268582651279496,
+      "last_value_mae": 12.34398981686808,
+      "trailing_mean_7_mae": 10.238395592743998,
+      "seconds": 0.564
+    },
+    {
+      "case": "trend",
+      "seed": 100,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "fbeaafe0b33a0ee81cd23946551fee8dccc064220fba37cf0bcdef6fc837f47d",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 2.1924264283818906,
+      "outer_wape": 1.1065339362339608,
+      "outer_coverage_80": 0.9285714285714286,
+      "mean_interval_width": 12.393266131441973,
+      "outer_interval_score": 12.454656554843208,
+      "interval_method": "split",
+      "internal_coverage_80": 0.971,
+      "internal_trust": {
+        "level": "medium",
+        "reasons": [
+          "Интервал «80%» на новых данных покрыл 97% значений - границы ненадёжны."
+        ]
+      },
+      "seasonal_naive_mae": 5.417069730722732,
+      "last_value_mae": 11.317299105929477,
+      "trailing_mean_7_mae": 9.219754617253626,
+      "seconds": 0.582
+    },
+    {
+      "case": "trend",
+      "seed": 101,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "5ff8a0c43d1d6565be68ee76dfbd27e63bffbda7704ca8f8b9002fc2abf7ad32",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 2.287291360468704,
+      "outer_wape": 1.1530702768623717,
+      "outer_coverage_80": 0.9285714285714286,
+      "mean_interval_width": 10.308702891033201,
+      "outer_interval_score": 10.334006479446202,
+      "interval_method": "split",
+      "internal_coverage_80": 0.953,
+      "internal_trust": {
+        "level": "medium",
+        "reasons": [
+          "Интервал «80%» на новых данных покрыл 95% значений - границы ненадёжны."
+        ]
+      },
+      "seasonal_naive_mae": 3.575915861372406,
+      "last_value_mae": 11.804498933862803,
+      "trailing_mean_7_mae": 10.031866421032689,
+      "seconds": 0.533
+    },
+    {
+      "case": "trend",
+      "seed": 102,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "3507d2750fa2ebb5dc844f67a8f6b5bebb761ced2da107fbbb88eb705d0e1134",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 2.9618411585595754,
+      "outer_wape": 1.4938659881599587,
+      "outer_coverage_80": 1.0,
+      "mean_interval_width": 17.50487560152308,
+      "outer_interval_score": 17.50487560152308,
+      "interval_method": "split",
+      "internal_coverage_80": 0.316,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "Модель не лучше самых простых прогнозов («как в прошлом сезоне», «как вчера», скользящее и общее среднее): в этом ряду нет закономерностей, которые можно предсказать лучше.",
+          "Интервал «80%» на новых данных покрыл 32% значений - границы ненадёжны."
+        ]
+      },
+      "seasonal_naive_mae": 5.074767000346989,
+      "last_value_mae": 9.895424682413205,
+      "trailing_mean_7_mae": 10.181999190061665,
+      "seconds": 0.503
+    },
+    {
+      "case": "trend",
+      "seed": 103,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "9ed1187ca67f7d968257546a068af09775c7025478606dc0e0a3dd338d16b044",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 1.9755683532403583,
+      "outer_wape": 0.9923851469214917,
+      "outer_coverage_80": 1.0,
+      "mean_interval_width": 12.93390816557609,
+      "outer_interval_score": 12.93390816557609,
+      "interval_method": "split",
+      "internal_coverage_80": 0.855,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 3.9248461753706727,
+      "last_value_mae": 10.340667889866358,
+      "trailing_mean_7_mae": 9.1045210397235,
+      "seconds": 0.52
+    },
+    {
+      "case": "trend",
+      "seed": 104,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "416e4457af5c5dfac71749fcdcc11f02e8ef5ae08ca6c16b02e97df8ac0acdb3",
+      "status": "succeeded",
+      "model": "forecast_rf_diff",
+      "outer_mae": 4.348287793494563,
+      "outer_wape": 2.1878171440763032,
+      "outer_coverage_80": 0.7142857142857143,
+      "mean_interval_width": 12.17791858757086,
+      "outer_interval_score": 19.185386426991737,
+      "interval_method": "split",
+      "internal_coverage_80": 0.704,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 5.489545450335568,
+      "last_value_mae": 11.425050836932188,
+      "trailing_mean_7_mae": 10.896171180888965,
+      "seconds": 2.542
+    },
+    {
+      "case": "trend",
+      "seed": 105,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "3ae83d5ad0353b9c42c038851c2136457dfae7639a6742d8b8b96541b4c5619f",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 2.560324743325509,
+      "outer_wape": 1.2874593161294008,
+      "outer_coverage_80": 1.0,
+      "mean_interval_width": 14.493204179008526,
+      "outer_interval_score": 14.493204179008526,
+      "interval_method": "split",
+      "internal_coverage_80": 0.659,
+      "internal_trust": {
+        "level": "medium",
+        "reasons": [
+          "Выигрыш у самого простого прогноза всего 3.2% - закономерностей в ряду мало."
+        ]
+      },
+      "seasonal_naive_mae": 4.173038786358985,
+      "last_value_mae": 9.880695606809601,
+      "trailing_mean_7_mae": 9.006777849631407,
+      "seconds": 0.478
+    },
+    {
+      "case": "trend",
+      "seed": 106,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "1bfdc2e2ae690bb804cf2f21ff10b3f869dc897352b8d029ccb6db50214d6a4c",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 2.774956859777778,
+      "outer_wape": 1.3880045771889276,
+      "outer_coverage_80": 1.0,
+      "mean_interval_width": 17.677278145631753,
+      "outer_interval_score": 17.677278145631753,
+      "interval_method": "split",
+      "internal_coverage_80": 0.618,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "Модель не лучше самых простых прогнозов («как в прошлом сезоне», «как вчера», скользящее и общее среднее): в этом ряду нет закономерностей, которые можно предсказать лучше."
+        ]
+      },
+      "seasonal_naive_mae": 4.061234996174633,
+      "last_value_mae": 13.323067032581985,
+      "trailing_mean_7_mae": 10.04630998079949,
+      "seconds": 0.5
+    },
+    {
+      "case": "trend",
+      "seed": 107,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "75386c7bd82a9cd3975dbe9aa69055cf6cbd3e785b7731f58adf6e5b3897596f",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 3.276003617316763,
+      "outer_wape": 1.6431364878915329,
+      "outer_coverage_80": 0.9285714285714286,
+      "mean_interval_width": 15.009477865236708,
+      "outer_interval_score": 15.032473857271611,
+      "interval_method": "split",
+      "internal_coverage_80": 0.986,
+      "internal_trust": {
+        "level": "medium",
+        "reasons": [
+          "Интервал «80%» на новых данных покрыл 99% значений - границы ненадёжны."
+        ]
+      },
+      "seasonal_naive_mae": 5.404715080296498,
+      "last_value_mae": 11.740840332248283,
+      "trailing_mean_7_mae": 12.29572558625369,
+      "seconds": 0.486
+    },
+    {
+      "case": "trend",
+      "seed": 108,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "b546991a5ecd6edaab9d300f484db3fc0e986e58642f7153c8dd0dfad9f46159",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 2.252085011378471,
+      "outer_wape": 1.1342477725952644,
+      "outer_coverage_80": 1.0,
+      "mean_interval_width": 14.99978698271529,
+      "outer_interval_score": 14.99978698271529,
+      "interval_method": "split",
+      "internal_coverage_80": 0.731,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 4.044058528382457,
+      "last_value_mae": 13.310548356703586,
+      "trailing_mean_7_mae": 9.780991605500585,
+      "seconds": 0.494
+    },
+    {
+      "case": "trend",
+      "seed": 109,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "ba7847dd0cb5c5b970dd17423e903e5c84c5cfc9947235a3d9b649cf4114372a",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 2.394357005984994,
+      "outer_wape": 1.2096197266013446,
+      "outer_coverage_80": 0.8571428571428571,
+      "mean_interval_width": 10.55163824194301,
+      "outer_interval_score": 11.754713926443214,
+      "interval_method": "split",
+      "internal_coverage_80": 0.833,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 4.284234214319001,
+      "last_value_mae": 11.058275531153807,
+      "trailing_mean_7_mae": 10.500493566636257,
+      "seconds": 0.454
+    },
+    {
+      "case": "noise",
+      "seed": 100,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "8ded0f7cbc4763a9033190af17f4fa8e59e0350d537eced9175c66f83fb075d0",
+      "status": "succeeded",
+      "model": "forecast_mean_level",
+      "outer_mae": 10.47650300553421,
+      "outer_wape": 10.726107278564516,
+      "outer_coverage_80": 0.8571428571428571,
+      "mean_interval_width": 37.19779376742768,
+      "outer_interval_score": 40.58100498489699,
+      "interval_method": "split",
+      "internal_coverage_80": 0.878,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "Лучшим оказалось простое правило «общее среднее»: в ряду нет закономерностей, которые модель могла бы поймать. Прогноз - просто среднее значение, ряд не предсказуем."
+        ]
+      },
+      "seasonal_naive_mae": 15.743898349881082,
+      "last_value_mae": 11.526410989257514,
+      "trailing_mean_7_mae": 10.814955356801777,
+      "seconds": 0.381
+    },
+    {
+      "case": "noise",
+      "seed": 101,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "4833147eae7b1bcce2759eb3c2ee2cb40a9ce289f87adefed4159f7dc680cd2d",
+      "status": "succeeded",
+      "model": "forecast_mean_level",
+      "outer_mae": 9.043238717451457,
+      "outer_wape": 9.150619388511117,
+      "outer_coverage_80": 0.9285714285714286,
+      "mean_interval_width": 38.956672596851085,
+      "outer_interval_score": 44.631968964524326,
+      "interval_method": "split",
+      "internal_coverage_80": 0.841,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "Лучшим оказалось простое правило «общее среднее»: в ряду нет закономерностей, которые модель могла бы поймать. Прогноз - просто среднее значение, ряд не предсказуем."
+        ]
+      },
+      "seasonal_naive_mae": 11.164376790476348,
+      "last_value_mae": 9.147864302296114,
+      "trailing_mean_7_mae": 9.668882546166907,
+      "seconds": 0.38
+    },
+    {
+      "case": "noise",
+      "seed": 102,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "dfb9f54d1368827c8e1212bd5a08be762b8f24d142e17823880638609a7bebf4",
+      "status": "succeeded",
+      "model": "forecast_mean_level",
+      "outer_mae": 11.894058787189213,
+      "outer_wape": 12.095535283254565,
+      "outer_coverage_80": 1.0,
+      "mean_interval_width": 45.76161278648663,
+      "outer_interval_score": 45.76161278648663,
+      "interval_method": "split",
+      "internal_coverage_80": 0.88,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "Лучшим оказалось простое правило «общее среднее»: в ряду нет закономерностей, которые модель могла бы поймать. Прогноз - просто среднее значение, ряд не предсказуем."
+        ]
+      },
+      "seasonal_naive_mae": 13.51382483316644,
+      "last_value_mae": 22.148616302292996,
+      "trailing_mean_7_mae": 12.551307729280714,
+      "seconds": 0.377
+    },
+    {
+      "case": "noise",
+      "seed": 103,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "78429155b20118ac3575b12e70bc53ab7769711642ac284f28338195348adc76",
+      "status": "succeeded",
+      "model": "forecast_mean_level",
+      "outer_mae": 8.373696370653777,
+      "outer_wape": 8.180335718186337,
+      "outer_coverage_80": 0.9285714285714286,
+      "mean_interval_width": 38.727475079872924,
+      "outer_interval_score": 42.737609823037914,
+      "interval_method": "split",
+      "internal_coverage_80": 0.629,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "Лучшим оказалось простое правило «общее среднее»: в ряду нет закономерностей, которые модель могла бы поймать. Прогноз - просто среднее значение, ряд не предсказуем."
+        ]
+      },
+      "seasonal_naive_mae": 18.23320949271793,
+      "last_value_mae": 10.400645783577886,
+      "trailing_mean_7_mae": 7.782783473146005,
+      "seconds": 0.39
+    },
+    {
+      "case": "noise",
+      "seed": 104,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "0c8562f6af07559ffffe11708727cd774b9b9a8fd7cc4c38b2b5abe636e5b1c1",
+      "status": "succeeded",
+      "model": "forecast_mean_level",
+      "outer_mae": 10.836150609077663,
+      "outer_wape": 10.75545471945304,
+      "outer_coverage_80": 1.0,
+      "mean_interval_width": 41.11656103722073,
+      "outer_interval_score": 41.11656103722073,
+      "interval_method": "split",
+      "internal_coverage_80": 0.702,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "Лучшим оказалось простое правило «общее среднее»: в ряду нет закономерностей, которые модель могла бы поймать. Прогноз - просто среднее значение, ряд не предсказуем."
+        ]
+      },
+      "seasonal_naive_mae": 19.359764573504158,
+      "last_value_mae": 12.623589877698976,
+      "trailing_mean_7_mae": 10.783230651079492,
+      "seconds": 0.4
+    },
+    {
+      "case": "noise",
+      "seed": 105,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "3d6757acc7675e65c0e9d8e5cd8be5029ccde347f5d21b30bbd67c6388ced1fe",
+      "status": "succeeded",
+      "model": "forecast_mean_level",
+      "outer_mae": 11.827971884230339,
+      "outer_wape": 11.672460714674003,
+      "outer_coverage_80": 0.7857142857142857,
+      "mean_interval_width": 41.20086359358408,
+      "outer_interval_score": 55.70673022794652,
+      "interval_method": "split",
+      "internal_coverage_80": 0.88,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "Лучшим оказалось простое правило «общее среднее»: в ряду нет закономерностей, которые модель могла бы поймать. Прогноз - просто среднее значение, ряд не предсказуем."
+        ]
+      },
+      "seasonal_naive_mae": 16.081931523448077,
+      "last_value_mae": 19.520394224204175,
+      "trailing_mean_7_mae": 12.760728537262413,
+      "seconds": 0.408
+    },
+    {
+      "case": "noise",
+      "seed": 106,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "89f59fc8a516d8fa45a1fa102c7417ccc41226998570725f5bc6f73d0d1b960b",
+      "status": "succeeded",
+      "model": "forecast_mean_level",
+      "outer_mae": 12.44523407844019,
+      "outer_wape": 11.672411576334907,
+      "outer_coverage_80": 0.7142857142857143,
+      "mean_interval_width": 39.80479940845186,
+      "outer_interval_score": 62.4378095103214,
+      "interval_method": "split",
+      "internal_coverage_80": 0.724,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "Лучшим оказалось простое правило «общее среднее»: в ряду нет закономерностей, которые модель могла бы поймать. Прогноз - просто среднее значение, ряд не предсказуем."
+        ]
+      },
+      "seasonal_naive_mae": 14.523323336618327,
+      "last_value_mae": 17.86125024382278,
+      "trailing_mean_7_mae": 14.08779826327258,
+      "seconds": 0.392
+    },
+    {
+      "case": "noise",
+      "seed": 107,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "deff181780f68ed8b2aec810e1ff5e51ec3662ae393f5fccc3f3fb444e4d8d49",
+      "status": "succeeded",
+      "model": "forecast_mean_level",
+      "outer_mae": 13.34591481494046,
+      "outer_wape": 12.848043564572654,
+      "outer_coverage_80": 0.7142857142857143,
+      "mean_interval_width": 38.649793465871184,
+      "outer_interval_score": 50.10231257119894,
+      "interval_method": "split",
+      "internal_coverage_80": 0.882,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "Лучшим оказалось простое правило «общее среднее»: в ряду нет закономерностей, которые модель могла бы поймать. Прогноз - просто среднее значение, ряд не предсказуем."
+        ]
+      },
+      "seasonal_naive_mae": 17.132539646509198,
+      "last_value_mae": 13.399145813744807,
+      "trailing_mean_7_mae": 13.383171027676818,
+      "seconds": 0.399
+    },
+    {
+      "case": "noise",
+      "seed": 108,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "80e0678cdca4df3e421f6052fb109e7adcb77edae1785e5d2c728474c4278b4f",
+      "status": "succeeded",
+      "model": "forecast_mean_level",
+      "outer_mae": 10.630538649690154,
+      "outer_wape": 10.655483615408299,
+      "outer_coverage_80": 1.0,
+      "mean_interval_width": 42.90651285519419,
+      "outer_interval_score": 42.90651285519419,
+      "interval_method": "split",
+      "internal_coverage_80": 0.676,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "Лучшим оказалось простое правило «общее среднее»: в ряду нет закономерностей, которые модель могла бы поймать. Прогноз - просто среднее значение, ряд не предсказуем."
+        ]
+      },
+      "seasonal_naive_mae": 25.32123277850115,
+      "last_value_mae": 18.63153678425765,
+      "trailing_mean_7_mae": 20.696277670424998,
+      "seconds": 0.394
+    },
+    {
+      "case": "noise",
+      "seed": 109,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "62e7730aca9ff351765c26095c2c93e26f1bdbb540949b701d5d93c5e26524f7",
+      "status": "succeeded",
+      "model": "forecast_mean_level",
+      "outer_mae": 11.37277227783496,
+      "outer_wape": 11.759085929190173,
+      "outer_coverage_80": 0.7857142857142857,
+      "mean_interval_width": 38.88599290719032,
+      "outer_interval_score": 41.41509337911116,
+      "interval_method": "split",
+      "internal_coverage_80": 0.924,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "Лучшим оказалось простое правило «общее среднее»: в ряду нет закономерностей, которые модель могла бы поймать. Прогноз - просто среднее значение, ряд не предсказуем."
+        ]
+      },
+      "seasonal_naive_mae": 19.6342913256397,
+      "last_value_mae": 11.52016933915041,
+      "trailing_mean_7_mae": 13.054741607860576,
+      "seconds": 0.4
+    },
+    {
+      "case": "intermittent",
+      "seed": 100,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "1b37710828d0c6e20a90155795a16fcfa9ff478f830dd3947bac7f1da3d151a0",
+      "status": "succeeded",
+      "model": "forecast_last_value",
+      "outer_mae": 4.5,
+      "outer_wape": 100.0,
+      "outer_coverage_80": 0.8571428571428571,
+      "mean_interval_width": 22.714285714285715,
+      "outer_interval_score": 46.285714285714285,
+      "interval_method": "split",
+      "internal_coverage_80": 1.0,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "В ряду много нулевых периодов. Для редких продаж нужна отдельная проверка; этот прогноз не является планом закупок.",
+          "Лучшим оказалось простое правило «как вчера (последнее значение)»: в ряду нет закономерностей, которые модель могла бы поймать.",
+          "Интервал «80%» на новых данных покрыл 100% значений - границы ненадёжны."
+        ]
+      },
+      "seasonal_naive_mae": 4.5,
+      "last_value_mae": 4.5,
+      "trailing_mean_7_mae": 4.5,
+      "seconds": 0.383
+    },
+    {
+      "case": "intermittent",
+      "seed": 101,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "11c44db99f37e16f3260781f87aab87224d6ec88c2955179c98205867167689f",
+      "status": "succeeded",
+      "model": "forecast_last_value",
+      "outer_mae": 3.0,
+      "outer_wape": 100.0,
+      "outer_coverage_80": 0.9285714285714286,
+      "mean_interval_width": 29.857142857142858,
+      "outer_interval_score": 30.571428571428573,
+      "interval_method": "split",
+      "internal_coverage_80": 0.753,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "В ряду много нулевых периодов. Для редких продаж нужна отдельная проверка; этот прогноз не является планом закупок.",
+          "Лучшим оказалось простое правило «как вчера (последнее значение)»: в ряду нет закономерностей, которые модель могла бы поймать."
+        ]
+      },
+      "seasonal_naive_mae": 5.857142857142857,
+      "last_value_mae": 3.0,
+      "trailing_mean_7_mae": 7.3265306122448965,
+      "seconds": 0.383
+    },
+    {
+      "case": "intermittent",
+      "seed": 102,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "a5d16149693a057097ff379199e80661caeab22b9128007b32e174f0bd9ceafe",
+      "status": "succeeded",
+      "model": "forecast_last_value",
+      "outer_mae": 5.714285714285714,
+      "outer_wape": 100.0,
+      "outer_coverage_80": 0.7142857142857143,
+      "mean_interval_width": 22.142857142857142,
+      "outer_interval_score": 44.285714285714285,
+      "interval_method": "split",
+      "internal_coverage_80": 0.892,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "В ряду много нулевых периодов. Для редких продаж нужна отдельная проверка; этот прогноз не является планом закупок.",
+          "Лучшим оказалось простое правило «как вчера (последнее значение)»: в ряду нет закономерностей, которые модель могла бы поймать."
+        ]
+      },
+      "seasonal_naive_mae": 10.428571428571429,
+      "last_value_mae": 5.714285714285714,
+      "trailing_mean_7_mae": 7.591836734693877,
+      "seconds": 0.387
+    },
+    {
+      "case": "intermittent",
+      "seed": 103,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "512375b61b87c633ac898b6a443a949ba3b9a2ee951947648eb7b704ad13511a",
+      "status": "succeeded",
+      "model": "forecast_rf_diff",
+      "outer_mae": 7.157675170068027,
+      "outer_wape": 244.40842044134726,
+      "outer_coverage_80": 0.8571428571428571,
+      "mean_interval_width": 19.727909863945577,
+      "outer_interval_score": 26.56893310657596,
+      "interval_method": "split",
+      "internal_coverage_80": 0.935,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "В ряду много нулевых периодов. Для редких продаж нужна отдельная проверка; этот прогноз не является планом закупок.",
+          "Модель не лучше самых простых прогнозов («как в прошлом сезоне», «как вчера», скользящее и общее среднее): в этом ряду нет закономерностей, которые можно предсказать лучше."
+        ]
+      },
+      "seasonal_naive_mae": 3.357142857142857,
+      "last_value_mae": 17.5,
+      "trailing_mean_7_mae": 6.275510204081633,
+      "seconds": 2.397
+    },
+    {
+      "case": "intermittent",
+      "seed": 104,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "90352b691c277bf4875d8df01ad9ec49b22031c873c495c56235ea0dbd2c020a",
+      "status": "succeeded",
+      "model": "forecast_last_value",
+      "outer_mae": 3.0,
+      "outer_wape": 100.0,
+      "outer_coverage_80": 0.9285714285714286,
+      "mean_interval_width": 30.571428571428573,
+      "outer_interval_score": 40.57142857142857,
+      "interval_method": "split",
+      "internal_coverage_80": 0.931,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "В ряду много нулевых периодов. Для редких продаж нужна отдельная проверка; этот прогноз не является планом закупок.",
+          "Лучшим оказалось простое правило «как вчера (последнее значение)»: в ряду нет закономерностей, которые модель могла бы поймать."
+        ]
+      },
+      "seasonal_naive_mae": 4.428571428571429,
+      "last_value_mae": 3.0,
+      "trailing_mean_7_mae": 3.673469387755103,
+      "seconds": 0.425
+    },
+    {
+      "case": "intermittent",
+      "seed": 105,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "b1d66c200db5fffd82fcfaa99a38cc29a5adf9967b1cc399ca535bd18e8565f7",
+      "status": "succeeded",
+      "model": "forecast_moving_average",
+      "outer_mae": 6.071428571428571,
+      "outer_wape": 100.0,
+      "outer_coverage_80": 0.7142857142857143,
+      "mean_interval_width": 12.244897959183673,
+      "outer_interval_score": 51.12244897959185,
+      "interval_method": "split",
+      "internal_coverage_80": 0.516,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "В ряду много нулевых периодов. Для редких продаж нужна отдельная проверка; этот прогноз не является планом закупок.",
+          "Лучшим оказалось простое правило «скользящее среднее»: в ряду нет закономерностей, которые модель могла бы поймать.",
+          "Интервал «80%» на новых данных покрыл 52% значений - границы ненадёжны."
+        ]
+      },
+      "seasonal_naive_mae": 6.071428571428571,
+      "last_value_mae": 6.071428571428571,
+      "trailing_mean_7_mae": 6.071428571428571,
+      "seconds": 0.436
+    },
+    {
+      "case": "intermittent",
+      "seed": 106,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "1a86d5dc59339ddd020c528034ead94ac3231fa45affb90d769011e44927985b",
+      "status": "succeeded",
+      "model": "forecast_mean_level",
+      "outer_mae": 4.782738095238095,
+      "outer_wape": 185.99537037037035,
+      "outer_coverage_80": 0.8571428571428571,
+      "mean_interval_width": 6.34327864447378,
+      "outer_interval_score": 23.140946939591057,
+      "interval_method": "split",
+      "internal_coverage_80": 0.827,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "В ряду много нулевых периодов. Для редких продаж нужна отдельная проверка; этот прогноз не является планом закупок.",
+          "Лучшим оказалось простое правило «общее среднее»: в ряду нет закономерностей, которые модель могла бы поймать. Прогноз - просто среднее значение, ряд не предсказуем."
+        ]
+      },
+      "seasonal_naive_mae": 5.142857142857143,
+      "last_value_mae": 2.5714285714285716,
+      "trailing_mean_7_mae": 4.408163265306121,
+      "seconds": 0.437
+    },
+    {
+      "case": "intermittent",
+      "seed": 107,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "60e3f5cc5fb7493098d8a412e0e2109e6e492dede4654532e98115e0b4e22f40",
+      "status": "succeeded",
+      "model": "forecast_last_value",
+      "outer_mae": 5.0,
+      "outer_wape": 100.0,
+      "outer_coverage_80": 0.8571428571428571,
+      "mean_interval_width": 28.571428571428573,
+      "outer_interval_score": 50.0,
+      "interval_method": "split",
+      "internal_coverage_80": 0.943,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "В ряду много нулевых периодов. Для редких продаж нужна отдельная проверка; этот прогноз не является планом закупок.",
+          "Лучшим оказалось простое правило «как вчера (последнее значение)»: в ряду нет закономерностей, которые модель могла бы поймать."
+        ]
+      },
+      "seasonal_naive_mae": 8.857142857142858,
+      "last_value_mae": 5.0,
+      "trailing_mean_7_mae": 7.204081632653063,
+      "seconds": 0.419
+    },
+    {
+      "case": "intermittent",
+      "seed": 108,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "96da5e53ec2d20fc19c7a5b8cc0ac19ab602ff774d5e66cd1e90debe537664fd",
+      "status": "succeeded",
+      "model": "forecast_mean_level",
+      "outer_mae": 3.1250000000000004,
+      "outer_wape": 625.0000000000001,
+      "outer_coverage_80": 1.0,
+      "mean_interval_width": 8.970126402023634,
+      "outer_interval_score": 8.970126402023634,
+      "interval_method": "split",
+      "internal_coverage_80": 0.857,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "В ряду много нулевых периодов. Для редких продаж нужна отдельная проверка; этот прогноз не является планом закупок.",
+          "Лучшим оказалось простое правило «общее среднее»: в ряду нет закономерностей, которые модель могла бы поймать. Прогноз - просто среднее значение, ряд не предсказуем."
+        ]
+      },
+      "seasonal_naive_mae": 0.6428571428571429,
+      "last_value_mae": 1.2142857142857142,
+      "trailing_mean_7_mae": 0.6020408163265305,
+      "seconds": 0.409
+    },
+    {
+      "case": "intermittent",
+      "seed": 109,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "22dca976247b0ee2aef3bb87f7536f765ae179c21a939efd0c168ad44a4e96e1",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 4.65242600480939,
+      "outer_wape": 186.0970401923756,
+      "outer_coverage_80": 0.9285714285714286,
+      "mean_interval_width": 14.20422784849509,
+      "outer_interval_score": 25.7505448034989,
+      "interval_method": "split",
+      "internal_coverage_80": 0.635,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "В ряду много нулевых периодов. Для редких продаж нужна отдельная проверка; этот прогноз не является планом закупок.",
+          "Модель не лучше самых простых прогнозов («как в прошлом сезоне», «как вчера», скользящее и общее среднее): в этом ряду нет закономерностей, которые можно предсказать лучше."
+        ]
+      },
+      "seasonal_naive_mae": 2.5,
+      "last_value_mae": 2.5,
+      "trailing_mean_7_mae": 2.5,
+      "seconds": 0.485
+    },
+    {
+      "case": "level_shift",
+      "seed": 100,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "64dffc3fbff5a03cc532c6fb3e604bc58d76dfd66c38320f0a49d8201b5c3536",
+      "status": "succeeded",
+      "model": "forecast_rf_diff",
+      "outer_mae": 61.01190073735728,
+      "outer_wape": 38.24368273001194,
+      "outer_coverage_80": 0.0,
+      "mean_interval_width": 10.877297166108647,
+      "outer_interval_score": 566.6098187091383,
+      "interval_method": "split",
+      "internal_coverage_80": 0.843,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 60.98829635987561,
+      "last_value_mae": 46.97170485957712,
+      "trailing_mean_7_mae": 60.988296359875605,
+      "seconds": 2.326
+    },
+    {
+      "case": "level_shift",
+      "seed": 101,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "89145f34e73954636bfb9f59dd48cd5512aebf77f14ca4a218eedf1e75add232",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 59.83326644188676,
+      "outer_wape": 37.450726114909635,
+      "outer_coverage_80": 0.0,
+      "mean_interval_width": 9.61018241641724,
+      "outer_interval_score": 559.8919347531986,
+      "interval_method": "split",
+      "internal_coverage_80": 0.804,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 58.788602908052404,
+      "last_value_mae": 47.307033184628324,
+      "trailing_mean_7_mae": 58.7886029080524,
+      "seconds": 0.47
+    },
+    {
+      "case": "level_shift",
+      "seed": 102,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "ce8812b069ffb2538b85733f30af6660674b686b2ef8976c80955414e7af9c15",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 61.105499109624226,
+      "outer_wape": 38.27062162226363,
+      "outer_coverage_80": 0.0,
+      "mean_interval_width": 10.91753937358223,
+      "outer_interval_score": 567.3848336019133,
+      "interval_method": "split",
+      "internal_coverage_80": 0.753,
+      "internal_trust": {
+        "level": "low",
+        "reasons": [
+          "Модель не лучше самых простых прогнозов («как в прошлом сезоне», «как вчера», скользящее и общее среднее): в этом ряду нет закономерностей, которые можно предсказать лучше."
+        ]
+      },
+      "seasonal_naive_mae": 60.87476700034698,
+      "last_value_mae": 52.70225102343841,
+      "trailing_mean_7_mae": 60.87476700034697,
+      "seconds": 0.47
+    },
+    {
+      "case": "level_shift",
+      "seed": 103,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "2344e3ae489a438bb0e6e730cdf11a58d6ee57d9a612e559450e153e370f3456",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 60.26871951058906,
+      "outer_wape": 37.55698171646447,
+      "outer_coverage_80": 0.0,
+      "mean_interval_width": 8.143134862454104,
+      "outer_interval_score": 570.1146556560741,
+      "interval_method": "split",
+      "internal_coverage_80": 0.706,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 59.59968729539413,
+      "last_value_mae": 49.718660357723714,
+      "trailing_mean_7_mae": 59.59968729539413,
+      "seconds": 0.473
+    },
+    {
+      "case": "level_shift",
+      "seed": 104,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "cb286d0c5169d2da9e30714a07cc08cdacb46938f34679f7a6bc4d46b289e75b",
+      "status": "succeeded",
+      "model": "forecast_hgb_level",
+      "outer_mae": 59.67766081000451,
+      "outer_wape": 37.26359040690755,
+      "outer_coverage_80": 0.0,
+      "mean_interval_width": 9.629250613099268,
+      "outer_interval_score": 558.259605647648,
+      "interval_method": "split",
+      "internal_coverage_80": 0.776,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 60.059734311432884,
+      "last_value_mae": 47.199092485448865,
+      "trailing_mean_7_mae": 60.05973431143288,
+      "seconds": 0.964
+    },
+    {
+      "case": "level_shift",
+      "seed": 105,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "85ec1ede0a84fc03cae9a916716537fb55ab4d3238d9e132019c76bbb2c6439b",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 59.14976326306261,
+      "outer_wape": 36.90713821904114,
+      "outer_coverage_80": 0.0,
+      "mean_interval_width": 8.805552517331495,
+      "outer_interval_score": 556.2754225613002,
+      "interval_method": "split",
+      "internal_coverage_80": 0.871,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 59.10129981923108,
+      "last_value_mae": 51.77367016532168,
+      "trailing_mean_7_mae": 59.1012998192311,
+      "seconds": 0.475
+    },
+    {
+      "case": "level_shift",
+      "seed": 106,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "26a8204f44adef6cd06c7e1a6b74feb7fde8cb154884bdf216107e706cac53c9",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 60.303825292807446,
+      "outer_wape": 37.38052340098014,
+      "outer_coverage_80": 0.0,
+      "mean_interval_width": 8.122387066490218,
+      "outer_interval_score": 570.5487046621137,
+      "interval_method": "split",
+      "internal_coverage_80": 0.757,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 59.25024355389672,
+      "last_value_mae": 45.76182705928637,
+      "trailing_mean_7_mae": 59.25024355389671,
+      "seconds": 0.474
+    },
+    {
+      "case": "level_shift",
+      "seed": 107,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "3e1020e62960511153367a785ee68bbcfcd1919fd9616be59f82af09c284c1b3",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 61.036998880535556,
+      "outer_wape": 37.96423152200898,
+      "outer_coverage_80": 0.0,
+      "mean_interval_width": 9.568436629681688,
+      "outer_interval_score": 572.0962422866288,
+      "interval_method": "split",
+      "internal_coverage_80": 0.827,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 60.864075238293495,
+      "last_value_mae": 49.15896770176841,
+      "trailing_mean_7_mae": 60.8640752382935,
+      "seconds": 0.47
+    },
+    {
+      "case": "level_shift",
+      "seed": 108,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "66d7b1d0ca31a5fa215336de3777b2968556b3385b6dcf0136d1b559e98d8c57",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 59.261152577205145,
+      "outer_wape": 37.04906205053587,
+      "outer_coverage_80": 0.0,
+      "mean_interval_width": 8.725965743690352,
+      "outer_interval_score": 557.7076627972899,
+      "interval_method": "split",
+      "internal_coverage_80": 0.698,
+      "internal_trust": {
+        "level": "high",
+        "reasons": []
+      },
+      "seasonal_naive_mae": 55.89987140906843,
+      "last_value_mae": 44.71155659082711,
+      "trailing_mean_7_mae": 55.89987140906841,
+      "seconds": 0.515
+    },
+    {
+      "case": "level_shift",
+      "seed": 109,
+      "train_points": 240,
+      "horizon": 14,
+      "data_sha256": "c174ce1a5244c058e4b29aec6a2904126d4d5e9a1ab5b48f10d4a206d4f2d3e4",
+      "status": "succeeded",
+      "model": "forecast_ridge_level",
+      "outer_mae": 61.01304067526386,
+      "outer_wape": 38.29039160859143,
+      "outer_coverage_80": 0.0,
+      "mean_interval_width": 10.781936340981622,
+      "outer_interval_score": 567.002661388712,
+      "interval_method": "split",
+      "internal_coverage_80": 0.971,
+      "internal_trust": {
+        "level": "medium",
+        "reasons": [
+          "Интервал «80%» на новых данных покрыл 97% значений - границы ненадёжны."
+        ]
+      },
+      "seasonal_naive_mae": 58.382663751235974,
+      "last_value_mae": 49.85089313245971,
+      "trailing_mean_7_mae": 58.382663751235995,
+      "seconds": 0.564
+    }
+  ]
+}

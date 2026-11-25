@@ -1,6 +1,5 @@
 from typing import Literal, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException
-from fastapi.responses import Response
 from pydantic import BaseModel, Field, model_validator
 from app.core.auth import get_current_user_id
 from app.db.database import GenesisDB
@@ -173,12 +172,5 @@ def job_report(job_id: str, lang: Literal["en", "ru"] = "en", format: Literal["h
     snapshot = ((job.get("result") or {}).get("data") or {}).get("report_snapshot")
     if not snapshot:
         raise HTTPException(status_code=409, detail="This older forecast has no report snapshot. Create a new forecast to export it.")
-    from app.core.forecast_reports import render_snapshot
-    try:
-        content = render_snapshot(snapshot, lang, format)
-    except (ValueError, KeyError, TypeError):
-        raise HTTPException(status_code=409, detail="The saved report is incomplete or incompatible") from None
-    return Response(content, media_type="text/html" if format == "html" else "text/csv",
-                    headers={"Content-Disposition": f'attachment; filename="forecast-{lang}.{format}"',
-                             "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-                             "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"})
+    from app.api.forecast_download import forecast_download
+    return forecast_download(snapshot, lang, format)
